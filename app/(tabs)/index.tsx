@@ -14,12 +14,14 @@ const CreditCard = () => {
         style={styles.cardContainer}
       >
         <View style={styles.cardHeader}>
-          <Feather name="credit-card" size={30} color="white" />
+          <Feather name="credit-card" size={24} color="white" />
           <Text style={styles.expiryDate}>05/26</Text>
         </View>
         
         <Text style={styles.balanceLabel}>Balance:</Text>
-        <Text style={styles.balanceAmount}>25,700.00</Text>
+        <Text style={styles.balanceAmount}>
+                    <Text style={styles.currency}>KES </Text>24,500.20
+                  </Text>
       </LinearGradient>
       
       <TouchableOpacity 
@@ -38,7 +40,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 50,
+    paddingTop: 20,
   },
   touchedContainer: {
     borderWidth: 5,
@@ -63,17 +65,16 @@ const styles = StyleSheet.create({
   },
   expiryDate: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
   },
   balanceLabel: {
     color: '#ccc',
-    fontSize: 14,
+    fontSize: 16,
     marginTop: 10,
   },
   balanceAmount: {
     color: '#fff',
     fontSize: 25,
-    fontWeight: 'bold',
     marginTop: 10,
   },
   addSaleContainer: {
@@ -82,6 +83,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  currency: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   handIcon: {
     marginBottom: 8,
