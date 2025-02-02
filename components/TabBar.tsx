@@ -1,6 +1,6 @@
 import { View, Platform, StyleSheet, TouchableOpacity } from 'react-native';
 
-import type { RouteName } from '../types/RouteName'; // Ensure this import points to the correct file where RouteName is defined
+import type { RouteName } from './types'; // Ensure this import points to the correct file where RouteName is defined
 import Feather from 'react-native-vector-icons/Feather';
 import { useLinkBuilder, useTheme } from '@react-navigation/native';
 import { Text, PlatformPressable } from '@react-navigation/elements';
@@ -50,7 +50,7 @@ export function TabBar({ state, descriptors, navigation } : BottomTabBarProps) {
                 onLongPress={onLongPress}
                 isFocused={isFocused}
                 routeName={route.name as RouteName}
-                color={isFocused ? colors.primary : colors.text}
+                color={isFocused ? '#1B3B5A' : colors.text}
                 label={label}
 
             />
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center', 
         backgroundColor: '#fff',
-        marginHorizontal: 20,
+        marginHorizontal: 50,
         paddingVertical: 15,
         borderRadius: 35,
         shadowColor: '#000',

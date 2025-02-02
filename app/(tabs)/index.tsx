@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const CreditCard = () => {
   const [isTouched, setIsTouched] = useState(false);
@@ -18,7 +19,7 @@ const CreditCard = () => {
         </View>
         
         <Text style={styles.balanceLabel}>Balance:</Text>
-        <Text style={styles.balanceAmount}>$25,700</Text>
+        <Text style={styles.balanceAmount}>25,700.00</Text>
       </LinearGradient>
       
       <TouchableOpacity 
@@ -26,8 +27,8 @@ const CreditCard = () => {
         onPressIn={() => setIsTouched(true)} 
         onPressOut={() => setIsTouched(false)}
       >
-        <Feather name="hand-pointer" size={30} color="white" style={styles.handIcon} />
-        <Text style={styles.addSaleText}>Click here to add sale</Text>
+        <MaterialCommunityIcons name="gesture-tap" size={80} color="grey" style={styles.handIcon} />
+        <Text style={styles.addSaleText}>Click in this area to make a sale</Text>
       </TouchableOpacity>
     </View>
   );
@@ -40,8 +41,9 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   touchedContainer: {
-    borderColor: 'lightgreen',
     borderWidth: 5,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(144, 238, 144, 0.3)',
   },
   cardContainer: {
     width: '90%',
@@ -85,9 +87,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addSaleText: {
-    color: '#fff',
+    color: 'grey',
     fontSize: 16,
-    fontWeight: 'bold',
   },
 });
 

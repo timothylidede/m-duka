@@ -7,7 +7,7 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import { GestureResponderEvent } from 'react-native';
 
-type RouteName = 'index' | 'invest' | 'items' | 'profile' | 'business';
+type RouteName = 'index' | 'profile' | 'business';
 
 const TabBarButton = ({onPress, onLongPress, isFocused, routeName, color, label}: {onPress: (event: GestureResponderEvent) => void, onLongPress: (event: GestureResponderEvent) => void, isFocused:boolean, routeName: RouteName, color:string, label:string}) => {
     const scale = useSharedValue(0);
