@@ -77,7 +77,7 @@ const CreditCard = () => {
       {transactionComplete ? (
         <View style={styles.addSaleContainer}>
           <MaterialCommunityIcons name="gesture-tap" size={80} color="grey" style={styles.handIcon} />
-          <Text style={styles.addSaleText}>Transaction Complete! </Text>
+          <Text style={styles.addSaleText}>Transaction Complete</Text>
         </View>
       ) : !isFormVisible ? (
         <TouchableOpacity
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '90%',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(196, 196, 196, 0.2)',
     borderRadius: 15,
     padding: 20,
     elevation: 5,
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 16,
-    color: '#333',
+    color: '#1B3B5A',
     marginBottom: 10,
   },
   input: {
