@@ -34,10 +34,11 @@ const Page = () => {
             <Text style={styles.currency}>KES </Text>24,500.20
           </Text>
           <Text style={styles.percentage}>+ 2,893 (5.76%) for all time</Text>
-          <Text style={styles.yield2}>Daily Sales Average</Text>
+          <Text style={styles.yield2}>Total profits {selectedPeriod.toLowerCase()}</Text>
           <Text style={styles.value}>
-            <Text style={styles.currency}>KES </Text>2,500
+            <Text style={styles.currency}>KES </Text>2,500.00
           </Text>
+          <Text style={styles.percentage}>88% Transactions Analyzed</Text>
         </View>
       </View>
 
@@ -111,12 +112,13 @@ const styles = StyleSheet.create({
   currency: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#1B3B5A',
+    color: 'rgba(0, 193, 6, 0.2)',
   },
   percentage: {
     color: '#21748A',
     fontSize: 16,
     marginTop: 5,
+    marginBottom: 10,
   },
   yield: {
     color: '#555',
