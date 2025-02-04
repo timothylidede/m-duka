@@ -1,1 +1,3 @@
-npm install react-native-vector-icons
+rm -rf node_modules
+rm -rf node_modules
+npm install
