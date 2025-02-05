@@ -5,18 +5,20 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const Page = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('Today');
+  
+  let businessAnalysisPerids: string[] = ['Today', 'Past Week', 'Past Month', 'Past Year'];
 
   return (
     <View style={styles.container}>
       {/* My Business Portfolio Card */}
       <View style={styles.cardContainer}>
         <LinearGradient colors={['#1B3B5A', '#21748A']} style={styles.cardHeader}>
-          <MaterialCommunityIcons name="briefcase" size={24} color="#fff" />
+          <MaterialCommunityIcons name="briefcase" size={39} color="#fff" />
           <Text style={styles.cardTitle}>Sales</Text>
           <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
         </LinearGradient>
         <View style={styles.toggleContainer}>
-          {['Today', 'Past Week', 'Past Month', 'Past Year'].map((period) => (
+          {businessAnalysisPerids.map((period) => (
             <TouchableOpacity 
               key={period} 
               style={[styles.toggleButton, selectedPeriod === period && styles.selectedButton]} 
@@ -75,7 +77,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 30,
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -105,14 +107,14 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 15,
   },
   value: {
-    color: '#1B3B5A',
-    fontSize: 25,
+    color: 'green',
+    fontSize: 35,
     marginTop: 10,
   },
   currency: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: 'rgba(0, 193, 6, 0.2)',
+    color: 'green',
   },
   percentage: {
     color: '#21748A',
@@ -132,7 +134,7 @@ const styles = StyleSheet.create({
   },
   marketCard: {
     width: '100%',
-    backgroundColor: '#1B3B5A',
+    backgroundColor: 'black',
     borderRadius: 15,
     padding: 15,
     alignItems: 'center',
