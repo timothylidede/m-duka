@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     color: '#fff',
-    fontSize: 25,
+    fontSize: 40,
     marginTop: 10,
   },
   currency: {
