@@ -13,7 +13,7 @@ const Page = () => {
       {/* My Business Portfolio Card */}
       <View style={styles.cardContainer}>
         <LinearGradient colors={['#1B3B5A', '#21748A']} style={styles.cardHeader}>
-          <MaterialCommunityIcons name="briefcase" size={39} color="#fff" />
+          <MaterialCommunityIcons name="briefcase" size={24} color="#fff" />
           <Text style={styles.cardTitle}>Sales</Text>
           <MaterialCommunityIcons name="chevron-right" size={24} color="#fff" />
         </LinearGradient>
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#fff',
-    fontSize: 30,
+    fontSize: 20,
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   value: {
     color: 'green',
-    fontSize: 35,
+    fontSize: 25,
     marginTop: 10,
   },
   currency: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   marketText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   subText: {
