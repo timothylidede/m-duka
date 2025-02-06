@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Audio } from 'expo-av';
+import { firestore } from "../../config/firebase";
+import { collection, query, onSnapshot, addDoc } from 'firebase/firestore';
 
 const CreditCard = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [saleAmount, setSaleAmount] = useState('');
   const [isTouched, setIsTouched] = useState(false);
-  const [transactionComplete, setTransactionComplete] = useState(false);  // Transaction state
+  const [transactionComplete, setTransactionComplete] = useState(false);
+  const [balanceAmount, setBalanceAmount] = useState(0); // State for balance
   const borderAnimation = useState(new Animated.Value(0))[0];
+
+  // Fetch sales data and calculate balance
+  useEffect(() => {
+    const salesCollection = collection(firestore, 'sales');
+    const q = query(salesCollection);
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      let totalBalance = 0;
+      querySnapshot.forEach((doc) => {
+        const sale = doc.data();
+        totalBalance += sale.totalPrice || 0; // Sum up totalPrice
+      });
+      setBalanceAmount(totalBalance); // Update balanceAmount state
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
+  }, []);
 
   const playCashRegisterSound = async () => {
     const { sound } = await Audio.Sound.createAsync(
@@ -22,7 +42,7 @@ const CreditCard = () => {
   useEffect(() => {
     if (isTouched) {
       Animated.loop(
-        Animated.sequence([ 
+        Animated.sequence([
           Animated.timing(borderAnimation, {
             toValue: 1,
             duration: 500,
@@ -49,28 +69,50 @@ const CreditCard = () => {
     outputRange: ['rgba(255, 255, 255, 0.3)', 'rgba(114, 255, 114, 0.6)'],
   });
 
-  const handleDoneClick = () => {
-    setTransactionComplete(true);
-    setIsFormVisible(false);
-    setIsTouched(false);
-    setSaleAmount('');
+  const handleDoneClick = async () => {
+    // Sanitize input
+    if (!saleAmount || isNaN(Number(saleAmount)) || parseFloat(saleAmount) <= 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid sale amount.');
+      return;
+    }
 
-    // Reset to initial state after 4 seconds
-    setTimeout(() => {
-      setTransactionComplete(false);
-    }, 4000); // Show message for 4 seconds
+    const totalPrice = parseFloat(saleAmount);
+
+    try {
+      // Add new sale to Firestore
+      // firestore, 'shops', shopId, 'sales'
+      await addDoc(collection(firestore, 'sales'), {
+        totalPrice,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Reset form and show success message
+      setTransactionComplete(true);
+      setIsFormVisible(false);
+      setIsTouched(false);
+      setSaleAmount('');
+
+      // Reset to initial state after 4 seconds
+      setTimeout(() => {
+        setTransactionComplete(false);
+      }, 4000); // Show message for 4 seconds
+    } catch (error) {
+      console.error('Error adding sale: ', error);
+      Alert.alert('Error', 'Failed to add sale. Please try again.');
+    }
   };
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: animatedBorderColor }]}> 
+    <Animated.View style={[styles.container, { backgroundColor: animatedBorderColor }]}>
       <LinearGradient colors={['#1B3B5A', '#21748A']} style={styles.cardContainer}>
         <View style={styles.cardHeader}>
           <Feather name="credit-card" size={24} color="white" />
           <Text style={styles.expiryDate}>05/26</Text>
         </View>
-        <Text style={styles.balanceLabel}>Balance:</Text>
+        <Text style={styles.balanceLabel}>Revenue:</Text>
         <Text style={styles.balanceAmount}>
-          <Text style={styles.currency}>KES </Text>24,500.20
+          <Text style={styles.currency}>KES </Text>
+          {balanceAmount.toLocaleString()} {/* Display balanceAmount */}
         </Text>
       </LinearGradient>
 
@@ -94,11 +136,11 @@ const CreditCard = () => {
       ) : (
         <View style={styles.formContainer}>
           <Text style={styles.formLabel}>Enter Sale Amount:</Text>
-          <TextInput 
-            style={styles.input} 
-            keyboardType="numeric" 
-            value={saleAmount} 
-            onChangeText={setSaleAmount} 
+          <TextInput
+            style={styles.input}
+            keyboardType="numeric"
+            value={saleAmount}
+            onChangeText={setSaleAmount}
             placeholder="KES 0.00"
             placeholderTextColor="#ccc"
           />
@@ -128,7 +170,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: '90%',
-    height: 150,
+    height: 140,
     borderRadius: 15,
     padding: 15,
     alignSelf: 'center',

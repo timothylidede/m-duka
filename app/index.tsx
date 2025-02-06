@@ -1,3 +1,4 @@
+// PasscodeScreen.tsx
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
@@ -29,7 +30,11 @@ function PasscodeScreen() {
     checkLastOpened();
   }, []);
 
-  const handlePress = async (num: string) => {
+  interface HandlePressProps {
+    num: string;
+  }
+
+  const handlePress = async ({ num }: HandlePressProps): Promise<void> => {
     if (passcode.length < 4) {
       const newPasscode = passcode + num;
       setPasscode(newPasscode);
@@ -43,6 +48,16 @@ function PasscodeScreen() {
         }
       }
     }
+  };
+
+  const handleDelete = () => {
+    if (passcode.length > 0) {
+      setPasscode(passcode.slice(0, -1));
+    }
+  };
+
+  const handleSignUp = () => {
+    router.push("/signup"); // Navigate to the sign-up page
   };
 
   if (!shouldShowPasscode) return null; // Don't render passcode screen if not needed
@@ -65,12 +80,20 @@ function PasscodeScreen() {
           <TouchableOpacity
             key={num}
             style={styles.key}
-            onPress={() => handlePress(num.toString())}
+            onPress={() => handlePress({ num: num.toString() })}
           >
             <Text style={styles.keyText}>{num}</Text>
           </TouchableOpacity>
         ))}
+        {/* Delete Button */}
+        <TouchableOpacity style={styles.key} onPress={handleDelete}>
+          <Text style={styles.keyText}>⌫</Text>
+        </TouchableOpacity>
       </View>
+      {/* Sign Up Button */}
+      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
+        <Text style={styles.signUpButtonText}>Sign Up</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -118,6 +141,17 @@ const styles = StyleSheet.create({
   },
   keyText: {
     fontSize: 24,
+    fontWeight: "bold",
+  },
+  signUpButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: "#4CAF50",
+    borderRadius: 5,
+  },
+  signUpButtonText: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "bold",
   },
 });

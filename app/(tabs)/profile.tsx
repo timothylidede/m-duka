@@ -1,25 +1,3 @@
-// import { StyleSheet, Text, View } from 'react-native'
-// import React from 'react'
-
-// const Page = () => {
-//   return (
-//     <View style={styles.container}>
-//       <Text>Profile Screen</Text>
-//     </View>
-//   )
-// }
-
-// export default Page
-
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         backgroundColor: '#fff',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//     }
-// })
-
 import React from 'react';
 import {
   View,
@@ -28,8 +6,10 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Image,
+  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface InventoryStats {
   totalItems: number;
@@ -49,6 +29,8 @@ interface StoreProfile {
 }
 
 const RetailProfile: React.FC = () => {
+  const router = useRouter();
+
   // Mock data - in production this would come from an API or store
   const storeProfile: StoreProfile = {
     storeName: 'Main Street Quick Mart',
@@ -61,17 +43,29 @@ const RetailProfile: React.FC = () => {
       totalItems: 1247,
       lowStock: 23,
       outOfStock: 5,
-      totalValue: 156750.00,
+      totalValue: 156750.0,
     },
   };
 
-  const StockAlert: React.FC<{ count: number; label: string; urgent?: boolean }> = 
+  const StockAlert: React.FC<{ count: number; label: string; urgent?: boolean }> =
     ({ count, label, urgent }) => (
-    <View style={[styles.alertBox, urgent && styles.urgentAlert]}>
-      <Text style={styles.alertCount}>{count}</Text>
-      <Text style={styles.alertLabel}>{label}</Text>
-    </View>
-  );
+      <View style={[styles.alertBox, urgent && styles.urgentAlert]}>
+        <Text style={styles.alertCount}>{count}</Text>
+        <Text style={styles.alertLabel}>{label}</Text>
+      </View>
+    );
+
+  const handleLogout = async () => {
+    try {
+      // Clear the user's session
+      await AsyncStorage.removeItem('lastOpenedTime');
+
+      // Redirect to the passcode page
+      router.replace('/');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to log out. Please try again.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -81,9 +75,9 @@ const RetailProfile: React.FC = () => {
             <Text style={styles.storeName}>{storeProfile.storeName}</Text>
             <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
           </View>
-          
-          <TouchableOpacity style={styles.syncButton}>
-            <Text style={styles.syncButtonText}>Sync Inventory</Text>
+
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         </View>
 
@@ -106,13 +100,13 @@ const RetailProfile: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Inventory Overview</Text>
           <View style={styles.statsGrid}>
-            <StockAlert 
-              count={storeProfile.inventoryStats.lowStock} 
+            <StockAlert
+              count={storeProfile.inventoryStats.lowStock}
               label="Low Stock Items"
               urgent={storeProfile.inventoryStats.lowStock > 20}
             />
-            <StockAlert 
-              count={storeProfile.inventoryStats.outOfStock} 
+            <StockAlert
+              count={storeProfile.inventoryStats.outOfStock}
               label="Out of Stock"
               urgent={true}
             />
@@ -270,13 +264,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
   },
-  syncButton: {
-    backgroundColor: '#4caf50',
+  logoutButton: {
+    backgroundColor: '#f44336',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 4,
   },
-  syncButtonText: {
+  logoutButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
@@ -286,6 +280,7 @@ const styles = StyleSheet.create({
     color: '#666',
     padding: 20,
     fontSize: 12,
+    marginBottom: 100,
   },
 });
 
