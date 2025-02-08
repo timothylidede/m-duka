@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
@@ -84,6 +84,13 @@ export default function PasscodeScreen() {
           router.replace("/(tabs)");
         } else {
           setPasscode("");
+          Alert.alert(
+            "Invalid Passcode",
+            "The passcode you entered is incorrect. Please try again.",
+            [
+              { text: "OK", onPress: () => console.log("OK Pressed") }
+            ]
+          );
         }
       }
     }

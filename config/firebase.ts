@@ -1,15 +1,13 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getFirestore, Firestore } from "firebase/firestore";
+// Import polyfills at the very top (must be before any Firebase imports)
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
 
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Your Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAjR8OCUeQJMHlEeW-mOj6AUw8LM6JI8ds",
+  apiKey: "AIzaSyAjR8OCUeJMHlEeW-mOj6AUw8LM6JI8ds",
   authDomain: "m-duka-eedca.firebaseapp.com",
   projectId: "m-duka-eedca",
   storageBucket: "m-duka-eedca.firebasestorage.app",
@@ -18,9 +16,10 @@ const firebaseConfig = {
   measurementId: "G-T7LEJMX7Z0"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const firestore: Firestore = getFirestore(app);
+// Check if any Firebase apps have been initialized already
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export { firestore, app };
+// Initialize Firestore with the existing or newly created app
+const firestore = getFirestore(app);
+
+export { app, firestore };
