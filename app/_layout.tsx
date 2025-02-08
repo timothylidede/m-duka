@@ -1,7 +1,8 @@
+import React from "react";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -10,50 +11,55 @@ SplashScreen.preventAutoHideAsync();
 const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  const [isReady, setIsReady] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const [fontsLoaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const checkLoginStatus = async () => {
+  const checkLoginStatus = useCallback(async () => {
+    try {
       const lastOpened = await AsyncStorage.getItem("lastOpenedTime");
       const now = Date.now();
 
       if (lastOpened && now - parseInt(lastOpened, 10) <= ONE_HOUR) {
-        setIsLoggedIn(true); // User is logged in
+        setIsLoggedIn(true);
       } else {
-        setIsLoggedIn(false); // User is not logged in
+        setIsLoggedIn(false);
       }
+    } catch (error) {
+      console.error("Error checking login status:", error);
+    } finally {
+      setIsReady(true);
+    }
+  }, []);
 
-      if (loaded) {
-        SplashScreen.hideAsync();
-      }
-    };
+  useEffect(() => {
+    if (fontsLoaded) {
+      checkLoginStatus();
+    }
+  }, [fontsLoaded, checkLoginStatus]);
 
-    checkLoginStatus();
-  }, [loaded]);
+  useEffect(() => {
+    if (isReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [isReady]);
 
-  if (!loaded) {
+  if (!isReady || !fontsLoaded) {
     return null;
   }
 
   return (
-    <Stack>
-      {/* Show Passcode Screen (index.tsx) if not logged in */}
-      {!isLoggedIn && (
-        <Stack.Screen
-          name="index" // This refers to app/index.tsx
-          options={{ headerShown: false }}
-        />
-      )}
-      {/* Show Main App Screens if logged in */}
-      {isLoggedIn && (
-        <Stack.Screen
-          name="(tabs)" // This refers to app/(tabs)/index.tsx
-          options={{ headerShown: false }}
-        />
+    <Stack screenOptions={{ headerShown: false }}>
+      {!isLoggedIn ? (
+        <>
+          <Stack.Screen name="login" />
+          <Stack.Screen name="signup" />
+        </>
+      ) : (
+        <Stack.Screen name="(tabs)" />
       )}
     </Stack>
   );

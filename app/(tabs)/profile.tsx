@@ -61,7 +61,7 @@ const RetailProfile: React.FC = () => {
       await AsyncStorage.removeItem('lastOpenedTime');
 
       // Redirect to the passcode page
-      router.replace('/');
+      router.replace('/login');
     } catch (error) {
       Alert.alert('Error', 'Failed to log out. Please try again.');
     }

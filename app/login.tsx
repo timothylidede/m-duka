@@ -1,64 +1,159 @@
-// Login.tsx
-import { useState } from "react";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-import { app } from "../config/firebase"; // Ensure Firebase is initialized
+// PasscodeScreen.tsx
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SplashScreen from "expo-splash-screen";
 
-const db = getFirestore(app);
+const CORRECT_PASSCODE = "1234"; // Set the required passcode
+const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
 
-export function Login() {
-  const [contact, setContact] = useState<string>("");
-  const [passcode, setPasscode] = useState<string>("");
-  const [error, setError] = useState<string>("");
+function PasscodeScreen() {
+  const [passcode, setPasscode] = useState("");
+  const [shouldShowPasscode, setShouldShowPasscode] = useState(false);
+  const router = useRouter();
 
-  const handleLogin = async () => {
-    setError("");
-    if (!contact || !passcode) {
-      setError("All fields are required.");
-      return;
-    }
-    if (!/^[0-9]{4}$/.test(passcode)) {
-      setError("Invalid passcode format.");
-      return;
-    }
+  useEffect(() => {
+    const checkLastOpened = async () => {
+      const lastOpened = await AsyncStorage.getItem("lastOpenedTime");
+      const now = Date.now();
 
-    try {
-      const shopsRef = doc(db, "shops", contact);
-      const shopSnapshot = await getDoc(shopsRef);
-      if (shopSnapshot.exists() && shopSnapshot.data().password === passcode) {
-        alert("Login successful!");
+      if (!lastOpened || now - parseInt(lastOpened, 10) > ONE_HOUR) {
+        setShouldShowPasscode(true); // Show passcode if > 1 hour
       } else {
-        setError("Invalid contact or passcode.");
+        router.replace("/(tabs)"); // Go directly to tabs if < 1 hour
       }
-    } catch (err) {
-      setError("Login failed. Try again.");
+
+      SplashScreen.hideAsync();
+    };
+
+    checkLastOpened();
+  }, []);
+
+  interface HandlePressProps {
+    num: string;
+  }
+
+  const handlePress = async ({ num }: HandlePressProps): Promise<void> => {
+    if (passcode.length < 4) {
+      const newPasscode = passcode + num;
+      setPasscode(newPasscode);
+
+      if (newPasscode.length === 4) {
+        if (newPasscode === CORRECT_PASSCODE) {
+          await AsyncStorage.setItem("lastOpenedTime", Date.now().toString()); // Save timestamp
+          router.replace("/(tabs)"); // Navigate to main app
+        } else {
+          setPasscode(""); // Reset input if incorrect
+        }
+      }
     }
   };
 
+  const handleDelete = () => {
+    if (passcode.length > 0) {
+      setPasscode(passcode.slice(0, -1));
+    }
+  };
+
+  const handleSignUp = () => {
+    router.push("/signup"); // Navigate to the sign-up page
+  };
+
+  if (!shouldShowPasscode) return null; // Don't render passcode screen if not needed
+
   return (
-    <div className="flex justify-center items-center h-screen bg-white">
-      <div className="p-8 rounded-lg shadow-md w-96 bg-gray-100">
-        <h2 className="text-2xl font-bold mb-4">Login</h2>
-        <input
-          className="w-full p-2 mb-2 border rounded"
-          type="text"
-          placeholder="Contact Info"
-          onChange={(e) => setContact(e.target.value)}
-        />
-        <input
-          className="w-full p-2 mb-2 border rounded"
-          type="password"
-          placeholder="4-digit Passcode"
-          maxLength={4}
-          onChange={(e) => setPasscode(e.target.value)}
-        />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <button
-          className="w-full bg-blue-500 text-white p-2 rounded mt-2"
-          onClick={handleLogin}
-        >
-          Login
-        </button>
-      </div>
-    </div>
+    <View style={styles.container}>
+      <Text style={styles.title}>Enter Passcode</Text>
+      <View style={styles.dots}>
+        {Array(4)
+          .fill(0)
+          .map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, passcode.length > i && styles.filledDot]}
+            />
+          ))}
+      </View>
+      <View style={styles.keypad}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
+          <TouchableOpacity
+            key={num}
+            style={styles.key}
+            onPress={() => handlePress({ num: num.toString() })}
+          >
+            <Text style={styles.keyText}>{num}</Text>
+          </TouchableOpacity>
+        ))}
+        {/* Delete Button */}
+        <TouchableOpacity style={styles.key} onPress={handleDelete}>
+          <Text style={styles.keyText}>⌫</Text>
+        </TouchableOpacity>
+      </View>
+      {/* Sign Up Button */}
+      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
+        <Text style={styles.signUpButtonText}>Sign Up</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  dots: {
+    flexDirection: "row",
+    marginBottom: 30,
+  },
+  dot: {
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: "#ccc",
+    marginHorizontal: 5,
+  },
+  filledDot: {
+    backgroundColor: "#000",
+  },
+  keypad: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: 240,
+    justifyContent: "center",
+  },
+  key: {
+    width: 60,
+    height: 60,
+    margin: 10,
+    backgroundColor: "#eee",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 30,
+  },
+  keyText: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  signUpButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: "#4CAF50",
+    borderRadius: 5,
+  },
+  signUpButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+});
+
+export default PasscodeScreen;

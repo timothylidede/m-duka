@@ -55,6 +55,8 @@ const Page = () => {
 
 export default Page;
 
+Page.options = { headerShown: false };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

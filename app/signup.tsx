@@ -1,15 +1,18 @@
-// SignUp.tsx
 import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
-import { app } from "../config/firebase"; // Ensure Firebase is initialized
+import { app } from "../config/firebase";
+import { useRouter } from "expo-router";
 
 const db = getFirestore(app);
 
-export function SignUp() {
-  const [shopName, setShopName] = useState<string>("");
-  const [contact, setContact] = useState<string>("");
-  const [passcode, setPasscode] = useState<string>("");
-  const [error, setError] = useState<string>("");
+export default function SignUp() {
+  const router = useRouter();
+  const [shopName, setShopName] = useState("");
+  const [contact, setContact] = useState("");
+  const [passcode, setPasscode] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
     setError("");
@@ -22,56 +25,84 @@ export function SignUp() {
       return;
     }
 
+    setLoading(true);
     const shopId = shopName.toLowerCase().replace(/\s+/g, "-");
+
     try {
       const shopRef = doc(db, "shops", shopId);
       const shopSnapshot = await getDoc(shopRef);
+
       if (shopSnapshot.exists()) {
         setError("Shop name already exists. Choose another.");
+        setLoading(false);
         return;
       }
-      await setDoc(shopRef, {
-        name: shopName,
-        contact,
-        password: passcode,
-      });
+
+      await setDoc(shopRef, { name: shopName, contact, password: passcode });
+
       alert("Shop registered successfully!");
+      router.push("/login"); // Navigate to login page
+
     } catch (err) {
       setError("Error creating shop. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-white">
-      <div className="p-8 rounded-lg shadow-md w-96 bg-gray-100">
-        <h2 className="text-2xl font-bold mb-4">Register Shop</h2>
-        <input
-          className="w-full p-2 mb-2 border rounded"
-          type="text"
+    <View className="flex-1 justify-center items-center bg-gray-50 px-6">
+      {/* Header Navigation */}
+      <TouchableOpacity onPress={() => router.push("/login")} className="absolute top-12 left-6">
+        <Text className="text-blue-600 text-lg">← Back to Login</Text>
+      </TouchableOpacity>
+
+      {/* Signup Card */}
+      <View className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-lg">
+        <Text className="text-3xl font-semibold text-center text-gray-900 mb-6">Create Shop</Text>
+
+        {/* Input Fields */}
+        <TextInput
+          className="w-full px-4 py-3 mb-4 border border-gray-400 rounded-lg bg-white text-gray-900 shadow-sm"
           placeholder="Shop Name"
-          onChange={(e) => setShopName(e.target.value)}
+          placeholderTextColor="#777"
+          value={shopName}
+          onChangeText={setShopName}
         />
-        <input
-          className="w-full p-2 mb-2 border rounded"
-          type="text"
+        <TextInput
+          className="w-full px-4 py-3 mb-4 border border-gray-400 rounded-lg bg-white text-gray-900 shadow-sm"
           placeholder="Contact Info"
-          onChange={(e) => setContact(e.target.value)}
+          placeholderTextColor="#777"
+          value={contact}
+          onChangeText={setContact}
         />
-        <input
-          className="w-full p-2 mb-2 border rounded"
-          type="password"
+        <TextInput
+          className="w-full px-4 py-3 mb-4 border border-gray-400 rounded-lg bg-white text-gray-900 shadow-sm"
           placeholder="4-digit Passcode"
+          placeholderTextColor="#777"
+          value={passcode}
+          keyboardType="numeric"
           maxLength={4}
-          onChange={(e) => setPasscode(e.target.value)}
+          secureTextEntry
+          onChangeText={setPasscode}
         />
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <button
-          className="w-full bg-blue-500 text-white p-2 rounded mt-2"
-          onClick={handleSignUp}
+
+        {/* Error Message */}
+        {error ? <Text className="text-red-500 text-center mb-4">{error}</Text> : null}
+
+        {/* Register Button */}
+        <TouchableOpacity
+          className="w-full bg-blue-600 py-3 rounded-lg flex items-center justify-center shadow-md"
+          onPress={handleSignUp}
+          disabled={loading}
         >
-          Register
-        </button>
-      </div>
-    </div>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text className="text-white font-semibold text-lg">Register</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
