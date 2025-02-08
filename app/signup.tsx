@@ -1,12 +1,14 @@
-import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { app } from "../config/firebase";
 import { useRouter } from "expo-router";
 
 const db = getFirestore(app);
 
-export default function SignUp() {
+const SignUp = () => {
   const router = useRouter();
   const [shopName, setShopName] = useState("");
   const [contact, setContact] = useState("");
@@ -42,7 +44,6 @@ export default function SignUp() {
 
       alert("Shop registered successfully!");
       router.push("/login"); // Navigate to login page
-
     } catch (err) {
       setError("Error creating shop. Try again.");
     } finally {
@@ -51,33 +52,31 @@ export default function SignUp() {
   };
 
   return (
-    <View className="flex-1 justify-center items-center bg-gray-50 px-6">
-      {/* Header Navigation */}
-      <TouchableOpacity onPress={() => router.push("/login")} className="absolute top-12 left-6">
-        <Text className="text-blue-600 text-lg">← Back to Login</Text>
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <LinearGradient colors={["#1B3B5A", "#21748A"]} style={styles.header}>
+        <TouchableOpacity onPress={() => router.push("/login")} style={styles.backButton}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Shop</Text>
+      </LinearGradient>
 
-      {/* Signup Card */}
-      <View className="w-full max-w-sm bg-white p-6 rounded-2xl shadow-lg">
-        <Text className="text-3xl font-semibold text-center text-gray-900 mb-6">Create Shop</Text>
-
-        {/* Input Fields */}
+      <View style={styles.cardContainer}>
         <TextInput
-          className="w-full px-4 py-3 mb-4 border border-gray-400 rounded-lg bg-white text-gray-900 shadow-sm"
+          style={styles.input}
           placeholder="Shop Name"
           placeholderTextColor="#777"
           value={shopName}
           onChangeText={setShopName}
         />
         <TextInput
-          className="w-full px-4 py-3 mb-4 border border-gray-400 rounded-lg bg-white text-gray-900 shadow-sm"
+          style={styles.input}
           placeholder="Contact Info"
           placeholderTextColor="#777"
           value={contact}
           onChangeText={setContact}
         />
         <TextInput
-          className="w-full px-4 py-3 mb-4 border border-gray-400 rounded-lg bg-white text-gray-900 shadow-sm"
+          style={styles.input}
           placeholder="4-digit Passcode"
           placeholderTextColor="#777"
           value={passcode}
@@ -87,22 +86,85 @@ export default function SignUp() {
           onChangeText={setPasscode}
         />
 
-        {/* Error Message */}
-        {error ? <Text className="text-red-500 text-center mb-4">{error}</Text> : null}
+        {error ? <Text style={styles.errorMessage}>{error}</Text> : null}
 
-        {/* Register Button */}
-        <TouchableOpacity
-          className="w-full bg-blue-600 py-3 rounded-lg flex items-center justify-center shadow-md"
-          onPress={handleSignUp}
-          disabled={loading}
-        >
+        <TouchableOpacity style={styles.registerButton} onPress={handleSignUp} disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text className="text-white font-semibold text-lg">Register</Text>
+            <Text style={styles.registerText}>Register</Text>
           )}
         </TouchableOpacity>
       </View>
     </View>
   );
-}
+};
+
+export default SignUp;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
+    paddingTop: 20,
+  },
+  header: {
+    width: "100%",
+    height: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    justifyContent: "space-between",
+  },
+  backButton: {
+    padding: 10,
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
+  },
+  cardContainer: {
+    width: "90%",
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+    marginTop: -20,
+  },
+  input: {
+    width: "100%",
+    padding: 12,
+    marginVertical: 10,
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    fontSize: 16,
+    color: "#333",
+  },
+  errorMessage: {
+    color: "red",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  registerButton: {
+    width: "100%",
+    backgroundColor: "#21748A",
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  registerText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+});
