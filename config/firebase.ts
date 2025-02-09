@@ -4,6 +4,7 @@ import 'react-native-url-polyfill/auto';
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // Import getAuth from Firebase Auth
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -22,4 +23,8 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 // Initialize Firestore with the existing or newly created app
 const firestore = getFirestore(app);
 
-export { app, firestore };
+// Initialize Auth with the existing or newly created app
+const auth = getAuth(app);
+
+export { app, firestore, auth };
+

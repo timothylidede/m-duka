@@ -1,12 +1,22 @@
+// PasscodeScreen.tsx
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Animated,
+  ScrollView,
+} from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { LinearGradient } from "expo-linear-gradient";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { app } from "../config/firebase"; // Adjust path to your Firebase config
+import { getFirestore, collection, query, where, getDocs } from "firebase/firestore";
+import { app } from "../config/firebase";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const ONE_HOUR = 60 * 60 * 1000;
 const db = getFirestore(app);
@@ -15,21 +25,29 @@ export default function PasscodeScreen() {
   const [email, setEmail] = useState("");
   const [passcode, setPasscode] = useState("");
   const [shouldShowPasscode, setShouldShowPasscode] = useState(false);
+  const [dotScale] = useState([...Array(4)].map(() => new Animated.Value(1)));
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const checkLastOpened = async () => {
-      const lastOpened = await AsyncStorage.getItem("lastOpenedTime");
-      const savedEmail = await AsyncStorage.getItem("savedEmail");
-      if (savedEmail) setEmail(savedEmail);
+      try {
+        const lastOpened = await AsyncStorage.getItem("lastOpenedTime");
+        const savedEmail = await AsyncStorage.getItem("savedEmail");
+        if (savedEmail) setEmail(savedEmail);
 
-      const now = Date.now();
-      if (!lastOpened || now - parseInt(lastOpened, 10) > ONE_HOUR) {
+        const now = Date.now();
+        if (!lastOpened || now - parseInt(lastOpened, 10) > ONE_HOUR) {
+          setShouldShowPasscode(true);
+        } else {
+          router.replace("/(tabs)");
+        }
+        await SplashScreen.hideAsync();
+      } catch (error) {
+        console.error("Error checking last opened time:", error);
         setShouldShowPasscode(true);
-      } else {
-        router.replace("/(tabs)");
+        await SplashScreen.hideAsync();
       }
-      SplashScreen.hideAsync();
     };
 
     checkLastOpened();
@@ -37,60 +55,73 @@ export default function PasscodeScreen() {
 
   const fetchPasscode = async (email: string) => {
     if (!email) {
-      console.log("fetchPasscode: No email provided.");
+      Alert.alert("Error", "Please enter your email address");
       return null;
     }
-  
+
     try {
-      console.log(`fetchPasscode: Searching for shop with email: ${email}`);
-  
       const shopsRef = collection(db, "shops");
-      const q = query(shopsRef, where("emailAddress", "==", email));
-      console.log("fetchPasscode: Running Firestore query:", q);
-  
+      const q = query(shopsRef, where("emailAddress", "==", email.toLowerCase()));
       const querySnapshot = await getDocs(q);
-  
+
       if (!querySnapshot.empty) {
         const shopData = querySnapshot.docs[0].data();
-        console.log("fetchPasscode: Shop found:", shopData);
-        return shopData.password; // Return the password field
+        return shopData.password;
       } else {
-        console.log("fetchPasscode: No shop found with this email.");
+        Alert.alert("Error", "No shop found with this email address");
+        return null;
       }
     } catch (error) {
-      console.error("fetchPasscode: Error fetching passcode:", error);
+      console.error("Error fetching passcode:", error);
+      Alert.alert("Error", "Failed to verify credentials. Please try again.");
+      return null;
     }
-  
-    console.log("fetchPasscode: Returning null (passcode not found or error occurred).");
-    return null;
   };
-  
-  
 
-  interface HandlePressProps {
-    num: string;
-  }
+  const animateDot = (index: number) => {
+    Animated.sequence([
+      Animated.timing(dotScale[index], {
+        toValue: 1.3,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(dotScale[index], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
-  const handlePress = async ({ num }: HandlePressProps): Promise<void> => {
+  const handlePress = async ({ num }: { num: string }) => {
     if (passcode.length < 4) {
       const newPasscode = passcode + num;
+      animateDot(passcode.length);
       setPasscode(newPasscode);
 
       if (newPasscode.length === 4) {
-        const storedPasscode = await fetchPasscode(email);
-        if (storedPasscode && newPasscode === storedPasscode) {
-          await AsyncStorage.setItem("lastOpenedTime", Date.now().toString());
-          await AsyncStorage.setItem("savedEmail", email);
-          router.replace("/(tabs)");
-        } else {
-          setPasscode("");
+        setLoading(true);
+        try {
+          const storedPasscode = await fetchPasscode(email);
+          if (storedPasscode && newPasscode === storedPasscode) {
+            await AsyncStorage.setItem("lastOpenedTime", Date.now().toString());
+            await AsyncStorage.setItem("savedEmail", email);
+            router.replace("/(tabs)");
+          } else {
+            setPasscode("");
+            Alert.alert(
+              "Invalid Passcode",
+              "The passcode you entered is incorrect. Please try again."
+            );
+          }
+        } catch (error) {
+          console.error("Error during login:", error);
           Alert.alert(
-            "Invalid Passcode",
-            "The passcode you entered is incorrect. Please try again.",
-            [
-              { text: "OK", onPress: () => console.log("OK Pressed") }
-            ]
+            "Error",
+            "An error occurred during login. Please try again."
           );
+        } finally {
+          setLoading(false);
         }
       }
     }
@@ -105,147 +136,261 @@ export default function PasscodeScreen() {
   };
 
   const handleForgotPasscode = () => {
-    console.log("Forgot Passcode");
+    Alert.alert(
+      "Reset Passcode",
+      "Please contact support to reset your passcode.",
+      [{ text: "OK" }]
+    );
   };
 
   if (!shouldShowPasscode) return null;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.cardContainer}>
-        <LinearGradient colors={["#1B3B5A", "#21748A"]} style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Login</Text>
-        </LinearGradient>
-        <View style={styles.cardBody}>
-          <Text style={styles.title}>Email address:</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            placeholderTextColor="#ccc"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
+    <LinearGradient colors={["#1a2a6c", "#b21f1f"]} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        <View style={styles.cardContainer}>
+          <MaterialCommunityIcons
+            name="store"
+            size={30}
+            color="#fff"
+            style={styles.icon}
           />
-          <Text style={styles.title}>Passcode:</Text>
-          <View style={styles.dots}>
-            {Array(4).fill(0).map((_, i) => (
-              <View key={i} style={[styles.dot, passcode.length > i && styles.filledDot]} />
-            ))}
+          <Text style={styles.welcomeText}>Welcome Back</Text>
+          <Text style={styles.subtitleText}>Sign in to continue</Text>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email Address</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor="rgba(255,255,255,0.5)"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+            />
           </View>
-          <View style={styles.keypad}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
-              <TouchableOpacity
-                key={num}
-                style={styles.key}
-                onPress={() => handlePress({ num: num.toString() })}
-              >
-                <Text style={styles.keyText}>{num}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.key} onPress={handleDelete}>
-              <Text style={styles.keyText}>⌫</Text>
-            </TouchableOpacity>
+
+          <Text style={styles.label}>Passcode</Text>
+          <View style={styles.dotsContainer}>
+            {Array(4)
+              .fill(0)
+              .map((_, i) => (
+                <Animated.View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    passcode.length > i && styles.filledDot,
+                    { transform: [{ scale: dotScale[i] }] },
+                  ]}
+                />
+              ))}
           </View>
+
+          <View style={styles.keypadContainer}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((num, index) => {
+              if (num === "") {
+                // Render an empty view for layout spacing
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.key,
+                      { backgroundColor: "transparent", borderColor: "transparent" },
+                    ]}
+                  />
+                );
+              }
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.key,
+                    num === "⌫" && styles.deleteKey,
+                    loading && styles.disabledKey,
+                  ]}
+                  onPress={() =>
+                    num === "⌫"
+                      ? handleDelete()
+                      : handlePress({ num: num.toString() })
+                  }
+                  disabled={loading}
+                >
+                  <Text
+                    style={[
+                      styles.keyText,
+                      num === "⌫" && styles.deleteKeyText,
+                      loading && styles.disabledKeyText,
+                    ]}
+                  >
+                    {num}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Verifying...</Text>
+            </View>
+          )}
         </View>
-      </View>
-      <TouchableOpacity style={styles.forgotPasscodeButton} onPress={handleForgotPasscode}>
-        <Text style={styles.forgotPasscodeButtonText}>Forgot Passcode?</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-        <Text style={styles.signUpButtonText}>Sign Up Instead</Text>
-      </TouchableOpacity>
-    </View>
+
+        <View style={styles.bottomButtons}>
+          <TouchableOpacity
+            style={styles.forgotButton}
+            onPress={handleForgotPasscode}
+            disabled={loading}
+          >
+            <Text style={styles.forgotButtonText}>Forgot Passcode?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.signUpButton}
+            onPress={handleSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.signUpButtonText}>Create Account</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+  },
+  contentContainer: {
+    flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 20,
+    padding: 20,
+    marginTop: 40,
   },
   cardContainer: {
-    borderRadius: 15,
-    overflow: "hidden",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 25,
+    padding: 25,
+    backdropFilter: "blur(10px)",
   },
-  cardHeader: {
-    padding: 15,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+  icon: {
+    alignSelf: "center",
+    marginBottom: 20,
   },
-  cardTitle: {
-    color: "#fff",
-    fontSize: 20,
+  welcomeText: {
+    fontSize: 28,
     fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 8,
   },
-  cardBody: {
-    padding: 20,
+  subtitleText: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.7)",
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  inputContainer: {
+    marginBottom: 25,
+  },
+  label: {
+    color: "#fff",
+    fontSize: 16,
+    marginBottom: 12,
+    fontWeight: "500",
   },
   input: {
-    backgroundColor: "#eee",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 12,
+    padding: 15,
+    color: "#fff",
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  title: {
-    fontSize: 18,
-    marginBottom: 15,
-  },
-  dots: {
-    justifyContent: "center",
+  dotsContainer: {
     flexDirection: "row",
-    marginBottom: 20,
+    justifyContent: "center",
+    marginTop: 15,
   },
   dot: {
-    width: 15,
-    height: 15,
-    borderRadius: 7.5,
-    backgroundColor: "#ccc",
-    marginHorizontal: 5,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
   },
   filledDot: {
-    backgroundColor: "#000",
+    backgroundColor: "#fff",
   },
-  keypad: {
+  keypadContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
+    transform: [{ scale: 0.8 }],
     justifyContent: "center",
-    marginHorizontal: 30,
   },
   key: {
-    width: 60,
-    height: 60,
-    margin: 10,
-    backgroundColor: "#eee",
+    width: 70,
+    height: 70,
+    margin: 8,
+    borderRadius: 35,
+    backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   keyText: {
+    color: "#fff",
     fontSize: 24,
-    fontWeight: "bold",
+    fontWeight: "600",
+  },
+  deleteKey: {
+    backgroundColor: "rgba(255,100,100,0.2)",
+  },
+  deleteKeyText: {
+    color: "#ff6b6b",
+  },
+  disabledKey: {
+    opacity: 0.5,
+  },
+  disabledKeyText: {
+    opacity: 0.5,
+  },
+  loadingContainer: {
+    marginTop: 20,
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 16,
+  },
+  bottomButtons: {
+    marginTop: 30,
+    alignItems: "center",
+  },
+  forgotButton: {
+    marginBottom: 15,
+  },
+  forgotButtonText: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 16,
   },
   signUpButton: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: "#21748A",
-    borderRadius: 8,
-    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginBottom: 60,
   },
   signUpButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
-  },
-  forgotPasscodeButton: {
-    marginTop: 10,
-    alignItems: "center",
-  },
-  forgotPasscodeButtonText: {
-    color: "#21748A",
-    fontSize: 14,
-    textDecorationLine: "underline",
+    fontWeight: "600",
   },
 });
