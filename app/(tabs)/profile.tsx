@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import React from 'react';
 import {
   View,
@@ -7,9 +8,12 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 
 interface InventoryStats {
   totalItems: number;
@@ -28,10 +32,9 @@ interface StoreProfile {
   inventoryStats: InventoryStats;
 }
 
-const RetailProfile: React.FC = () => {
+const ProfilePage: React.FC = () => {
   const router = useRouter();
 
-  // Mock data - in production this would come from an API or store
   const storeProfile: StoreProfile = {
     storeName: 'Main Street Quick Mart',
     storeId: 'MSE-001',
@@ -47,20 +50,9 @@ const RetailProfile: React.FC = () => {
     },
   };
 
-  const StockAlert: React.FC<{ count: number; label: string; urgent?: boolean }> =
-    ({ count, label, urgent }) => (
-      <View style={[styles.alertBox, urgent && styles.urgentAlert]}>
-        <Text style={styles.alertCount}>{count}</Text>
-        <Text style={styles.alertLabel}>{label}</Text>
-      </View>
-    );
-
   const handleLogout = async () => {
     try {
-      // Clear the user's session
       await AsyncStorage.removeItem('lastOpenedTime');
-
-      // Redirect to the passcode page
       router.replace('/login');
     } catch (error) {
       Alert.alert('Error', 'Failed to log out. Please try again.');
@@ -68,220 +60,315 @@ const RetailProfile: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView>
-        <View style={styles.header}>
-          <View style={styles.storeInfo}>
-            <Text style={styles.storeName}>{storeProfile.storeName}</Text>
-            <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
-          </View>
-
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Store Details</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Location:</Text>
-            <Text style={styles.value}>{storeProfile.location}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Manager:</Text>
-            <Text style={styles.value}>{storeProfile.managerName}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Contact:</Text>
-            <Text style={styles.value}>{storeProfile.contactNumber}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Inventory Overview</Text>
-          <View style={styles.statsGrid}>
-            <StockAlert
-              count={storeProfile.inventoryStats.lowStock}
-              label="Low Stock Items"
-              urgent={storeProfile.inventoryStats.lowStock > 20}
-            />
-            <StockAlert
-              count={storeProfile.inventoryStats.outOfStock}
-              label="Out of Stock"
-              urgent={true}
-            />
-            <View style={styles.statsBox}>
-              <Text style={styles.statsValue}>
-                {storeProfile.inventoryStats.totalItems}
-              </Text>
-              <Text style={styles.statsLabel}>Total Items</Text>
+    <>
+      <Stack.Screen 
+        options={{
+          title: 'Store Profile',
+          headerStyle: {
+            backgroundColor: '#2E3192',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+          headerShadowVisible: false,
+        }} 
+      />
+      <StatusBar barStyle="light-content" />
+      
+      <SafeAreaView style={styles.container}>
+        <ScrollView>
+          <LinearGradient
+            colors={['#2E3192', '#1BFFFF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <View style={styles.storeInfo}>
+              <Feather name="shopping-bag" size={40} color="white" style={styles.storeIcon} />
+              <Text style={styles.storeName}>{storeProfile.storeName}</Text>
+              <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
             </View>
-            <View style={styles.statsBox}>
-              <Text style={styles.statsValue}>
-                ${storeProfile.inventoryStats.totalValue.toLocaleString()}
-              </Text>
-              <Text style={styles.statsLabel}>Inventory Value</Text>
+            
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Feather name="log-out" size={20} color="#2E3192" />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+
+          <View style={styles.content}>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="info" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Store Details</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <Feather name="map-pin" size={20} color="#64748B" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Location</Text>
+                  <Text style={styles.detailValue}>{storeProfile.location}</Text>
+                </View>
+              </View>
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <Feather name="user" size={20} color="#64748B" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Manager</Text>
+                  <Text style={styles.detailValue}>{storeProfile.managerName}</Text>
+                </View>
+              </View>
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <Feather name="phone" size={20} color="#64748B" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Contact</Text>
+                  <Text style={styles.detailValue}>{storeProfile.contactNumber}</Text>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>New Stock Entry</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>Stock Count</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>Generate Report</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="box" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Inventory Overview</Text>
+              </View>
+              <View style={styles.statsGrid}>
+                <View style={styles.statsCard}>
+                  <Feather name="package" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
+                  <Text style={styles.statsLabel}>Total Items</Text>
+                </View>
+                <View style={[styles.statsCard, styles.alertCard]}>
+                  <Feather name="alert-circle" size={24} color="#DC2626" />
+                  <Text style={[styles.statsValue, styles.alertValue]}>
+                    {storeProfile.inventoryStats.lowStock}
+                  </Text>
+                  <Text style={styles.statsLabel}>Low Stock</Text>
+                </View>
+                <View style={[styles.statsCard, styles.criticalCard]}>
+                  <Feather name="x-circle" size={24} color="#DC2626" />
+                  <Text style={[styles.statsValue, styles.alertValue]}>
+                    {storeProfile.inventoryStats.outOfStock}
+                  </Text>
+                  <Text style={styles.statsLabel}>Out of Stock</Text>
+                </View>
+                <View style={styles.statsCard}>
+                  <Feather name="dollar-sign" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    KES {storeProfile.inventoryStats.totalValue.toLocaleString()}
+                  </Text>
+                  <Text style={styles.statsLabel}>Total Value</Text>
+                </View>
+              </View>
+            </View>
 
-        <Text style={styles.lastUpdate}>
-          Last updated: {storeProfile.lastStockUpdate}
-        </Text>
-      </ScrollView>
-    </SafeAreaView>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="zap" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Quick Actions</Text>
+              </View>
+              <TouchableOpacity style={styles.actionButton}>
+                <LinearGradient
+                  colors={['#2E3192', '#1BFFFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.actionGradient}
+                >
+                  <Feather name="plus-circle" size={24} color="white" />
+                  <Text style={styles.actionButtonText}>New Stock Entry</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <LinearGradient
+                  colors={['#2E3192', '#1BFFFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.actionGradient}
+                >
+                  <Feather name="list" size={24} color="white" />
+                  <Text style={styles.actionButtonText}>Stock Count</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.lastUpdate}>
+              Last updated: {storeProfile.lastStockUpdate}
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    padding: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   storeInfo: {
-    flex: 1,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  storeIcon: {
+    marginBottom: 12,
   },
   storeName: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
   },
   storeId: {
     fontSize: 14,
-    color: '#666',
+    color: '#fff',
+    opacity: 0.9,
     marginTop: 4,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  logoutButtonText: {
+    color: '#2E3192',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  content: {
+    padding: 20,
   },
   section: {
     backgroundColor: '#fff',
+    borderRadius: 24,
     padding: 20,
-    marginTop: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
+    marginLeft: 12,
+    color: '#1E293B',
   },
   detailRow: {
     flexDirection: 'row',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E2E8F0',
   },
-  label: {
+  detailIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  detailContent: {
     flex: 1,
-    fontSize: 16,
-    color: '#666',
   },
-  value: {
-    flex: 2,
+  detailLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  detailValue: {
     fontSize: 16,
+    color: '#1E293B',
+    fontWeight: '500',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
   },
-  statsBox: {
-    width: '48%',
-    backgroundColor: '#f8f8f8',
+  statsCard: {
+    width: '47%',
+    backgroundColor: '#F8FAFC',
     padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 16,
     alignItems: 'center',
   },
-  alertBox: {
-    width: '48%',
-    backgroundColor: '#fff3e0',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
+  alertCard: {
+    backgroundColor: '#FEF2F2',
   },
-  urgentAlert: {
-    backgroundColor: '#ffebee',
+  criticalCard: {
+    backgroundColor: '#FEE2E2',
   },
   statsValue: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#2E3192',
+    marginTop: 8,
     marginBottom: 4,
-    color: 'green',
+  },
+  alertValue: {
+    color: '#DC2626',
   },
   statsLabel: {
     fontSize: 14,
-    color: '#666',
+    color: '#64748B',
     textAlign: 'center',
-  },
-  alertCount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f44336',
-    marginBottom: 4,
-  },
-  alertLabel: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
   },
   actionButton: {
-    width: '90%',
-    backgroundColor: 'rgb(200,200,200)',
-    padding: 16,
-    borderRadius: 10,
     marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  actionGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
   },
   actionButtonText: {
-    color: 'green',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  logoutButton: {
-    backgroundColor: '#f44336',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  logoutButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
   },
   lastUpdate: {
     textAlign: 'center',
-    color: '#666',
-    padding: 20,
+    color: '#64748B',
     fontSize: 12,
-    marginBottom: 100,
+    marginBottom: 20,
   },
 });
 
-export default RetailProfile;
+export default ProfilePage;
