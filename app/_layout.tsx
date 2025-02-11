@@ -1,20 +1,24 @@
-import React from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useState, useCallback } from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import AnimatedSplashScreen from "./splash";
+import { View } from "react-native";
 
+// Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+const ONE_HOUR = 60 * 60 * 1000;
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  const [appIsReady, setAppIsReady] = useState(false);
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
@@ -22,7 +26,6 @@ export default function RootLayout() {
     try {
       const lastOpened = await AsyncStorage.getItem("lastOpenedTime");
       const now = Date.now();
-
       if (lastOpened && now - parseInt(lastOpened, 10) <= ONE_HOUR) {
         setIsLoggedIn(true);
       } else {
@@ -30,25 +33,50 @@ export default function RootLayout() {
       }
     } catch (error) {
       console.error("Error checking login status:", error);
-    } finally {
-      setIsReady(true);
     }
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded) {
-      checkLoginStatus();
-    }
-  }, [fontsLoaded, checkLoginStatus]);
+    const prepare = async () => {
+      try {
+        // Perform any additional initialization here
+        await checkLoginStatus();
+        
+        // Simulate some loading time (remove in production)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        setIsReady(true);
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        // Consider the app ready when all resources are loaded
+        setAppIsReady(true);
+      }
+    };
 
-  useEffect(() => {
+    prepare();
+  }, [checkLoginStatus]);
+
+  const onAnimationComplete = useCallback(async () => {
     if (isReady) {
-      SplashScreen.hideAsync();
+      await SplashScreen.hideAsync();
+      setShowSplash(false);
     }
   }, [isReady]);
 
-  if (!isReady || !fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return null;
+  }
+
+  if (showSplash) {
+    return (
+      <View style={{ flex: 1 }}>
+        <AnimatedSplashScreen 
+          onAnimationComplete={onAnimationComplete}
+          isAppReady={appIsReady && isReady}
+        />
+      </View>
+    );
   }
 
   return (

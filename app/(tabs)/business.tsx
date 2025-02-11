@@ -351,6 +351,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     padding: 20,
     fontSize: 12,
+    marginBottom: 60,
   },
 });
 

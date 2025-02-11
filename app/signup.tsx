@@ -15,7 +15,16 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from "firebase/firestore";
 import { app } from "../config/firebase";
 import { useRouter } from "expo-router";
 
@@ -77,20 +86,21 @@ const SignUp = () => {
     if (!validateInputs()) return;
 
     setLoading(true);
-    const shopId = shopName.toLowerCase().replace(/\s+/g, "-");
+    // Here we use the contact as the shop ID.
+    const shopId = contact;
 
     try {
-      // Check if shop name exists
+      // Check if a shop with this ID already exists.
       const shopRef = doc(db, "shops", shopId);
       const shopSnapshot = await getDoc(shopRef);
       
       if (shopSnapshot.exists()) {
-        Alert.alert("Error", "A shop with this name already exists");
+        Alert.alert("Error", "A shop with this contact already exists");
         setLoading(false);
         return;
       }
 
-      // Check if email exists
+      // Check if the email is already registered.
       const emailExists = await checkEmailExists(email);
       if (emailExists) {
         Alert.alert("Error", "This email is already registered");
@@ -98,7 +108,7 @@ const SignUp = () => {
         return;
       }
 
-      // Create new shop
+      // Create the shop document.
       await setDoc(shopRef, {
         name: shopName,
         contact,
@@ -108,6 +118,11 @@ const SignUp = () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
+
+      // Create placeholder documents in subcollections for inventory, sales, and users.
+      await setDoc(doc(db, "shops", shopId, "inventory", "placeholder"), {});
+      await setDoc(doc(db, "shops", shopId, "sales", "placeholder"), {});
+      await setDoc(doc(db, "shops", shopId, "users", "placeholder"), {});
 
       Alert.alert(
         "Success",
@@ -324,7 +339,7 @@ const styles = StyleSheet.create({
     height: 60,
     justifyContent: "center",
     paddingHorizontal: 20,
-    marginTop : 20,
+    marginTop: 20,
   },
   backButton: {
     width: 40,
@@ -333,6 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 30,
   },
   formContainer: {
     flex: 1,
@@ -428,6 +444,7 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.7)",
     fontSize: 16,
     textDecorationLine: "underline",
+    marginBottom: 60,
   },
 });
 
