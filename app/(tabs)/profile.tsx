@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  Pressable,
   StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -32,6 +33,11 @@ interface StoreProfile {
   inventoryStats: InventoryStats;
 }
 
+interface QuickAction {
+  actionName: string;
+  iconName: string;
+}
+
 const ProfilePage: React.FC = () => {
   const router = useRouter();
 
@@ -50,6 +56,14 @@ const ProfilePage: React.FC = () => {
     },
   };
 
+  const QuickActions: QuickAction[] = [
+    // { actionName: 'Add New Item', iconName: 'plus' },
+    { actionName: 'Supplier Management', iconName: 'file-text' },
+    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2' },
+    { actionName: 'Demand Forecast', iconName: 'box' },
+    { actionName: 'Add a new Good', iconName: 'users' },
+  ];
+
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem('lastOpenedTime');
@@ -63,7 +77,7 @@ const ProfilePage: React.FC = () => {
     <>
       <Stack.Screen 
         options={{
-          title: 'Store Profile',
+          title: 'Inventory',
           headerStyle: {
             backgroundColor: '#2E3192',
           },
@@ -137,11 +151,22 @@ const ProfilePage: React.FC = () => {
                 <Text style={styles.sectionTitle}>Inventory Overview</Text>
               </View>
               <View style={styles.statsGrid}>
+
                 <View style={styles.statsCard}>
+                <Pressable
+                  onPress={() => Alert.alert('Button Pressed', 'You pressed the view!')}
+                  style={({ pressed }) => [
+                    styles.pressableView,
+                    { backgroundColor: pressed ? '#ddd' : '#fff' }, // Change background color when pressed
+                  ]}
+                >
+                  {/* <Text style={styles.text}>Press Me</Text> */}
                   <Feather name="package" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
                   <Text style={styles.statsLabel}>Total Items</Text>
+                </Pressable>
                 </View>
+
                 <View style={[styles.statsCard, styles.alertCard]}>
                   <Feather name="alert-circle" size={24} color="#DC2626" />
                   <Text style={[styles.statsValue, styles.alertValue]}>
@@ -149,6 +174,7 @@ const ProfilePage: React.FC = () => {
                   </Text>
                   <Text style={styles.statsLabel}>Low Stock</Text>
                 </View>
+
                 <View style={[styles.statsCard, styles.criticalCard]}>
                   <Feather name="x-circle" size={24} color="#DC2626" />
                   <Text style={[styles.statsValue, styles.alertValue]}>
@@ -156,6 +182,7 @@ const ProfilePage: React.FC = () => {
                   </Text>
                   <Text style={styles.statsLabel}>Out of Stock</Text>
                 </View>
+
                 <View style={styles.statsCard}>
                   <Feather name="dollar-sign" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
@@ -163,36 +190,31 @@ const ProfilePage: React.FC = () => {
                   </Text>
                   <Text style={styles.statsLabel}>Total Value</Text>
                 </View>
+
               </View>
             </View>
 
             <View style={styles.section}>
+              
               <View style={styles.sectionHeader}>
                 <Feather name="zap" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
               </View>
-              <TouchableOpacity style={styles.actionButton}>
-                <LinearGradient
-                  colors={['#2E3192', '#1BFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.actionGradient}
-                >
-                  <Feather name="plus-circle" size={24} color="white" />
-                  <Text style={styles.actionButtonText}>New Stock Entry</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <LinearGradient
-                  colors={['#2E3192', '#1BFFFF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.actionGradient}
-                >
-                  <Feather name="list" size={24} color="white" />
-                  <Text style={styles.actionButtonText}>Stock Count</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+
+              {QuickActions.map((action, index) => (
+                <TouchableOpacity style={styles.actionButton} key={index}>
+                  <LinearGradient
+                    colors={['#2E3192', '#1BFFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionGradient}
+                  >
+                    <Feather name={action.iconName} size={24} color="white" />
+                    <Text style={styles.actionButtonText}>{action.actionName}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+
             </View>
 
             <Text style={styles.lastUpdate}>
@@ -212,13 +234,18 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    // borderBottomLeftRadius: 24,
+    // borderBottomRightRadius: 24,
+    borderRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 4,
+    marginTop: 20,
+    marginLeft: 9,
+    marginRight: 9,
+
   },
   storeInfo: {
     alignItems: 'center',
@@ -248,6 +275,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     gap: 8,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+
   },
   logoutButtonText: {
     color: '#2E3192',
@@ -307,11 +341,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
     fontWeight: '500',
+
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    justifyContent: 'space-between',
+
   },
   statsCard: {
     width: '47%',
@@ -319,6 +356,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 30 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+
   },
   alertCard: {
     backgroundColor: '#FEF2F2',

@@ -1,0 +1,5 @@
+Used the following command to install a package used for the line chart and all types of visualisations really 
+
+npm install react-native-chart-kit
+
+

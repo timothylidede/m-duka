@@ -33,6 +33,17 @@ interface SalesSummary {
   lastUpdate: string;
 }
 
+interface QuickAction {
+  actionName: string;
+  iconName: string;
+}
+
+interface MetricCard {
+  label: string;
+  value: string | number;
+  icon: string;
+}
+
 const BusinessPage: React.FC = () => {
   const [dateRange, setDateRange] = useState('Today');
 
@@ -53,6 +64,25 @@ const BusinessPage: React.FC = () => {
     lastUpdate: '2025-02-09 15:30:00',
   };
 
+  const QuickActions: QuickAction[] = [
+    // { actionName: 'Add New Item', iconName: 'plus' },
+    { actionName: 'Generate Report', iconName: 'file-text' },
+    { actionName: 'View Analytics', iconName: 'bar-chart-2' },
+    { actionName: 'Manage Credit', iconName: 'box' },
+    { actionName: 'Manage Staff', iconName: 'users' },
+    { actionName: 'KRA Tax Compliance', iconName: 'shopping-bag' },
+    { actionName: 'Manage Customers', iconName: 'user' },
+    { actionName: 'Manage Promotions', iconName: 'gift' },
+    
+  ];
+
+  const MetricCards: MetricCard[] = [
+    { label: 'Total Sales', value: `KES ${salesData.metrics.dailySales.toLocaleString()}`, icon: 'dollar-sign' },
+    { label: 'Transactions', value: salesData.metrics.totalTransactions, icon: 'shopping-cart' },
+    { label: 'Avg Order', value: `KES ${salesData.metrics.averageOrderValue}`, icon: 'trending-up' },
+    { label: 'Target', value: `${salesData.metrics.targetAchieved}%`, icon: 'target' },
+  ];
+
   const MetricCard: React.FC<{ label: string; value: string | number; icon: string }> = ({ label, value, icon }) => (
     <LinearGradient
       colors={['#2E3192', '#1BFFFF']}
@@ -68,11 +98,14 @@ const BusinessPage: React.FC = () => {
     </LinearGradient>
   );
 
+
+
+
   return (
     <>
       <Stack.Screen 
         options={{
-          title: 'Business Overview',
+          title: 'Manage Business',
           headerStyle: {
             backgroundColor: '#2E3192',
           },
@@ -86,6 +119,7 @@ const BusinessPage: React.FC = () => {
       <StatusBar barStyle="light-content" />
       
       <SafeAreaView style={styles.container}>
+
         <ScrollView>
           <View style={styles.dateSelector}>
             {['Today', 'Week', 'Month'].map((period) => (
@@ -110,7 +144,13 @@ const BusinessPage: React.FC = () => {
           </View>
 
           <View style={styles.metricsGrid}>
-            <MetricCard
+
+            {MetricCards.map((metric, index) => (
+              <MetricCard key={index} {...metric} />
+            ))}
+
+            {/* Replaced the commented code below with the one above */}
+            {/* <MetricCard
               label="Total Sales"
               value={`KES ${salesData.metrics.dailySales.toLocaleString()}`}
               icon="dollar-sign"
@@ -129,7 +169,7 @@ const BusinessPage: React.FC = () => {
               label="Target"
               value={`${salesData.metrics.targetAchieved}%`}
               icon="target"
-            />
+            /> */}
           </View>
 
           <View style={styles.section}>
@@ -137,6 +177,7 @@ const BusinessPage: React.FC = () => {
               <Feather name="box" size={24} color="#2E3192" />
               <Text style={styles.sectionTitle}>Top Selling Items</Text>
             </View>
+
             {salesData.topSellingItems.map((item, index) => (
               <View key={item.id} style={styles.itemRow}>
                 <View style={styles.itemRank}>
@@ -152,6 +193,7 @@ const BusinessPage: React.FC = () => {
                 </View>
               </View>
             ))}
+
           </View>
 
           <View style={styles.section}>
@@ -159,28 +201,23 @@ const BusinessPage: React.FC = () => {
               <Feather name="zap" size={24} color="#2E3192" />
               <Text style={styles.sectionTitle}>Quick Actions</Text>
             </View>
-            <TouchableOpacity style={styles.actionButton}>
-              <LinearGradient
+
+            
+            {QuickActions.map((action, index) => (
+              <TouchableOpacity key={index} style={styles.actionButton}>
+                <LinearGradient
                 colors={['#2E3192', '#1BFFFF']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.actionGradient}
-              >
-                <Feather name="file-text" size={24} color="white" />
-                <Text style={styles.actionButtonText}>Generate Report</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <LinearGradient
-                colors={['#2E3192', '#1BFFFF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.actionGradient}
-              >
-                <Feather name="bar-chart-2" size={24} color="white" />
-                <Text style={styles.actionButtonText}>View Analytics</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                >
+                <Feather name={action.iconName} size={24} color="white" />
+                <Text style={styles.actionButtonText}>{action.actionName}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+
+
           </View>
 
           <Text style={styles.lastUpdate}>
