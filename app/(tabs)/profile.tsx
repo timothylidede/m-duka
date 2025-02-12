@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { RelativePathString, Stack } from 'expo-router';
 import React from 'react';
 import {
   View,
@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 interface InventoryStats {
   totalItems: number;
@@ -36,10 +37,16 @@ interface StoreProfile {
 interface QuickAction {
   actionName: string;
   iconName: string;
+  nextPagePath: RelativePathString;
 }
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
+
+  const routeInventoryQuickAction = (nextPagePath:RelativePathString) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(nextPagePath); // Update the path to match your file structure
+  };
 
   const storeProfile: StoreProfile = {
     storeName: 'Main Street Quick Mart',
@@ -58,10 +65,10 @@ const ProfilePage: React.FC = () => {
 
   const QuickActions: QuickAction[] = [
     // { actionName: 'Add New Item', iconName: 'plus' },
-    { actionName: 'Supplier Management', iconName: 'file-text' },
-    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2' },
-    { actionName: 'Demand Forecast', iconName: 'box' },
-    { actionName: 'Add a new Good', iconName: 'users' },
+    { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../add_product' },
+    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product'},
+    { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product'},
+    { actionName: 'Add a new Good', iconName: 'users', nextPagePath: '../add_product'},
   ];
 
   const handleLogout = async () => {
@@ -202,7 +209,7 @@ const ProfilePage: React.FC = () => {
               </View>
 
               {QuickActions.map((action, index) => (
-                <TouchableOpacity style={styles.actionButton} key={index}>
+                <TouchableOpacity style={styles.actionButton} key={index} onPress={()=>{routeInventoryQuickAction(action.nextPagePath)}}>
                   <LinearGradient
                     colors={['#2E3192', '#1BFFFF']}
                     start={{ x: 0, y: 0 }}
