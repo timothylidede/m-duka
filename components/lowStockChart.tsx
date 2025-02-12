@@ -25,11 +25,7 @@ const LowStockChart: React.FC = () => {
     strokeWidth: 3, // Clean, strong line
     barPercentage: 0.5,
     decimalPlaces: 0, // No decimals for clean numbers
-    propsForDots: {
-      r: '6', // Medium-sized dots for readability
-      strokeWidth: '2',
-      stroke: '#3498DB', // Vibrant blue accent
-    },
+    // 
     propsForLabels: {
       fontSize: 14, // Larger text for readability
       fontWeight: '600',
@@ -46,7 +42,7 @@ const LowStockChart: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>⚠️ Warning: Stock Levels Dropping</Text>
+      <Text style={styles.header}>Our stock Levels Dropping</Text>
       <LineChart
         data={data}
         width={0.9 * screenWidth}
