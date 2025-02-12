@@ -209,7 +209,7 @@ const ProfilePage: React.FC = () => {
                     end={{ x: 1, y: 1 }}
                     style={styles.actionGradient}
                   >
-                    <Feather name={action.iconName} size={24} color="white" />
+                    <Feather name={action.iconName as any} size={24} color="white" />
                     <Text style={styles.actionButtonText}>{action.actionName}</Text>
                   </LinearGradient>
                 </TouchableOpacity>

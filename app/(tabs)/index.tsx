@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import React, { useState, useRef } from 'react';
 import { 
   View, 
@@ -18,13 +18,14 @@ import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import LineChartComponent from '@/components/lineChartComponent';
 import LowStockChart from '@/components/lowStockChart';
-// import { ScrollView } from 'react-native-reanimated/lib/typescript/Animated';
+import { useNavigation } from '@react-navigation/native';
 
 // Import animations
 const loadingAnimation = require('../../assets/animations/loading-animation.json');
 const successAnimation = require('../../assets/animations/success-animation.json');
 
 export default function Index() {
+  const navigation = useNavigation();
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [saleAmount, setSaleAmount] = useState('');
   const [transactionComplete, setTransactionComplete] = useState(false);
@@ -57,6 +58,11 @@ export default function Index() {
       toValue: 1,
       useNativeDriver: true,
     }).start();
+  };
+
+  const handleCardPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('../transactions'); // Update the path to match your file structure
   };
 
   const handleDoneClick = async () => {
@@ -106,128 +112,126 @@ export default function Index() {
       <StatusBar barStyle="light-content" />
 
       <ScrollView>
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <LinearGradient
-          colors={['#2E3192', '#1BFFFF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardContainer}
-        >
-          <View style={styles.cardContent}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconContainer}>
-                <Feather name="trending-up" size={24} color="white" />
-                <View style={styles.chipIcon} />
-              </View>
-              <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
-            </View>
-            
-            <View style={styles.balanceContainer}>
-              <Text style={styles.balanceLabel}>Total Revenue</Text>
-              <Animated.Text style={[styles.balanceAmount, { transform: [{ scale: scaleAnim }] }]}>
-                <Text style={styles.currency}>KES </Text>
-                {balanceAmount.toLocaleString()}
-              </Animated.Text>
-            </View>
-            
-
-            <View style={styles.cardFooter}>
-              <View style={styles.statsContainer}>
-                <Text style={styles.statsLabel}>Today's Sales</Text>
-                <Text style={styles.statsValue}>12</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.statsContainer}>
-                <Text style={styles.statsLabel}>Avg. Sale</Text>
-                <Text style={styles.statsValue}>
-                  KES {Math.round(balanceAmount / 12).toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-          </View>
-
-        </LinearGradient>
-        
-
-
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <LottieView
-              source={loadingAnimation}
-              autoPlay
-              loop
-              style={styles.lottieAnimation}
-            />
-          </View>
-        ) : transactionComplete ? (
-          <View style={styles.successContainer}>
-            <LottieView
-              source={successAnimation}
-              autoPlay
-              loop={false}
-              style={styles.lottieAnimation}
-            />
-            <Text style={styles.successText}>Sale Recorded Successfully</Text>
-          </View>
-        ) : !isFormVisible ? (
-          <TouchableOpacity
-            style={styles.addSaleButton}
-            onPress={handleSalePress}
+        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+          <TouchableOpacity 
             activeOpacity={0.9}
+            onPress={handleCardPress}
           >
             <LinearGradient
               colors={['#2E3192', '#1BFFFF']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.buttonGradient}
+              style={styles.cardContainer}
             >
-              <Feather name="plus-circle" size={24} color="white" />
-              <Text style={styles.addSaleText}>Record New Sale</Text>
+              <View style={styles.cardContent}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardIconContainer}>
+                    <Feather name="trending-up" size={24} color="white" />
+                  </View>
+                  <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
+                </View>
+                
+                <View style={styles.balanceContainer}>
+                  <Text style={styles.balanceLabel}>Today's Revenue:</Text>
+                  <Animated.Text style={[styles.balanceAmount, { transform: [{ scale: scaleAnim }] }]}>
+                    <Text style={styles.currency}>KES </Text>
+                    {balanceAmount.toLocaleString()}
+                  </Animated.Text>
+                </View>
+                
+                <View style={styles.cardFooter}>
+                  <View style={styles.statsContainer}>
+                    <Text style={styles.statsLabel}>Today's Sales</Text>
+                    <Text style={styles.statsValue}>12</Text>
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.statsContainer}>
+                    <Text style={styles.statsLabel}>Avg. Sale</Text>
+                    <Text style={styles.statsValue}>
+                      KES {Math.round(balanceAmount / 12).toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </LinearGradient>
           </TouchableOpacity>
-        ) : (
-          <Animated.View 
-            style={[styles.formContainer, {
-              transform: [{
-                translateY: formSlideAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [50, 0],
-                }),
-              }],
-            }]}
-          >
-            <Text style={styles.formLabel}>Enter Sale Amount</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={saleAmount}
-              onChangeText={setSaleAmount}
-              placeholder="KES 0.00"
-              placeholderTextColor="#94A3B8"
-              autoFocus
-            />
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => {
-                  setIsFormVisible(false);
-                  setSaleAmount('');
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <Text style={[styles.buttonText, styles.cancelText]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.confirmButton]}
-                onPress={handleDoneClick}
-              >
-                <Text style={styles.buttonText}>Complete Sale</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        )}
 
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <LottieView
+                source={loadingAnimation}
+                autoPlay
+                loop
+                style={styles.lottieAnimation}
+              />
+            </View>
+          ) : transactionComplete ? (
+            <View style={styles.successContainer}>
+              <LottieView
+                source={successAnimation}
+                autoPlay
+                loop={false}
+                style={styles.lottieAnimation}
+              />
+              <Text style={styles.successText}>Sale Recorded Successfully</Text>
+            </View>
+          ) : !isFormVisible ? (
+            <TouchableOpacity
+              style={styles.addSaleButton}
+              onPress={handleSalePress}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#2E3192', '#1BFFFF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.buttonGradient}
+              >
+                <Feather name="plus-circle" size={24} color="white" />
+                <Text style={styles.addSaleText}>Record New Sale</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <Animated.View 
+              style={[styles.formContainer, {
+                transform: [{
+                  translateY: formSlideAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                }],
+              }]}
+            >
+              <Text style={styles.formLabel}>Enter Sale Amount</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={saleAmount}
+                onChangeText={setSaleAmount}
+                placeholder="KES 0.00"
+                placeholderTextColor="#94A3B8"
+                autoFocus
+              />
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={() => {
+                    setIsFormVisible(false);
+                    setSaleAmount('');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.buttonText, styles.cancelText]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.confirmButton]}
+                  onPress={handleDoneClick}
+                >
+                  <Text style={styles.buttonText}>Complete Sale</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          )}
         </Animated.View>
 
         <View style={styles.lineChartView}>
@@ -241,7 +245,7 @@ export default function Index() {
         <View style={styles.bottomMargin}>
           <Text style={styles.buttonText}> terms and conditions </Text>
         </View>
-        </ScrollView>
+      </ScrollView>
     </>
   );
 }
@@ -273,13 +277,6 @@ const styles = StyleSheet.create({
   cardIconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  chipIcon: {
-    width: 40,
-    height: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-    marginLeft: 12,
   },
   dateText: {
     color: '#fff',
@@ -425,7 +422,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   lineChartView: {
-    // flex: 1,
     backgroundColor: 'white',
     padding: 10,
     marginTop: 50,
