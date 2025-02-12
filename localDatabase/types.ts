@@ -14,6 +14,7 @@ export interface shopProduct {
     weeklyRevenue: number;
     monthlyRevenue: number;
     yearlyRevenue: number;
+    lastSynchronized?: number; // Optional for synchronization
   }
   
   export interface shopOwner {
