@@ -9,12 +9,16 @@ import {
   Animated, 
   Alert,
   StatusBar,
+  ScrollView,
   Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
+import LineChartComponent from '@/components/lineChartComponent';
+import LowStockChart from '@/components/lowStockChart';
+// import { ScrollView } from 'react-native-reanimated/lib/typescript/Animated';
 
 // Import animations
 const loadingAnimation = require('../../assets/animations/loading-animation.json');
@@ -100,7 +104,8 @@ export default function Index() {
         }} 
       />
       <StatusBar barStyle="light-content" />
-      
+
+      <ScrollView>
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <LinearGradient
           colors={['#2E3192', '#1BFFFF']}
@@ -124,6 +129,7 @@ export default function Index() {
                 {balanceAmount.toLocaleString()}
               </Animated.Text>
             </View>
+            
 
             <View style={styles.cardFooter}>
               <View style={styles.statsContainer}>
@@ -138,8 +144,12 @@ export default function Index() {
                 </Text>
               </View>
             </View>
+
           </View>
+
         </LinearGradient>
+        
+
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -217,7 +227,21 @@ export default function Index() {
             </View>
           </Animated.View>
         )}
-      </Animated.View>
+
+        </Animated.View>
+
+        <View style={styles.lineChartView}>
+          <LineChartComponent />
+        </View>
+
+        <View style={styles.lineChartView}>
+          <LowStockChart />
+        </View>
+
+        <View style={styles.bottomMargin}>
+          <Text style={styles.buttonText}> terms and conditions </Text>
+        </View>
+        </ScrollView>
     </>
   );
 }
@@ -399,5 +423,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginTop: 16,
+  },
+  lineChartView: {
+    // flex: 1,
+    backgroundColor: 'white',
+    padding: 10,
+    marginTop: 50,
+    marginLeft: 10,
+    marginRight: 10,
+    marginBottom: 20,
+    borderRadius: 24,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+  },
+  bottomMargin: {
+    marginBottom: 100,
+    alignItems: 'center',
   },
 });

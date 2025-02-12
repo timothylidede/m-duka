@@ -413,6 +413,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 60,
   },
+  // add pressable styling
+  pressableView: {
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default ProfilePage;
