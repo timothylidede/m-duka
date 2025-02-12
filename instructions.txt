@@ -4,3 +4,13 @@ npm install react-native-chart-kit
 npm install react-native-chart-kit react-native-svg
 
 
+
+npm install react-native-sqlite-storage
+npm install --save-dev @types/react-native-sqlite-storage
+
+The above commands install dependencies for local database operations. 
+Run the command below for ios 
+
+cd ios && pod install
+
+

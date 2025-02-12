@@ -5,7 +5,7 @@ import { LineChart } from 'react-native-chart-kit';
 const LineChartComponent: React.FC = () => {
     // Sample data for the chart
     const data = {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      labels: ['Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Today'],
       datasets: [
         {
           data: [6400, 7500, 8878, 8000, 8100, 9900],
