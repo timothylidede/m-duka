@@ -7,10 +7,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import AnimatedSplashScreen from "./splash";
 import { View } from "react-native";
 
-// Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
+// Import AuthProvider from your context folder
+import { AuthProvider } from "../context/AuthContext";
 
 const ONE_HOUR = 60 * 60 * 1000;
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -43,7 +46,7 @@ export default function RootLayout() {
         await checkLoginStatus();
         
         // Simulate some loading time (remove in production)
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         
         setIsReady(true);
       } catch (e) {
@@ -80,15 +83,18 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {!isLoggedIn ? (
-        <>
-          <Stack.Screen name="login" />
-          <Stack.Screen name="signup" />
-        </>
-      ) : (
-        <Stack.Screen name="(tabs)" />
-      )}
-    </Stack>
+    // Wrap your navigation stack with the AuthProvider
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        {!isLoggedIn ? (
+          <>
+            <Stack.Screen name="login" />
+            <Stack.Screen name="signup" />
+          </>
+        ) : (
+          <Stack.Screen name="(tabs)" />
+        )}
+      </Stack>
+    </AuthProvider>
   );
 }
