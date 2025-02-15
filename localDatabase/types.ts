@@ -1,5 +1,5 @@
 export interface Product {
-    id?: number; // Optional for creation (auto-incremented by the database)
+    id: string; // Optional for creation (auto-incremented by the database)
     name: string;
     price: number;
     quantity: number;
@@ -17,18 +17,23 @@ export interface Product {
     lastSynchronized?: number; // Optional for synchronization
   }
   
+  // The id is a string
+  // name is the owner's name
+  // Name is the shop's name
   export interface shop {
-    id?: number; // Optional for creation (auto-incremented by the database)
-    name: string;
+    id: string; // Optional for creation (auto-incremented by the database)
+    ownername: string;
     email: string;
-    Name: string;
+    shopName: string;
     Products: Product[];
     DailyRevenue: number;
+    WeeklyRevenue: number;
     MonthlyRevenue: number;
     YearlyRevenue: number;
-    WeeklyRevenue: number;
     DailySales: number;
     MonthlySales: number;
     YearlySales: number;
     WeeklySales: number;
   }
+
+  // getshopProducts  function

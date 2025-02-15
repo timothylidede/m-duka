@@ -2,7 +2,7 @@ import { db } from './database';
 import { shop, Product } from './types';
 
 // Create a new shop owner
-const createShopOwner = (shop: Omit<shop, 'id'>, callback: (id: number) => void) => {
+const createShopOwner = (shop: shop, callback: (id: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
       `INSERT INTO shop_information (
@@ -11,9 +11,9 @@ const createShopOwner = (shop: Omit<shop, 'id'>, callback: (id: number) => void)
         shopMonthlySales, shopYearlySales, shopWeeklySales
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
-        shop.name,
+        shop.ownername,
         shop.email,
-        shop.Name,
+        shop.shopName,
         shop.DailyRevenue,
         shop.MonthlyRevenue,
         shop.YearlyRevenue,
@@ -40,9 +40,9 @@ const updateShop = (shop: shop, callback: (rowsAffected: number) => void) => {
         shopWeeklySales = ?
       WHERE id = ?;`,
       [
-        shop.name,
+        shop.ownername,
         shop.email,
-        shop.Name,
+        shop.shopName,
         shop.DailyRevenue,
         shop.MonthlyRevenue,
         shop.YearlyRevenue,
@@ -60,7 +60,7 @@ const updateShop = (shop: shop, callback: (rowsAffected: number) => void) => {
 };
 
 //update a shop's daily revenue
-const updateShopDailyRevenue = (shopId: number, dailyRevenue: number, callback: (rowsAffected: number) => void) => {
+const updateShopDailyRevenue = (shopId: string, dailyRevenue: number, callback: (rowsAffected: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
       `UPDATE shop_information SET shopDailyRevenue = ? WHERE id = ?;`,
@@ -72,21 +72,25 @@ const updateShopDailyRevenue = (shopId: number, dailyRevenue: number, callback: 
 }; 
 
 // Add a product to a shop owner
-const addShopProduct = (shopId: number, product: Omit<Product, 'id'>, callback: (id: number) => void) => {
+const addShopProduct = (product: Product, callback: (id: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
       `INSERT INTO shop_products (
-        shopOwnerId, name, price, quantity, isNearlyStockedOut, isStockedOut,
-        movingFast, dailySales, weeklySales, monthlySales, yearlySales,
-        dailyRevenue, weeklyRevenue, monthlyRevenue, yearlyRevenue
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        shopOwnerId, name, price, quantity, 
+        isNearlyStockedOut, isStockedOut,
+        movingFast, dailySales, weeklySales, 
+        monthlySales, yearlySales,
+        dailyRevenue, weeklyRevenue, 
+        monthlyRevenue, yearlyRevenue
+      ) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
-        shopId,
+        product.id,
         product.name,
         product.price,
         product.quantity,
-        product.isNearlyStockedOut ? 1 : 0,
-        product.isStockedOut ? 1 : 0,
+        product.isNearlyStockedOut,
+        product.isStockedOut,
         product.movingFast,
         product.dailySales,
         product.weeklySales,
@@ -116,19 +120,18 @@ const updateProductStockedOut = (productId: number, callback: (rowsAffected: num
 };
 
 // Get products for a shop owner
-const getShopProducts = (shopId: number, callback: (products: Product[]) => void) => {
-  db.transaction((tx) => {
-    tx.executeSql(
-      `SELECT * FROM shop_products WHERE shopOwnerId = ?;`,
-      [shopId],
-      (_, result) => {
-        const products: Product[] = result.rows.raw();
-        callback(products);
-      },
-      (_, error) => console.error('Error fetching shop products', error)
-    );
-  });
-};
+const getShopProducts = (shopId: string, callback: (products: Product[]) => void) => 
+    {
+      db.transaction( (tx) => {
+          tx.executeSql(
+            `SELECT * FROM shop_products WHERE shopOwnerId = ?;`,
+            [shopId],
+            (_, result) => {const products: Product[] = result.rows.raw();callback(products);},
+            (_, error) => console.error('Error fetching shop products', error)
+          );
+        }
+      );
+    };
 
 export {
   createShopOwner,
@@ -136,5 +139,7 @@ export {
   updateShop,
 //   deleteShopOwner,
   addShopProduct,
+  updateProductStockedOut,
+  updateShopDailyRevenue,
   getShopProducts,
 };

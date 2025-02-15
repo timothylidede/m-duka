@@ -13,7 +13,7 @@ const initializeDatabase = () => {
     // Create the shop_owners table
     tx.executeSql(
       `CREATE TABLE IF NOT EXISTS shop_information (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         Name TEXT NOT NULL,
@@ -34,8 +34,7 @@ const initializeDatabase = () => {
     // Create the shop_products table
     tx.executeSql(
       `CREATE TABLE IF NOT EXISTS shop_products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        shopId INTEGER NOT NULL,
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         price REAL NOT NULL,
         quantity INTEGER NOT NULL,
@@ -50,7 +49,6 @@ const initializeDatabase = () => {
         weeklyRevenue REAL DEFAULT 0,
         monthlyRevenue REAL DEFAULT 0,
         yearlyRevenue REAL DEFAULT 0,
-        FOREIGN KEY (shopId) REFERENCES shop_owners (id) ON DELETE CASCADE
       );`,
       [],
       () => console.log('shop_products table created successfully'),
