@@ -65,7 +65,7 @@ const ProfilePage: React.FC = () => {
 
   const QuickActions: QuickAction[] = [
     // { actionName: 'Add New Item', iconName: 'plus' },
-    { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../add_product' },
+    { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../supplierManagement' },
     { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product'},
     { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product'},
     { actionName: 'Add a new Good', iconName: 'users', nextPagePath: '../add_product'},

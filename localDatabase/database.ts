@@ -2,7 +2,7 @@ import SQLite from 'react-native-sqlite-storage';
 
 // Open or create the database
 const db = SQLite.openDatabase(
-  { name: 'shopOwnerDatabase.db', location: 'default' },
+  { name: 'shopDatabase.db', location: 'default' },
   () => console.log('Shop Owner Database opened successfully'),
   (error) => console.error('Error opening shop owner database', error)
 );
@@ -12,30 +12,30 @@ const initializeDatabase = () => {
   db.transaction((tx) => {
     // Create the shop_owners table
     tx.executeSql(
-      `CREATE TABLE IF NOT EXISTS shop_owners (
+      `CREATE TABLE IF NOT EXISTS shop_information (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
-        shopName TEXT NOT NULL,
-        shopDailyRevenue REAL DEFAULT 0,
-        shopMonthlyRevenue REAL DEFAULT 0,
-        shopYearlyRevenue REAL DEFAULT 0,
-        shopWeeklyRevenue REAL DEFAULT 0,
-        shopDailySales INTEGER DEFAULT 0,
-        shopMonthlySales INTEGER DEFAULT 0,
-        shopYearlySales INTEGER DEFAULT 0,
-        shopWeeklySales INTEGER DEFAULT 0
+        Name TEXT NOT NULL,
+        DailyRevenue REAL DEFAULT 0,
+        MonthlyRevenue REAL DEFAULT 0,
+        YearlyRevenue REAL DEFAULT 0,
+        WeeklyRevenue REAL DEFAULT 0,
+        DailySales INTEGER DEFAULT 0,
+        MonthlySales INTEGER DEFAULT 0,
+        YearlySales INTEGER DEFAULT 0,
+        WeeklySales INTEGER DEFAULT 0
       );`,
       [],
-      () => console.log('shop_owners table created successfully'),
-      (_, error) => console.error('Error creating shop_owners table', error)
+      () => console.log('shop_information table created successfully'),
+      (_, error) => console.error('Error creating shop_information table', error)
     );
 
     // Create the shop_products table
     tx.executeSql(
       `CREATE TABLE IF NOT EXISTS shop_products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        shopOwnerId INTEGER NOT NULL,
+        shopId INTEGER NOT NULL,
         name TEXT NOT NULL,
         price REAL NOT NULL,
         quantity INTEGER NOT NULL,
@@ -50,7 +50,7 @@ const initializeDatabase = () => {
         weeklyRevenue REAL DEFAULT 0,
         monthlyRevenue REAL DEFAULT 0,
         yearlyRevenue REAL DEFAULT 0,
-        FOREIGN KEY (shopOwnerId) REFERENCES shop_owners (id) ON DELETE CASCADE
+        FOREIGN KEY (shopId) REFERENCES shop_owners (id) ON DELETE CASCADE
       );`,
       [],
       () => console.log('shop_products table created successfully'),

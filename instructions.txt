@@ -14,3 +14,8 @@ Run the command below for ios
 cd ios && pod install
 
 
+
+This library installation below is important for the supplierManagement Page
+
+npm install lottie-react-native 
+

@@ -1,27 +1,27 @@
 import { db } from './database';
-import { shopOwner, shopProduct } from './types';
+import { shop, Product } from './types';
 
 // Create a new shop owner
-const createShopOwner = (shopOwner: Omit<shopOwner, 'id'>, callback: (id: number) => void) => {
+const createShopOwner = (shop: Omit<shop, 'id'>, callback: (id: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
-      `INSERT INTO shop_owners (
+      `INSERT INTO shop_information (
         name, email, shopName, shopDailyRevenue, shopMonthlyRevenue,
         shopYearlyRevenue, shopWeeklyRevenue, shopDailySales,
         shopMonthlySales, shopYearlySales, shopWeeklySales
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
-        shopOwner.name,
-        shopOwner.email,
-        shopOwner.shopName,
-        shopOwner.shopDailyRevenue,
-        shopOwner.shopMonthlyRevenue,
-        shopOwner.shopYearlyRevenue,
-        shopOwner.shopWeeklyRevenue,
-        shopOwner.shopDailySales,
-        shopOwner.shopMonthlySales,
-        shopOwner.shopYearlySales,
-        shopOwner.shopWeeklySales,
+        shop.name,
+        shop.email,
+        shop.Name,
+        shop.DailyRevenue,
+        shop.MonthlyRevenue,
+        shop.YearlyRevenue,
+        shop.WeeklyRevenue,
+        shop.DailySales,
+        shop.MonthlySales,
+        shop.YearlySales,
+        shop.WeeklySales,
       ],
       (_, result) => callback(result.insertId),
       (_, error) => console.error('Error creating shop owner', error)
@@ -29,23 +29,8 @@ const createShopOwner = (shopOwner: Omit<shopOwner, 'id'>, callback: (id: number
   });
 };
 
-// Read all shop owners
-const getShopOwners = (callback: (shopOwners: shopOwner[]) => void) => {
-  db.transaction((tx) => {
-    tx.executeSql(
-      `SELECT * FROM shop_owners;`,
-      [],
-      (_, result) => {
-        const shopOwners: shopOwner[] = result.rows.raw();
-        callback(shopOwners);
-      },
-      (_, error) => console.error('Error fetching shop owners', error)
-    );
-  });
-};
-
-// Update a shop owner
-const updateShopOwner = (shopOwner: shopOwner, callback: (rowsAffected: number) => void) => {
+// Update a shop 
+const updateShop = (shop: shop, callback: (rowsAffected: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
       `UPDATE shop_owners SET
@@ -55,18 +40,18 @@ const updateShopOwner = (shopOwner: shopOwner, callback: (rowsAffected: number) 
         shopWeeklySales = ?
       WHERE id = ?;`,
       [
-        shopOwner.name,
-        shopOwner.email,
-        shopOwner.shopName,
-        shopOwner.shopDailyRevenue,
-        shopOwner.shopMonthlyRevenue,
-        shopOwner.shopYearlyRevenue,
-        shopOwner.shopWeeklyRevenue,
-        shopOwner.shopDailySales,
-        shopOwner.shopMonthlySales,
-        shopOwner.shopYearlySales,
-        shopOwner.shopWeeklySales,
-        shopOwner.id,
+        shop.name,
+        shop.email,
+        shop.Name,
+        shop.DailyRevenue,
+        shop.MonthlyRevenue,
+        shop.YearlyRevenue,
+        shop.WeeklyRevenue,
+        shop.DailySales,
+        shop.MonthlySales,
+        shop.YearlySales,
+        shop.WeeklySales,
+        shop.id,
       ],
       (_, result) => callback(result.rowsAffected),
       (_, error) => console.error('Error updating shop owner', error)
@@ -74,20 +59,20 @@ const updateShopOwner = (shopOwner: shopOwner, callback: (rowsAffected: number) 
   });
 };
 
-// Delete a shop owner
-const deleteShopOwner = (id: number, callback: (rowsAffected: number) => void) => {
+//update a shop's daily revenue
+const updateShopDailyRevenue = (shopId: number, dailyRevenue: number, callback: (rowsAffected: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
-      'DELETE FROM shop_owners WHERE id = ?;',
-      [id],
+      `UPDATE shop_information SET shopDailyRevenue = ? WHERE id = ?;`,
+      [dailyRevenue, shopId],
       (_, result) => callback(result.rowsAffected),
-      (_, error) => console.error('Error deleting shop owner', error)
+      (_, error) => console.error('Error updating shop daily revenue', error)
     );
   });
-};
+}; 
 
 // Add a product to a shop owner
-const addShopProduct = (shopOwnerId: number, product: Omit<shopProduct, 'id'>, callback: (id: number) => void) => {
+const addShopProduct = (shopId: number, product: Omit<Product, 'id'>, callback: (id: number) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
       `INSERT INTO shop_products (
@@ -96,7 +81,7 @@ const addShopProduct = (shopOwnerId: number, product: Omit<shopProduct, 'id'>, c
         dailyRevenue, weeklyRevenue, monthlyRevenue, yearlyRevenue
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
-        shopOwnerId,
+        shopId,
         product.name,
         product.price,
         product.quantity,
@@ -118,14 +103,26 @@ const addShopProduct = (shopOwnerId: number, product: Omit<shopProduct, 'id'>, c
   });
 };
 
+//update a product as stocked out
+const updateProductStockedOut = (productId: number, callback: (rowsAffected: number) => void) => {
+  db.transaction((tx) => {
+    tx.executeSql(
+      `UPDATE shop_products SET isStockedOut = 1 WHERE id = ?;`,
+      [productId],
+      (_, result) => callback(result.rowsAffected),
+      (_, error) => console.error('Error updating product as stocked out', error)
+    );
+  });
+};
+
 // Get products for a shop owner
-const getShopProducts = (shopOwnerId: number, callback: (products: shopProduct[]) => void) => {
+const getShopProducts = (shopId: number, callback: (products: Product[]) => void) => {
   db.transaction((tx) => {
     tx.executeSql(
       `SELECT * FROM shop_products WHERE shopOwnerId = ?;`,
-      [shopOwnerId],
+      [shopId],
       (_, result) => {
-        const products: shopProduct[] = result.rows.raw();
+        const products: Product[] = result.rows.raw();
         callback(products);
       },
       (_, error) => console.error('Error fetching shop products', error)
@@ -135,9 +132,9 @@ const getShopProducts = (shopOwnerId: number, callback: (products: shopProduct[]
 
 export {
   createShopOwner,
-  getShopOwners,
-  updateShopOwner,
-  deleteShopOwner,
+//   getShopOwners,
+  updateShop,
+//   deleteShopOwner,
   addShopProduct,
   getShopProducts,
 };
