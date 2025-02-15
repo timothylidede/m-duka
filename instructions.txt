@@ -19,3 +19,5 @@ This library installation below is important for the supplierManagement Page
 
 npm install lottie-react-native 
 
+Testing account PAT
+
