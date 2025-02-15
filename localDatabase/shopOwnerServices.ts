@@ -81,9 +81,9 @@ const addShopProduct = (product: Product, callback: (id: number) => void) => {
         movingFast, dailySales, weeklySales, 
         monthlySales, yearlySales,
         dailyRevenue, weeklyRevenue, 
-        monthlyRevenue, yearlyRevenue
+        monthlyRevenue, yearlyRevenue, unit
       ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         product.id,
         product.name,
@@ -100,6 +100,7 @@ const addShopProduct = (product: Product, callback: (id: number) => void) => {
         product.weeklyRevenue,
         product.monthlyRevenue,
         product.yearlyRevenue,
+        product.unit,
       ],
       (_, result) => callback(result.insertId),
       (_, error) => console.error('Error adding shop product', error)

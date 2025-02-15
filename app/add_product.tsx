@@ -1,88 +1,87 @@
-import { Stack } from 'expo-router';
-import React, { useState } from 'react';
+import { Stack, router } from "expo-router";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
-  StatusBar,
   Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+  ScrollView,
+  StatusBar,
+  Platform,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Picker } from "@react-native-picker/picker";
+import { Product } from "../localDatabase/types";
+import { addShopProduct } from "../localDatabase/shopOwnerServices"; // Import the function to add a product
 
-interface ProductForm {
-  sku: string;
-  name: string;
-  category: string;
-  costPrice: string;
-  sellingPrice: string;
-  quantity: string;
-  reorderLevel: string;
-  description: string;
-}
+export default function AddNewProduct() {
+  const [productName, setProductName] = useState("");
+  const [price, setPrice] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("pieces"); // Default unit
 
-const AddProductPage: React.FC = () => {
-  const [productForm, setProductForm] = useState<ProductForm>({
-    sku: '',
-    name: '',
-    category: '',
-    costPrice: '',
-    sellingPrice: '',
-    quantity: '',
-    reorderLevel: '',
-    description: '',
-  });
-
-  const InputField: React.FC<{
-    label: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    placeholder: string;
-    icon: string;
-    keyboardType?: 'default' | 'numeric';
-    multiline?: boolean;
-  }> = ({ label, value, onChangeText, placeholder, icon, keyboardType = 'default', multiline = false }) => (
-    <View style={styles.inputContainer}>
-      <View style={styles.inputLabel}>
-        <Feather name={icon as any} size={20} color="#2E3192" />
-        <Text style={styles.labelText}>{label}</Text>
-      </View>
-      <TextInput
-        style={[styles.input, multiline && styles.multilineInput]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-      />
-    </View>
-  );
+  // List of possible units
+  const units = [
+    "pieces",
+    "kg",
+    "grams",
+    "liters",
+    "ml",
+    "packets",
+    "boxes",
+    "bottles",
+    "bags",
+  ];
 
   const handleSubmit = () => {
-    // Validate form
-    if (!productForm.name || !productForm.sku || !productForm.sellingPrice) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    if (!productName || !price || !quantity || !unit) {
+      Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
     }
 
-    // Handle form submission
-    console.log('Product Form:', productForm);
-    Alert.alert('Success', 'Product added successfully');
-    // Reset form
-    setProductForm({
-      sku: '',
-      name: '',
-      category: '',
-      costPrice: '',
-      sellingPrice: '',
-      quantity: '',
-      reorderLevel: '',
-      description: '',
+    if (isNaN(Number(price))) {
+      Alert.alert("Invalid Price", "Please enter a valid price.");
+      return;
+    }
+
+    if (isNaN(Number(quantity))) {
+      Alert.alert("Invalid Quantity", "Please enter a valid quantity.");
+      return;
+    }
+
+    // Create a new product object
+    const product: Product = {
+      id: Math.random().toString(), // Generate a unique ID (you can use a better ID generation method)
+      name: productName,
+      price: parseFloat(price),
+      quantity: parseInt(quantity),
+      unit: unit,
+      isNearlyStockedOut: false,
+      isStockedOut: false,
+      movingFast: 0,
+      dailySales: 0,
+      weeklySales: 0,
+      monthlySales: 0,
+      yearlySales: 0,
+      dailyRevenue: 0,
+      weeklyRevenue: 0,
+      monthlyRevenue: 0,
+      yearlyRevenue: 0,
+    };
+
+    // Add the product to the database
+    addShopProduct(product, (id) => {
+      if (id) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Product added successfully!");
+        router.back(); // Navigate back after success
+      } else {
+        Alert.alert("Error", "Failed to add product. Please try again.");
+      }
     });
   };
 
@@ -90,149 +89,146 @@ const AddProductPage: React.FC = () => {
     <>
       <Stack.Screen
         options={{
-          title: 'Add New Product',
+          title: "Add New Product",
           headerStyle: {
-            backgroundColor: '#2E3192',
+            backgroundColor: "#2E3192",
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitleStyle: {
-            fontWeight: '600',
+            fontWeight: "600",
           },
-          headerShadowVisible: true,
+          headerShadowVisible: false,
         }}
       />
       <StatusBar barStyle="light-content" />
 
-      <SafeAreaView style={styles.container}>
-        <ScrollView>
-          <View style={styles.formContainer}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.formContainer}>
+          <Text style={styles.formLabel}>Product Name</Text>
+          <TextInput
+            style={styles.input}
+            value={productName}
+            onChangeText={setProductName}
+            placeholder="Enter product name"
+            placeholderTextColor="#94A3B8"
+            autoFocus
+          />
 
-            <InputField
-              label="Product Name"
-              value={productForm.name}
-              onChangeText={(text) => setProductForm({ ...productForm, name: text })}
-              placeholder="Enter product name"
-              icon="box"
-            />
+          <Text style={styles.formLabel}>Price (KES)</Text>
+          <TextInput
+            style={styles.input}
+            value={price}
+            onChangeText={setPrice}
+            placeholder="Enter price"
+            placeholderTextColor="#94A3B8"
+            keyboardType="numeric"
+          />
 
-            <InputField
-              label="Cost Price"
-              value={productForm.costPrice}
-              onChangeText={(text) => setProductForm({ ...productForm, costPrice: text })}
-              placeholder="Enter cost price"
-              icon="dollar-sign"
-              keyboardType="numeric"
-            />
+          <Text style={styles.formLabel}>Quantity</Text>
+          <TextInput
+            style={styles.input}
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder="Enter quantity"
+            placeholderTextColor="#94A3B8"
+            keyboardType="numeric"
+          />
 
-            <InputField
-              label="Selling Price"
-              value={productForm.sellingPrice}
-              onChangeText={(text) => setProductForm({ ...productForm, sellingPrice: text })}
-              placeholder="Enter selling price"
-              icon="credit-card"
-              keyboardType="numeric"
-            />
-
-            <InputField
-              label="Initial Quantity"
-              value={productForm.quantity}
-              onChangeText={(text) => setProductForm({ ...productForm, quantity: text })}
-              placeholder="Enter initial quantity"
-              icon="package"
-              keyboardType="numeric"
-            />
-
-            <InputField
-              label="Reorder Level"
-              value={productForm.reorderLevel}
-              onChangeText={(text) => setProductForm({ ...productForm, reorderLevel: text })}
-              placeholder="Enter reorder level"
-              icon="alert-circle"
-              keyboardType="numeric"
-            />
-
-
+          <Text style={styles.formLabel}>Unit</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={unit}
+              onValueChange={(itemValue) => setUnit(itemValue)}
+              style={styles.picker}
+              dropdownIconColor="#2E3192"
+            >
+              {units.map((unit, index) => (
+                <Picker.Item key={index} label={unit} value={unit} />
+              ))}
+            </Picker>
           </View>
 
           <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-              <LinearGradient
-                colors={['#2E3192', '#1BFFFF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.submitGradient}
-              >
-                <Feather name="plus-circle" size={24} color="white" />
-                <Text style={styles.submitButtonText}>Add Product</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-        </ScrollView>
-
-      </SafeAreaView>
+            <LinearGradient
+              colors={["#2E3192", "#1BFFFF"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.buttonGradient}
+            >
+              <Feather name="plus-circle" size={24} color="white" />
+              <Text style={styles.submitButtonText}>Add Product</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  formContainer: {
+    backgroundColor: "#F8FAFC",
     padding: 20,
   },
-  inputContainer: {
-    marginBottom: 20,
+  formContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
   },
-  inputLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  labelText: {
-    marginLeft: 8,
+  formLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#1E293B',
+    color: "#1E293B",
+    marginBottom: 8,
+    fontWeight: "600",
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 16,
+    borderRadius: 16,
     fontSize: 16,
-    color: '#1E293B',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    color: "#1E293B",
+    marginBottom: 16,
+    backgroundColor: "#F8FAFC",
   },
-  multilineInput: {
-    height: 100,
-    textAlignVertical: 'top',
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: "#F8FAFC",
+  },
+  picker: {
+    width: "100%",
+    color: "#1E293B",
+    borderRadius: 16,
   },
   submitButton: {
-    marginTop: 20,
-    marginBottom: 40,
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    overflow: "hidden",
     elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    marginTop: 16,
   },
-  submitGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  buttonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
     marginLeft: 12,
   },
 });
-
-export default AddProductPage;
