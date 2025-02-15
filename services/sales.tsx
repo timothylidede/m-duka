@@ -1,7 +1,7 @@
-// services/sales.ts
-
 import { firestore } from '../config/firebase';
 import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { AuthContext } from '../context/AuthContext';
+import { useContext } from 'react';
 
 // Define the interfaces
 interface SaleMetadata {
@@ -21,157 +21,181 @@ interface SalesData {
   transactions: SaleMetadata[];
 }
 
-// Define the service interface explicitly
 interface SalesService {
-  addNewSale: (amount: number, shopId: string) => Promise<void>;
-  getTodaysSalesData: (shopId: string) => Promise<SalesData>;
-  getWeeklySalesData: (shopId: string) => Promise<SalesData>;
-  getMonthlySalesData: (shopId: string) => Promise<SalesData>;
+  addNewSale: (amount: number) => Promise<void>;
+  getTodaysSalesData: () => Promise<SalesData>;
+  getWeeklySalesData: () => Promise<SalesData>;
+  getMonthlySalesData: () => Promise<SalesData>;
 }
 
-// Implement the service
-export const salesService: SalesService = {
-  async addNewSale(amount: number, shopId: string): Promise<void> {
-    const sale: SaleMetadata = {
-      id: Date.now().toString(),
-      lineItems: [{
-        price: amount,
-        productId: 'default',
-        quantity: 1,
-        paymentMethod: 'cash'
-      }],
-      timestamp: new Date()
+export const useSalesService = (): SalesService => {
+  const { shopData, isInitialized } = useContext(AuthContext);
+
+  if (!isInitialized || !shopData) {
+    // Return a no-op implementation so that the hook is always called.
+    return {
+      addNewSale: async () => {},
+      getTodaysSalesData: async () => ({
+        totalRevenue: 0,
+        salesCount: 0,
+        transactions: [],
+      }),
+      getWeeklySalesData: async () => ({
+        totalRevenue: 0,
+        salesCount: 0,
+        transactions: [],
+      }),
+      getMonthlySalesData: async () => ({
+        totalRevenue: 0,
+        salesCount: 0,
+        transactions: [],
+      }),
     };
-
-    try {
-      const salesRef = collection(firestore, 'sales');
-      await addDoc(salesRef, {
-        ...sale,
-        shopId,
-        timestamp: Timestamp.fromDate(sale.timestamp)
-      });
-    } catch (error) {
-      console.error('Error adding new sale:', error);
-      throw error;
-    }
-  },
-
-  async getTodaysSalesData(shopId: string): Promise<SalesData> {
-    try {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const salesRef = collection(firestore, 'sales');
-      const q = query(
-        salesRef,
-        where('shopId', '==', shopId),
-        where('timestamp', '>=', Timestamp.fromDate(startOfDay))
-      );
-
-      const querySnapshot = await getDocs(q);
-      const transactions: SaleMetadata[] = [];
-      let totalRevenue = 0;
-
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const sale: SaleMetadata = {
-          id: doc.id,
-          lineItems: data.lineItems,
-          timestamp: data.timestamp.toDate()
-        };
-        transactions.push(sale);
-        totalRevenue += sale.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      });
-
-      return {
-        totalRevenue,
-        salesCount: transactions.length,
-        transactions
-      };
-    } catch (error) {
-      console.error('Error fetching today\'s sales:', error);
-      throw error;
-    }
-  },
-
-  async getWeeklySalesData(shopId: string): Promise<SalesData> {
-    try {
-      const startOfWeek = new Date();
-      startOfWeek.setDate(startOfWeek.getDate() - 7);
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const salesRef = collection(firestore, 'sales');
-      const q = query(
-        salesRef,
-        where('shopId', '==', shopId),
-        where('timestamp', '>=', Timestamp.fromDate(startOfWeek))
-      );
-
-      const querySnapshot = await getDocs(q);
-      const transactions: SaleMetadata[] = [];
-      let totalRevenue = 0;
-
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const sale: SaleMetadata = {
-          id: doc.id,
-          lineItems: data.lineItems,
-          timestamp: data.timestamp.toDate()
-        };
-        transactions.push(sale);
-        totalRevenue += sale.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      });
-
-      return {
-        totalRevenue,
-        salesCount: transactions.length,
-        transactions
-      };
-    } catch (error) {
-      console.error('Error fetching weekly sales:', error);
-      throw error;
-    }
-  },
-
-  async getMonthlySalesData(shopId: string): Promise<SalesData> {
-    try {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(startOfMonth.getDate() - 30);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const salesRef = collection(firestore, 'sales');
-      const q = query(
-        salesRef,
-        where('shopId', '==', shopId),
-        where('timestamp', '>=', Timestamp.fromDate(startOfMonth))
-      );
-
-      const querySnapshot = await getDocs(q);
-      const transactions: SaleMetadata[] = [];
-      let totalRevenue = 0;
-
-      querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const sale: SaleMetadata = {
-          id: doc.id,
-          lineItems: data.lineItems,
-          timestamp: data.timestamp.toDate()
-        };
-        transactions.push(sale);
-        totalRevenue += sale.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      });
-
-      return {
-        totalRevenue,
-        salesCount: transactions.length,
-        transactions
-      };
-    } catch (error) {
-      console.error('Error fetching monthly sales:', error);
-      throw error;
-    }
   }
+
+  const shopId = shopData.contact;
+
+  return {
+    async addNewSale(amount: number): Promise<void> {
+      const sale: SaleMetadata = {
+        id: Date.now().toString(),
+        lineItems: [{
+          price: amount,
+          productId: 'default',
+          quantity: 1,
+          paymentMethod: 'cash'
+        }],
+        timestamp: new Date()
+      };
+
+      try {
+        const salesRef = collection(firestore, `shops/${shopId}/sales`);
+        await addDoc(salesRef, {
+          ...sale,
+          timestamp: Timestamp.fromDate(sale.timestamp)
+        });
+      } catch (error) {
+        console.error('Error adding new sale:', error);
+        throw error;
+      }
+    },
+
+    async getTodaysSalesData(): Promise<SalesData> {
+      try {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+        const salesRef = collection(firestore, `shops/${shopId}/sales`);
+        const q = query(
+          salesRef,
+          where('timestamp', '>=', Timestamp.fromDate(startOfToday)),
+          where('timestamp', '<=', Timestamp.fromDate(endOfToday))
+        );
+
+        const querySnapshot = await getDocs(q);
+        const transactions: SaleMetadata[] = [];
+        let totalRevenue = 0;
+
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          const sale: SaleMetadata = {
+            id: doc.id,
+            lineItems: data.lineItems,
+            timestamp: data.timestamp.toDate()
+          };
+          transactions.push(sale);
+          totalRevenue += sale.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        });
+
+        return {
+          totalRevenue,
+          salesCount: transactions.length,
+          transactions
+        };
+      } catch (error) {
+        console.error('Error fetching today\'s sales:', error);
+        throw error;
+      }
+    },
+
+    async getWeeklySalesData(): Promise<SalesData> {
+      try {
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const salesRef = collection(firestore, `shops/${shopId}/sales`);
+        const q = query(
+          salesRef,
+          where('timestamp', '>=', Timestamp.fromDate(startOfWeek))
+        );
+
+        const querySnapshot = await getDocs(q);
+        const transactions: SaleMetadata[] = [];
+        let totalRevenue = 0;
+
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          const sale: SaleMetadata = {
+            id: doc.id,
+            lineItems: data.lineItems,
+            timestamp: data.timestamp.toDate()
+          };
+          transactions.push(sale);
+          totalRevenue += sale.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        });
+
+        return {
+          totalRevenue,
+          salesCount: transactions.length,
+          transactions
+        };
+      } catch (error) {
+        console.error('Error fetching weekly sales:', error);
+        throw error;
+      }
+    },
+
+    async getMonthlySalesData(): Promise<SalesData> {
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const salesRef = collection(firestore, `shops/${shopId}/sales`);
+        const q = query(
+          salesRef,
+          where('timestamp', '>=', Timestamp.fromDate(startOfMonth))
+        );
+
+        const querySnapshot = await getDocs(q);
+        const transactions: SaleMetadata[] = [];
+        let totalRevenue = 0;
+
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          const sale: SaleMetadata = {
+            id: doc.id,
+            lineItems: data.lineItems,
+            timestamp: data.timestamp.toDate()
+          };
+          transactions.push(sale);
+          totalRevenue += sale.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        });
+
+        return {
+          totalRevenue,
+          salesCount: transactions.length,
+          transactions
+        };
+      } catch (error) {
+        console.error('Error fetching monthly sales:', error);
+        throw error;
+      }
+    }
+  };
 };
 
-// Export types for external use
 export type { SaleMetadata, SalesData, SalesService };

@@ -18,16 +18,15 @@ import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { salesService } from '../services/sales';
+import { useSalesService } from '../../services/sales';
 import { AuthContext } from '../../context/AuthContext';
+import LineChartComponent from '@/components/lineChartComponent';
 
 // Define SalesData type
 interface SalesData {
   totalRevenue: number;
   salesCount: number;
 }
-import LineChartComponent from '@/components/lineChartComponent'; // Import the LineChartComponent
-
 
 // Import animations
 const loadingAnimation = require('../../assets/animations/loading-animation.json');
@@ -41,16 +40,16 @@ interface TimeRangeButtonProps {
 }
 
 const TimeRangeButton: React.FC<TimeRangeButtonProps> = ({ title, isActive, onPress }) => (
-  <TouchableOpacity 
+  <TouchableOpacity
     onPress={onPress}
     style={[
-      styles.timeRangeButton,
-      isActive && styles.timeRangeButtonActive
+      styles.dateButton,
+      isActive && styles.activeDateButton
     ]}
   >
     <Text style={[
-      styles.timeRangeButtonText,
-      isActive && styles.timeRangeButtonTextActive
+      styles.dateButtonText,
+      isActive && styles.activeDateButtonText
     ]}>
       {title}
     </Text>
@@ -85,24 +84,23 @@ export default function Index() {
   const authContext = useContext(AuthContext);
   const shopData = authContext ? authContext.shopData : null;
 
+
+  // Sales service
+  const salesService = useSalesService();
+
   // Fetch sales data based on time range
   const fetchSalesData = async (range: 'today' | 'week' | 'month' = timeRange) => {
-    if (!shopData?.contact) {
-      console.error('No shop contact available');
-      return;
-    }
-    
     try {
       let data: SalesData;
       switch (range) {
         case 'week':
-          data = await salesService.getWeeklySalesData(shopData.contact);
+          data = await salesService.getWeeklySalesData();
           break;
         case 'month':
-          data = await salesService.getMonthlySalesData(shopData.contact);
+          data = await salesService.getMonthlySalesData();
           break;
         default:
-          data = await salesService.getTodaysSalesData(shopData.contact);
+          data = await salesService.getTodaysSalesData();
       }
       
       setSalesData({
@@ -173,12 +171,7 @@ export default function Index() {
   };
 
   const handleDoneClick = async () => {
-    if (!shopData?.contact) {
-      Alert.alert('Error', 'Shop ID not found. Please log in again.');
-      return;
-    }
-
-    if (!saleAmount || isNaN(Number(saleAmount)) || parseFloat(saleAmount) <= 0) {
+    if (!saleAmount || isNaN(Number(saleAmount))) {
       Alert.alert('Invalid Input', 'Please enter a valid sale amount.');
       return;
     }
@@ -186,7 +179,7 @@ export default function Index() {
     setIsLoading(true);
     
     try {
-      await salesService.addNewSale(parseFloat(saleAmount), shopData.contact);
+      await salesService.addNewSale(parseFloat(saleAmount));
       await fetchSalesData();
       setTransactionComplete(true);
       setIsFormVisible(false);
@@ -202,8 +195,18 @@ export default function Index() {
       setIsLoading(false);
     }
   };
+  // Render based on authContext initialization and auth state
+  if (!authContext?.isInitialized) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E3192" />
+      </View>
+    );
+  }
 
   if (!authChecked || !isLoggedIn) return null;
+
+  const lastUpdated = new Date().toLocaleString();
 
   return (
     <>
@@ -224,21 +227,14 @@ export default function Index() {
 
       <ScrollView style={styles.container}>
         <View style={styles.timeRangeContainer}>
-          <TimeRangeButton 
-            title="Today" 
-            isActive={timeRange === 'today'} 
-            onPress={() => handleTimeRangeChange('today')}
-          />
-          <TimeRangeButton 
-            title="This Week" 
-            isActive={timeRange === 'week'} 
-            onPress={() => handleTimeRangeChange('week')}
-          />
-          <TimeRangeButton 
-            title="This Month" 
-            isActive={timeRange === 'month'} 
-            onPress={() => handleTimeRangeChange('month')}
-          />
+          {['today', 'week', 'month'].map((range) => (
+            <TimeRangeButton 
+              key={range}
+              title={range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'} 
+              isActive={timeRange === range} 
+              onPress={() => handleTimeRangeChange(range as 'today' | 'week' | 'month')}
+            />
+          ))}
         </View>
 
         <Animated.View style={{ opacity: fadeAnim }}>
@@ -268,7 +264,7 @@ export default function Index() {
                   </Text>
                   <Animated.Text style={[styles.balanceAmount, { transform: [{ scale: scaleAnim }] }]}>
                     <Text style={styles.currency}>KES </Text>
-                    {salesData.totalRevenue.toLocaleString()}
+                    {salesData.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Animated.Text>
                 </View>
                 
@@ -281,7 +277,7 @@ export default function Index() {
                   <View style={styles.statsContainer}>
                     <Text style={styles.statsLabel}>Avg. Sale</Text>
                     <Text style={styles.statsValue}>
-                      KES {Math.round(salesData.averageSale).toLocaleString()}
+                      KES {Math.round(salesData.averageSale).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Text>
                   </View>
                 </View>
@@ -370,10 +366,13 @@ export default function Index() {
 
         <View style={styles.lineChartContainer}>
           <LineChartComponent 
-            timeRange={timeRange} 
-            shopContact={shopData?.contact}
+            timeRange={timeRange}
           />
         </View> 
+
+        <View style={styles.lastUpdatedContainer}>
+          <Text style={styles.lastUpdatedText}>Last Updated: {lastUpdated}</Text>
+        </View>
       </ScrollView>
     </>
   );
@@ -386,25 +385,32 @@ const styles = StyleSheet.create({
   },
   timeRangeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 20,
-    paddingBottom: 0,
+    backgroundColor: '#fff',
+    margin: 20,
+    borderRadius: 16,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  timeRangeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+  dateButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
   },
-  timeRangeButtonActive: {
+  activeDateButton: {
     backgroundColor: '#2E3192',
   },
-  timeRangeButtonText: {
+  dateButtonText: {
     color: '#64748B',
+    fontSize: 14,
     fontWeight: '600',
   },
-  timeRangeButtonTextActive: {
-    color: '#FFF',
+  activeDateButtonText: {
+    color: '#fff',
   },
   cardContainer: {
     borderRadius: 24,
@@ -589,5 +595,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
-  }
+  },
+  lastUpdatedContainer: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    margin: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  lastUpdatedText: {
+    color: '#64748B',
+    fontSize: 14,
+    marginBottom: 50,
+  },
 });

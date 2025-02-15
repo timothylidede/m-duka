@@ -85,16 +85,16 @@ export default function RootLayout() {
   return (
     // Wrap your navigation stack with the AuthProvider
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        {!isLoggedIn ? (
-          <>
-            <Stack.Screen name="login" />
-            <Stack.Screen name="signup" />
-          </>
-        ) : (
-          <Stack.Screen name="(tabs)" />
-        )}
-      </Stack>
-    </AuthProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      {!isLoggedIn ? (
+        <>
+          <Stack.Screen name="login" />
+          <Stack.Screen name="signup" />
+        </>
+      ) : (
+        <Stack.Screen name="(tabs)" />
+      )}
+    </Stack>
+  </AuthProvider>
   );
 }

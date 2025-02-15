@@ -5,7 +5,6 @@ import { app } from "../config/firebase";
 
 const db = getFirestore(app);
 
-// Define shop data structure
 interface ShopData {
   contact: string;
   county: string;
@@ -16,20 +15,20 @@ interface ShopData {
   updatedAt?: string;
 }
 
-// Define context structure
 interface AuthContextType {
   shopData: ShopData | null;
   login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  isInitialized: boolean; // Add this flag
 }
 
-// Create context with default values
 export const AuthContext = createContext<AuthContextType>({
   shopData: null,
   login: async () => {},
   logout: async () => {},
   isLoading: true,
+  isInitialized: false, // Add default value
 });
 
 interface AuthProviderProps {
@@ -39,8 +38,8 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [shopData, setShopData] = useState<ShopData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Function to fetch shop data from Firestore using email
   const fetchShopDataByEmail = async (email: string) => {
     try {
       const shopsRef = collection(db, "shops");
@@ -59,7 +58,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Function to log in a shop and fetch data
   const login = async (email: string) => {
     try {
       setIsLoading(true);
@@ -80,7 +78,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Function to log out a shop
   const logout = async () => {
     try {
       await AsyncStorage.multiRemove([
@@ -94,7 +91,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Load shop data on app start
   useEffect(() => {
     const loadShopData = async () => {
       try {
@@ -108,6 +104,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error("Error loading stored shop data:", error);
       } finally {
         setIsLoading(false);
+        setIsInitialized(true); // Mark as initialized after initial load
       }
     };
 
@@ -115,7 +112,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ shopData, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ shopData, login, logout, isLoading, isInitialized }}>
       {children}
     </AuthContext.Provider>
   );
