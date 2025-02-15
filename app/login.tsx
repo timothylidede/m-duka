@@ -1,5 +1,4 @@
-// PasscodeScreen.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -14,9 +13,16 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { LinearGradient } from "expo-linear-gradient";
-import { getFirestore, collection, query, where, getDocs } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { app } from "../config/firebase";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { AuthContext } from "../context/AuthContext";
 
 const ONE_HOUR = 60 * 60 * 1000;
 const db = getFirestore(app);
@@ -27,7 +33,15 @@ export default function PasscodeScreen() {
   const [shouldShowPasscode, setShouldShowPasscode] = useState(false);
   const [dotScale] = useState([...Array(4)].map(() => new Animated.Value(1)));
   const [loading, setLoading] = useState(false);
+  const [isInitialCheckComplete, setIsInitialCheckComplete] = useState(false);
   const router = useRouter();
+
+  // Ensure AuthContext is provided and destructure login from it.
+  const authContext = useContext(AuthContext);
+  if (!authContext) {
+    throw new Error("AuthContext is not provided. Wrap your app with AuthProvider.");
+  }
+  const { login } = authContext;
 
   useEffect(() => {
     const checkLastOpened = async () => {
@@ -47,6 +61,8 @@ export default function PasscodeScreen() {
         console.error("Error checking last opened time:", error);
         setShouldShowPasscode(true);
         await SplashScreen.hideAsync();
+      } finally {
+        setIsInitialCheckComplete(true);
       }
     };
 
@@ -106,6 +122,10 @@ export default function PasscodeScreen() {
           if (storedPasscode && newPasscode === storedPasscode) {
             await AsyncStorage.setItem("lastOpenedTime", Date.now().toString());
             await AsyncStorage.setItem("savedEmail", email);
+            await AsyncStorage.setItem("loggedInUser", email); // Store logged-in user
+
+            // Inform AuthContext of the successful login
+            await login(email);
             router.replace("/(tabs)");
           } else {
             setPasscode("");
@@ -116,10 +136,7 @@ export default function PasscodeScreen() {
           }
         } catch (error) {
           console.error("Error during login:", error);
-          Alert.alert(
-            "Error",
-            "An error occurred during login. Please try again."
-          );
+          Alert.alert("Error", "An error occurred during login. Please try again.");
         } finally {
           setLoading(false);
         }
@@ -143,7 +160,15 @@ export default function PasscodeScreen() {
     );
   };
 
-  if (!shouldShowPasscode) return null;
+  // Render nothing until the initial check is complete
+  if (!isInitialCheckComplete) {
+    return null;
+  }
+
+  // Render the passcode screen only if shouldShowPasscode is true
+  if (!shouldShowPasscode) {
+    return null;
+  }
 
   return (
     <LinearGradient colors={["#1a2a6c", "#b21f1f"]} style={styles.container}>
@@ -191,7 +216,6 @@ export default function PasscodeScreen() {
           <View style={styles.keypadContainer}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((num, index) => {
               if (num === "") {
-                // Render an empty view for layout spacing
                 return (
                   <View
                     key={index}

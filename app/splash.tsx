@@ -7,14 +7,13 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-  withDelay,
   Easing,
   interpolate,
   runOnJS,
   withRepeat,
 } from 'react-native-reanimated';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 interface SplashScreenProps {
@@ -23,51 +22,48 @@ interface SplashScreenProps {
 }
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationComplete, isAppReady }) => {
+  // Shared values for various animations
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
-  const slideM = useSharedValue(-50);
-  const slideDuka = useSharedValue(50);
-  const rotateM = useSharedValue(0);
-  const gradientPosition = useSharedValue(0);
-  const loadingDots = useSharedValue(0);
+  const slideMy = useSharedValue(-50);
+  const slideShop = useSharedValue(50);
+  const rotateMy = useSharedValue(0);
   const shimmer = useSharedValue(0);
+  const loadingDots = useSharedValue(0);
 
   useEffect(() => {
-    // Initial animations
+    // Entry animations
     const startEntryAnimation = () => {
       scale.value = withSequence(
         withTiming(1.2, { duration: 800, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
         withTiming(1, { duration: 300 })
       );
-      
+
       opacity.value = withTiming(1, { duration: 1000 });
-      
-      slideM.value = withSpring(0, {
+
+      slideMy.value = withSpring(0, {
         damping: 8,
         stiffness: 100,
         mass: 0.5,
       });
-      
-      slideDuka.value = withSpring(0, {
+
+      slideShop.value = withSpring(0, {
         damping: 8,
         stiffness: 100,
         mass: 0.5,
       });
-      
-      // Continuous rotation with pause
-      rotateM.value = withRepeat(
+
+      // Continuous rotation for the "my" text
+      rotateMy.value = withRepeat(
         withSequence(
-          withTiming(360, {
-            duration: 2000,
-            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-          }),
+          withTiming(360, { duration: 2000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
           withTiming(360, { duration: 1000 })
         ),
         -1,
         true
       );
 
-      // Shimmer effect
+      // Shimmer effect animation
       shimmer.value = withRepeat(
         withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
         -1,
@@ -82,44 +78,42 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationComplete, isAppR
       );
     };
 
-    // Exit animation when app is ready
+    // Exit animation – now delayed by 5 seconds
     const startExitAnimation = () => {
       scale.value = withSequence(
         withTiming(1.1, { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
         withTiming(0, { duration: 500 })
       );
-      
-      opacity.value = withTiming(0, {
-        duration: 400,
-        easing: Easing.out(Easing.ease),
-      }, () => {
+
+      opacity.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.ease) }, () => {
         runOnJS(onAnimationComplete)();
       });
     };
 
     startEntryAnimation();
 
-    // When app is ready, start exit animation after a small delay
+    // Delay exit animation for 5 seconds if the app is ready
     if (isAppReady) {
-      setTimeout(startExitAnimation, 500);
+      setTimeout(startExitAnimation, 5000);
     }
   }, [isAppReady]);
 
+  // Animated styles
   const containerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
 
-  const mStyle = useAnimatedStyle(() => ({
+  const myStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: slideM.value },
-      { rotate: `${interpolate(rotateM.value, [0, 360], [0, 360])}deg` },
+      { translateX: slideMy.value },
+      { rotate: `${interpolate(rotateMy.value, [0, 360], [0, 360])}deg` },
     ],
   }));
 
-  const dukaStyle = useAnimatedStyle(() => ({
+  const shopStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: slideDuka.value },
+      { translateX: slideShop.value },
       { scale: interpolate(shimmer.value, [0, 0.5, 1], [1, 1.05, 1]) },
     ],
   }));
@@ -127,11 +121,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationComplete, isAppR
   const gradientStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateX: interpolate(
-          shimmer.value,
-          [0, 1],
-          [-width * 0.5, width * 0.5]
-        ),
+        translateX: interpolate(shimmer.value, [0, 1], [-width * 0.5, width * 0.5]),
       },
     ],
   }));
@@ -149,10 +139,11 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationComplete, isAppR
         style={[styles.gradient, containerStyle]}
       >
         <View style={styles.logoContainer}>
-          <Animated.Text style={[styles.m, mStyle]}>m</Animated.Text>
-          <Animated.Text style={[styles.duka, dukaStyle]}>Duka</Animated.Text>
+          <Animated.Text style={[styles.my, myStyle]}>my</Animated.Text>
+          <Animated.Text style={[styles.shop, shopStyle]}>shop</Animated.Text>
         </View>
-        
+
+        {/* Show loading dots only if the app is not ready */}
         {!isAppReady && (
           <View style={styles.loadingContainer}>
             <Animated.View style={[styles.loadingDot, loadingDotsStyle]} />
@@ -160,7 +151,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationComplete, isAppR
             <Animated.View style={[styles.loadingDot, loadingDotsStyle]} />
           </View>
         )}
-        
+
         <Animated.View style={[styles.shimmer, gradientStyle]} />
       </AnimatedLinearGradient>
     </View>
@@ -182,7 +173,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  m: {
+  my: {
     fontSize: 72,
     fontWeight: '900',
     color: '#fff',
@@ -190,7 +181,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 4,
   },
-  duka: {
+  shop: {
     fontSize: 64,
     fontWeight: '700',
     color: '#fff',

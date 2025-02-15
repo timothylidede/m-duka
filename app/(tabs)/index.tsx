@@ -1,5 +1,5 @@
-import { Stack, router } from 'expo-router';
-import React, { useState, useRef } from 'react';
+import { Stack } from 'expo-router';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -10,46 +10,156 @@ import {
   Alert,
   StatusBar,
   ScrollView,
-  Platform
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSalesService } from '../../services/sales';
+import { AuthContext } from '../../context/AuthContext';
 import LineChartComponent from '@/components/lineChartComponent';
-import LowStockChart from '@/components/lowStockChart';
-import { useNavigation } from '@react-navigation/native';
+
+// Define SalesData type
+interface SalesData {
+  totalRevenue: number;
+  salesCount: number;
+}
 
 // Import animations
 const loadingAnimation = require('../../assets/animations/loading-animation.json');
 const successAnimation = require('../../assets/animations/success-animation.json');
 
+// Define TimeRangeButton props type
+interface TimeRangeButtonProps {
+  title: string;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+const TimeRangeButton: React.FC<TimeRangeButtonProps> = ({ title, isActive, onPress }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[
+      styles.dateButton,
+      isActive && styles.activeDateButton
+    ]}
+  >
+    <Text style={[
+      styles.dateButtonText,
+      isActive && styles.activeDateButtonText
+    ]}>
+      {title}
+    </Text>
+  </TouchableOpacity>
+);
+
 export default function Index() {
-  const navigation = useNavigation();
+  // Authentication state
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // UI state
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [saleAmount, setSaleAmount] = useState('');
   const [transactionComplete, setTransactionComplete] = useState(false);
-  const [balanceAmount, setBalanceAmount] = useState(125840); // Example static balance
   const [isLoading, setIsLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
   
-  // Animation values
+  // Sales data state
+  const [salesData, setSalesData] = useState({
+    totalRevenue: 0,
+    salesCount: 0,
+    averageSale: 0
+  });
+  
+  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const formSlideAnim = useRef(new Animated.Value(0)).current;
+  
+  // Context
+  const authContext = useContext(AuthContext);
+  const shopData = authContext ? authContext.shopData : null;
+
+
+  // Sales service
+  const salesService = useSalesService();
+
+  // Fetch sales data based on time range
+  const fetchSalesData = async (range: 'today' | 'week' | 'month' = timeRange) => {
+    try {
+      let data: SalesData;
+      switch (range) {
+        case 'week':
+          data = await salesService.getWeeklySalesData();
+          break;
+        case 'month':
+          data = await salesService.getMonthlySalesData();
+          break;
+        default:
+          data = await salesService.getTodaysSalesData();
+      }
+      
+      setSalesData({
+        totalRevenue: data.totalRevenue || 0,
+        salesCount: data.salesCount || 0,
+        averageSale: data.salesCount ? (data.totalRevenue / data.salesCount) : 0
+      });
+    } catch (error) {
+      console.error('Error fetching sales data:', error);
+      Alert.alert('Error', 'Failed to fetch sales data');
+    }
+  };
+
+  // Check authentication and fetch initial data
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const loggedInUser = await AsyncStorage.getItem('loggedInUser');
+        const lastOpenedTime = await AsyncStorage.getItem('lastOpenedTime');
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+
+        if (!loggedInUser || !lastOpenedTime || now - parseInt(lastOpenedTime, 10) > ONE_HOUR) {
+          router.replace('/login');
+        } else {
+          setIsLoggedIn(true);
+          fetchSalesData();
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+        router.replace('/login');
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   // Initial animations
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.spring(fadeAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  useEffect(() => {
+    if (isLoggedIn) {
+      Animated.parallel([
+        Animated.spring(fadeAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isLoggedIn]);
+
+  const handleTimeRangeChange = (range: 'today' | 'week' | 'month') => {
+    setTimeRange(range);
+    fetchSalesData(range);
+  };
 
   const handleSalePress = () => {
     setIsFormVisible(true);
@@ -60,13 +170,8 @@ export default function Index() {
     }).start();
   };
 
-  const handleCardPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('../transactions'); // Update the path to match your file structure
-  };
-
   const handleDoneClick = async () => {
-    if (!saleAmount || isNaN(Number(saleAmount)) || parseFloat(saleAmount) <= 0) {
+    if (!saleAmount || isNaN(Number(saleAmount))) {
       Alert.alert('Invalid Input', 'Please enter a valid sale amount.');
       return;
     }
@@ -74,11 +179,8 @@ export default function Index() {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newAmount = parseFloat(saleAmount);
-      setBalanceAmount(prev => prev + newAmount);
+      await salesService.addNewSale(parseFloat(saleAmount));
+      await fetchSalesData();
       setTransactionComplete(true);
       setIsFormVisible(false);
       setSaleAmount('');
@@ -93,6 +195,18 @@ export default function Index() {
       setIsLoading(false);
     }
   };
+  // Render based on authContext initialization and auth state
+  if (!authContext?.isInitialized) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E3192" />
+      </View>
+    );
+  }
+
+  if (!authChecked || !isLoggedIn) return null;
+
+  const lastUpdated = new Date().toLocaleString();
 
   return (
     <>
@@ -111,11 +225,22 @@ export default function Index() {
       />
       <StatusBar barStyle="light-content" />
 
-      <ScrollView>
-        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <ScrollView style={styles.container}>
+        <View style={styles.timeRangeContainer}>
+          {['today', 'week', 'month'].map((range) => (
+            <TimeRangeButton 
+              key={range}
+              title={range === 'today' ? 'Today' : range === 'week' ? 'This Week' : 'This Month'} 
+              isActive={timeRange === range} 
+              onPress={() => handleTimeRangeChange(range as 'today' | 'week' | 'month')}
+            />
+          ))}
+        </View>
+
+        <Animated.View style={{ opacity: fadeAnim }}>
           <TouchableOpacity 
             activeOpacity={0.9}
-            onPress={handleCardPress}
+            onPress={() => router.push('/transactions')}
           >
             <LinearGradient
               colors={['#2E3192', '#1BFFFF']}
@@ -132,23 +257,27 @@ export default function Index() {
                 </View>
                 
                 <View style={styles.balanceContainer}>
-                  <Text style={styles.balanceLabel}>Today's Revenue:</Text>
+                  <Text style={styles.balanceLabel}>
+                    {timeRange === 'today' ? "Today's" : 
+                     timeRange === 'week' ? "This Week's" : 
+                     "This Month's"} Revenue:
+                  </Text>
                   <Animated.Text style={[styles.balanceAmount, { transform: [{ scale: scaleAnim }] }]}>
                     <Text style={styles.currency}>KES </Text>
-                    {balanceAmount.toLocaleString()}
+                    {salesData.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Animated.Text>
                 </View>
                 
                 <View style={styles.cardFooter}>
                   <View style={styles.statsContainer}>
-                    <Text style={styles.statsLabel}>Today's Sales</Text>
-                    <Text style={styles.statsValue}>12</Text>
+                    <Text style={styles.statsLabel}>Total Sales</Text>
+                    <Text style={styles.statsValue}>{salesData.salesCount}</Text>
                   </View>
                   <View style={styles.divider} />
                   <View style={styles.statsContainer}>
                     <Text style={styles.statsLabel}>Avg. Sale</Text>
                     <Text style={styles.statsValue}>
-                      KES {Math.round(balanceAmount / 12).toLocaleString()}
+                      KES {Math.round(salesData.averageSale).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Text>
                   </View>
                 </View>
@@ -164,6 +293,7 @@ export default function Index() {
                 loop
                 style={styles.lottieAnimation}
               />
+              <Text style={styles.loadingText}>Processing Sale...</Text>
             </View>
           ) : transactionComplete ? (
             <View style={styles.successContainer}>
@@ -234,16 +364,14 @@ export default function Index() {
           )}
         </Animated.View>
 
-        <View style={styles.lineChartView}>
-          <LineChartComponent />
-        </View>
+        <View style={styles.lineChartContainer}>
+          <LineChartComponent 
+            timeRange={timeRange}
+          />
+        </View> 
 
-        <View style={styles.lineChartView}>
-          <LowStockChart />
-        </View>
-
-        <View style={styles.bottomMargin}>
-          <Text style={styles.buttonText}> terms and conditions </Text>
+        <View style={styles.lastUpdatedContainer}>
+          <Text style={styles.lastUpdatedText}>Last Updated: {lastUpdated}</Text>
         </View>
       </ScrollView>
     </>
@@ -254,12 +382,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    padding: 20,
+  },
+  timeRangeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    margin: 20,
+    borderRadius: 16,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dateButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  activeDateButton: {
+    backgroundColor: '#2E3192',
+  },
+  dateButtonText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activeDateButtonText: {
+    color: '#fff',
   },
   cardContainer: {
     borderRadius: 24,
+    margin: 20,
     padding: 24,
-    marginBottom: 24,
     elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.15,
@@ -329,6 +485,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   addSaleButton: {
+    marginHorizontal: 20,
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 4,
@@ -352,6 +509,7 @@ const styles = StyleSheet.create({
   formContainer: {
     backgroundColor: '#fff',
     borderRadius: 24,
+    margin: 20,
     padding: 24,
     elevation: 4,
     shadowColor: '#000',
@@ -402,14 +560,20 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   loadingContainer: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    color: '#2E3192',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
   },
   successContainer: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
   },
   lottieAnimation: {
     width: 120,
@@ -421,20 +585,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 16,
   },
-  lineChartView: {
+  lineChartContainer: {
     backgroundColor: 'white',
-    padding: 10,
-    marginTop: 50,
-    marginLeft: 10,
-    marginRight: 10,
-    marginBottom: 20,
+    margin: 20,
+    padding: 20,
     borderRadius: 24,
-    elevation: 12,
+    elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
   },
-  bottomMargin: {
-    marginBottom: 100,
+  lastUpdatedContainer: {
+    padding: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    margin: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  lastUpdatedText: {
+    color: '#64748B',
+    fontSize: 14,
+    marginBottom: 50,
   },
 });

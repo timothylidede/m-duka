@@ -16,9 +16,9 @@ type TabBarIconProps = {
 };
 
 type RootTabParamList = {
-  Earnings: undefined;
-  Business: undefined;
-  Profile: undefined;
+  SalesDashboard: undefined;
+  ManageBusiness: undefined;
+  Inventory: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -102,29 +102,32 @@ const MainContainer: React.FC = () => {
       }}
     >
       <Tab.Screen 
-        name="Earnings" 
+        name="SalesDashboard" 
         component={CreditCard}
         options={{
+          tabBarLabel: "Sales Dashboard",
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon="credit-card" label="Earnings" />
+            <TabBarIcon focused={focused} icon="credit-card" label="Sales Dashboard" />
           ),
         }}
       />
       <Tab.Screen 
-        name="Business" 
+        name="ManageBusiness" 
         component={SalesPage}
         options={{
+          tabBarLabel: "Manage Business",
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon="bar-chart-2" label="Business" />
+            <TabBarIcon focused={focused} icon="bar-chart-2" label="Manage Business" />
           ),
         }}
       />
       <Tab.Screen 
-        name="Profile" 
+        name="Inventory" 
         component={RetailProfile}
         options={{
+          tabBarLabel: "Inventory",
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon focused={focused} icon="user" label="Profile" />
+            <TabBarIcon focused={focused} icon="user" label="Inventory" />
           ),
         }}
       />
