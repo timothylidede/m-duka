@@ -19,9 +19,8 @@ export interface Product {
     lastSynchronized?: number; // Optional for synchronization
   }
   
-  // The id is a string
-  // name is the owner's name
-  // Name is the shop's name
+// The id is a string
+// contact as a string is used as the primary key for the shops table
   export interface shop {
     id: string; // Optional for creation (auto-incremented by the database)
     ownername: string;
