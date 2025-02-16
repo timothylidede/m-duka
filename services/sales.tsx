@@ -68,13 +68,15 @@ export const useSalesService = (): SalesService => {
           id: Date.now().toString(),
           lineItems: [{
             price: amount,
-            productId: 'Sale',
-            quantity: 1,
+            productId: 'No product ID',
+            quantity: 0,
           }],
           timestamp: new Date(),
-          paymentMethod: 'cash'
+          paymentMethod: 'cash',
+          status: 'completed',
+          totalPrice: amount // Adding totalPrice to match the SaleMetadata interface
         };
-
+    
         // Format the date for the document ID (YYYY-MM-DD)
         const dateStr = sale.timestamp.toISOString().split('T')[0];
         
@@ -88,31 +90,23 @@ export const useSalesService = (): SalesService => {
           // Update existing date document
           const currentData = dateDoc.data();
           const updatedTransactions = [...(currentData.transactions || []), {
-            id: sale.id,
-            lineItems: sale.lineItems.map(item => ({
-              ...item,
-              status: 'completed'
-            })),
-            timestamp: Timestamp.fromDate(sale.timestamp)
+            ...sale,
+            timestamp: Timestamp.fromDate(sale.timestamp) // Convert Date to Firestore Timestamp
           }];
-
+    
           await updateDoc(dateDocRef, {
             salesCount: updatedTransactions.length,
-            totalRevenue: currentData.totalRevenue + amount,
+            totalRevenue: currentData.totalRevenue + sale.totalPrice,
             transactions: updatedTransactions
           });
         } else {
           // Create new date document
           await setDoc(dateDocRef, {
             salesCount: 1,
-            totalRevenue: amount,
+            totalRevenue: sale.totalPrice,
             transactions: [{
-              id: sale.id,
-              lineItems: sale.lineItems.map(item => ({
-                ...item,
-                status: 'completed'
-              })),
-              timestamp: Timestamp.fromDate(sale.timestamp)
+              ...sale,
+              timestamp: Timestamp.fromDate(sale.timestamp) // Convert Date to Firestore Timestamp
             }]
           });
         }
@@ -131,7 +125,21 @@ export const useSalesService = (): SalesService => {
         const dateDoc = await getDoc(salesRef);
         if (dateDoc.exists()) {
           const data = dateDoc.data();
-          const transactions: SaleMetadata[] = data.transactions.map((transaction: any) => ({
+          interface TransactionData {
+            id: string;
+            lineItems: Array<{
+              price: number;
+              productId: string;
+              quantity: number;
+              status?: string;
+            }>;
+            timestamp: Timestamp;
+            paymentMethod?: string;
+            status?: string;
+            totalPrice?: number;
+          }
+
+          const transactions: SaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
             id: transaction.id,
             lineItems: transaction.lineItems,
             timestamp: transaction.timestamp.toDate(),
@@ -190,7 +198,21 @@ export const useSalesService = (): SalesService => {
           
           if (dateDoc.exists()) {
             const data = dateDoc.data();
-            const transactions = data.transactions.map((transaction: any) => ({
+            interface TransactionData {
+              id: string;
+              lineItems: Array<{
+                price: number;
+                productId: string;
+                quantity: number;
+                status?: string;
+              }>;
+              timestamp: Timestamp;
+              paymentMethod?: string;
+              status?: string;
+              totalPrice?: number;
+            }
+
+            const transactions: SaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
               id: transaction.id,
               lineItems: transaction.lineItems,
               timestamp: transaction.timestamp.toDate(),
@@ -242,7 +264,21 @@ export const useSalesService = (): SalesService => {
           
           if (dateDoc.exists()) {
             const data = dateDoc.data();
-            const transactions = data.transactions.map((transaction: any) => ({
+            interface TransactionData {
+              id: string;
+              lineItems: Array<{
+                price: number;
+                productId: string;
+                quantity: number;
+                status?: string;
+              }>;
+              timestamp: Timestamp;
+              paymentMethod?: string;
+              status?: string;
+              totalPrice?: number;
+            }
+
+            const transactions: SaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
               id: transaction.id,
               lineItems: transaction.lineItems,
               timestamp: transaction.timestamp.toDate(),
