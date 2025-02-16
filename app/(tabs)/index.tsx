@@ -66,6 +66,7 @@ export default function Index() {
   const [saleAmount, setSaleAmount] = useState('');
   const [transactionComplete, setTransactionComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
   
   // Sales data state
@@ -90,6 +91,7 @@ export default function Index() {
 
   // Fetch sales data based on time range
   const fetchSalesData = async (range: 'today' | 'week' | 'month' = timeRange) => {
+    setIsLoadingData(true);
     try {
       let data: SalesData;
       switch (range) {
@@ -111,6 +113,8 @@ export default function Index() {
     } catch (error) {
       console.error('Error fetching sales data:', error);
       Alert.alert('Error', 'Failed to fetch sales data');
+    } finally {
+      setIsLoadingData(false); // Set loading state to false after fetch completes
     }
   };
 
@@ -224,7 +228,7 @@ export default function Index() {
         }} 
       />
       <StatusBar barStyle="light-content" />
-
+  
       <ScrollView style={styles.container}>
         <View style={styles.timeRangeContainer}>
           {['today', 'week', 'month'].map((range) => (
@@ -236,143 +240,153 @@ export default function Index() {
             />
           ))}
         </View>
-
+  
         <Animated.View style={{ opacity: fadeAnim }}>
-          <TouchableOpacity 
-            activeOpacity={0.9}
-            onPress={() => router.push('/transactions')}
-          >
-            <LinearGradient
-              colors={['#2E3192', '#1BFFFF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.cardContainer}
-            >
-              <View style={styles.cardContent}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardIconContainer}>
-                    <Feather name="trending-up" size={24} color="white" />
-                  </View>
-                  <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
-                </View>
-                
-                <View style={styles.balanceContainer}>
-                  <Text style={styles.balanceLabel}>
-                    {timeRange === 'today' ? "Today's" : 
-                     timeRange === 'week' ? "This Week's" : 
-                     "This Month's"} Revenue:
-                  </Text>
-                  <Animated.Text style={[styles.balanceAmount, { transform: [{ scale: scaleAnim }] }]}>
-                    <Text style={styles.currency}>KES </Text>
-                    {salesData.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Animated.Text>
-                </View>
-                
-                <View style={styles.cardFooter}>
-                  <View style={styles.statsContainer}>
-                    <Text style={styles.statsLabel}>Total Sales</Text>
-                    <Text style={styles.statsValue}>{salesData.salesCount}</Text>
-                  </View>
-                  <View style={styles.divider} />
-                  <View style={styles.statsContainer}>
-                    <Text style={styles.statsLabel}>Avg. Sale</Text>
-                    <Text style={styles.statsValue}>
-                      KES {Math.round(salesData.averageSale).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {isLoading ? (
+          {isLoadingData ? (
             <View style={styles.loadingContainer}>
-              <LottieView
-                source={loadingAnimation}
-                autoPlay
-                loop
-                style={styles.lottieAnimation}
-              />
-              <Text style={styles.loadingText}>Processing Sale...</Text>
+              <ActivityIndicator size="large" color="#2E3192" />
+              <Text style={styles.loadingText}>Fetching Data...</Text>
             </View>
-          ) : transactionComplete ? (
-            <View style={styles.successContainer}>
-              <LottieView
-                source={successAnimation}
-                autoPlay
-                loop={false}
-                style={styles.lottieAnimation}
-              />
-              <Text style={styles.successText}>Sale Recorded Successfully</Text>
-            </View>
-          ) : !isFormVisible ? (
-            <TouchableOpacity
-              style={styles.addSaleButton}
-              onPress={handleSalePress}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={['#2E3192', '#1BFFFF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.buttonGradient}
-              >
-                <Feather name="plus-circle" size={24} color="white" />
-                <Text style={styles.addSaleText}>Record New Sale</Text>
-              </LinearGradient>
-            </TouchableOpacity>
           ) : (
-            <Animated.View 
-              style={[styles.formContainer, {
-                transform: [{
-                  translateY: formSlideAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
-                }],
-              }]}
-            >
-              <Text style={styles.formLabel}>Enter Sale Amount</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={saleAmount}
-                onChangeText={setSaleAmount}
-                placeholder="KES 0.00"
-                placeholderTextColor="#94A3B8"
-                autoFocus
-              />
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.cancelButton]}
-                  onPress={() => {
-                    setIsFormVisible(false);
-                    setSaleAmount('');
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
+            <>
+              <TouchableOpacity 
+                activeOpacity={0.9}
+                onPress={() => router.push('/transactions')}
+              >
+                <LinearGradient
+                  colors={['#2E3192', '#1BFFFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.cardContainer}
                 >
-                  <Text style={[styles.buttonText, styles.cancelText]}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.confirmButton]}
-                  onPress={handleDoneClick}
+                  <View style={styles.cardContent}>
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardIconContainer}>
+                        <Feather name="trending-up" size={24} color="white" />
+                      </View>
+                      <Text style={styles.dateText}>{new Date().toLocaleDateString()}</Text>
+                    </View>
+                    
+                    <View style={styles.balanceContainer}>
+                      <Text style={styles.balanceLabel}>
+                        {timeRange === 'today' ? "Today's" : 
+                         timeRange === 'week' ? "This Week's" : 
+                         "This Month's"} Revenue:
+                      </Text>
+                      <Animated.Text style={[styles.balanceAmount, { transform: [{ scale: scaleAnim }] }]}>
+                        <Text style={styles.currency}>KES </Text>
+                        {salesData.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Animated.Text>
+                    </View>
+                    
+                    <View style={styles.cardFooter}>
+                      <View style={styles.statsContainer}>
+                        <Text style={styles.statsLabel}>Total Sales</Text>
+                        <Text style={styles.statsValue}>{salesData.salesCount}</Text>
+                      </View>
+                      <View style={styles.divider} />
+                      <View style={styles.statsContainer}>
+                        <Text style={styles.statsLabel}>Avg. Sale</Text>
+                        <Text style={styles.statsValue}>
+                          KES {Math.round(salesData.averageSale).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+  
+              {isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <LottieView
+                    source={loadingAnimation}
+                    autoPlay
+                    loop
+                    style={styles.lottieAnimation}
+                  />
+                  <Text style={styles.loadingText}>Processing Sale...</Text>
+                </View>
+              ) : transactionComplete ? (
+                <View style={styles.successContainer}>
+                  <LottieView
+                    source={successAnimation}
+                    autoPlay
+                    loop={false}
+                    style={styles.lottieAnimation}
+                  />
+                  <Text style={styles.successText}>Sale Recorded Successfully</Text>
+                </View>
+              ) : !isFormVisible ? (
+                <TouchableOpacity
+                  style={styles.addSaleButton}
+                  onPress={handleSalePress}
+                  activeOpacity={0.9}
                 >
-                  <Text style={styles.buttonText}>Complete Sale</Text>
+                  <LinearGradient
+                    colors={['#2E3192', '#1BFFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.buttonGradient}
+                  >
+                    <Feather name="plus-circle" size={24} color="white" />
+                    <Text style={styles.addSaleText}>Record New Sale</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
+              ) : (
+                <Animated.View 
+                  style={[styles.formContainer, {
+                    transform: [{
+                      translateY: formSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [50, 0],
+                      }),
+                    }],
+                  }]}
+                >
+                  <Text style={styles.formLabel}>Enter Sale Amount</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={saleAmount}
+                    onChangeText={setSaleAmount}
+                    placeholder="KES 0.00"
+                    placeholderTextColor="#94A3B8"
+                    autoFocus
+                  />
+                  <View style={styles.buttonContainer}>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.cancelButton]}
+                      onPress={() => {
+                        setIsFormVisible(false);
+                        setSaleAmount('');
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[styles.buttonText, styles.cancelText]}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.confirmButton]}
+                      onPress={handleDoneClick}
+                    >
+                      <Text style={styles.buttonText}>Complete Sale</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              )}
+  
+              {/* LineChartComponent and Last Updated will be shown only when data is fetched */}
+              <View style={[styles.lineChartContainer, { display: isLoadingData ? 'none' : 'flex' }]}>
+                <LineChartComponent 
+                  timeRange={timeRange}
+                />
+              </View> 
+  
+              <View style={[styles.lastUpdatedContainer, { display: isLoadingData ? 'none' : 'flex' }]}>
+                <Text style={styles.lastUpdatedText}>Last Updated: {lastUpdated}</Text>
               </View>
-            </Animated.View>
+            </>
           )}
         </Animated.View>
-
-        <View style={styles.lineChartContainer}>
-          <LineChartComponent 
-            timeRange={timeRange}
-          />
-        </View> 
-
-        <View style={styles.lastUpdatedContainer}>
-          <Text style={styles.lastUpdatedText}>Last Updated: {lastUpdated}</Text>
-        </View>
       </ScrollView>
     </>
   );

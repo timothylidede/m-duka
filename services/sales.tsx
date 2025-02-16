@@ -17,10 +17,19 @@ interface SaleMetadata {
   totalPrice: number;
 }
 
+interface getSaleMetadata {
+  id: string;
+  totalPrice: number;
+  timestamp: Date;
+  lineItems?: []; // Keep as an array to maintain structure, but empty
+  paymentMethod?: string; // Could be kept or removed depending on future needs
+  status?: string; // Could be kept or removed depending on future needs
+}
+
 interface SalesData {
   totalRevenue: number;
   salesCount: number;
-  transactions: SaleMetadata[];
+  transactions?: SaleMetadata[];
   hourlyRevenue?: number[];
   weeklyRevenue?: number[];
   monthlyRevenue?: number[];
@@ -73,7 +82,7 @@ export const useSalesService = (): SalesService => {
           }],
           timestamp: new Date(),
           paymentMethod: 'cash',
-          status: 'completed',
+          status: 'not completed',
           totalPrice: amount // Adding totalPrice to match the SaleMetadata interface
         };
     
@@ -138,19 +147,20 @@ export const useSalesService = (): SalesService => {
             status?: string;
             totalPrice?: number;
           }
-
-          const transactions: SaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
+    
+          // Use getSaleMetadata for mapping
+          const transactions: getSaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
             id: transaction.id,
-            lineItems: transaction.lineItems,
-            timestamp: transaction.timestamp.toDate(),
-            paymentMethod: transaction.paymentMethod || 'cash', // Assuming 'cash' if not specified
-            status: transaction.status || 'completed', // Assuming 'completed' if not specified
-            totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+            totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(),
+            lineItems: [],
+            paymentMethod: transaction.paymentMethod,
+            status: transaction.status
           }));
           
           const totalRevenue = transactions.reduce((sum, transaction) => sum + transaction.totalPrice, 0);
           
-          const groupByHour = (transactions: SaleMetadata[]) => { 
+          const groupByHour = (transactions: getSaleMetadata[]) => { 
             return transactions.reduce((acc, transaction) => {
               const hour = transaction.timestamp.getHours();
               acc[hour] = (acc[hour] || 0) + transaction.totalPrice;
@@ -160,11 +170,10 @@ export const useSalesService = (): SalesService => {
     
           const hourlyRevenue = groupByHour(transactions);
           const hourlyData = Array.from({ length: 24 }, (_, i) => hourlyRevenue[i] || 0);
-
+    
           return {
             totalRevenue,
             salesCount: transactions.length,
-            transactions,
             hourlyRevenue: hourlyData
           };
         } else {
@@ -180,7 +189,7 @@ export const useSalesService = (): SalesService => {
         throw error;
       }
     },
-
+    
     async getWeeklySalesData(): Promise<SalesData> {
       try {
         const now = new Date();
@@ -188,9 +197,9 @@ export const useSalesService = (): SalesService => {
         const startDate = new Date(now);
         startDate.setDate(now.getDate() - 6); // 7 days including today
         
-        let allTransactions: SaleMetadata[] = [];
+        let allTransactions: getSaleMetadata[] = [];
         let totalRevenue = 0;
-
+    
         for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
           const salesRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
@@ -211,35 +220,35 @@ export const useSalesService = (): SalesService => {
               status?: string;
               totalPrice?: number;
             }
-
-            const transactions: SaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
+    
+            // Use getSaleMetadata for mapping
+            const transactions: getSaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
               id: transaction.id,
-              lineItems: transaction.lineItems,
-              timestamp: transaction.timestamp.toDate(),
-              paymentMethod: transaction.paymentMethod || 'cash',
-              status: transaction.status || 'completed',
-              totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+              totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : d,
+              lineItems: [],
+              paymentMethod: transaction.paymentMethod,
+              status: transaction.status
             }));
             allTransactions = allTransactions.concat(transactions);
             totalRevenue += data.totalRevenue;
           }
         }
-
-        const groupByDay = (transactions: SaleMetadata[]) => {
+    
+        const groupByDay = (transactions: getSaleMetadata[]) => {
           return transactions.reduce((acc, transaction) => {
             const day = transaction.timestamp.getDay();
             acc[day] = (acc[day] || 0) + transaction.totalPrice;
             return acc;
           }, {} as { [key: number]: number });
         };
-  
+    
         const dailyRevenue = groupByDay(allTransactions);
         const weeklyData = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((_, i) => dailyRevenue[i] || 0);
-
+    
         return {
           totalRevenue,
           salesCount: allTransactions.length,
-          transactions: allTransactions,
           weeklyRevenue: weeklyData
         };
       } catch (error) {
@@ -247,14 +256,14 @@ export const useSalesService = (): SalesService => {
         throw error;
       }
     },
-
+    
     async getMonthlySalesData(): Promise<SalesData> {
       try {
         const now = new Date();
         const endDate = new Date(now);
         const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30); // 31 days including today
         
-        let allTransactions: SaleMetadata[] = [];
+        let allTransactions: getSaleMetadata[] = [];
         let totalRevenue = 0;
     
         for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -277,21 +286,22 @@ export const useSalesService = (): SalesService => {
               status?: string;
               totalPrice?: number;
             }
-
-            const transactions: SaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
+    
+            // Use getSaleMetadata for mapping
+            const transactions: getSaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
               id: transaction.id,
-              lineItems: transaction.lineItems,
-              timestamp: transaction.timestamp.toDate(),
-              paymentMethod: transaction.paymentMethod || 'cash',
-              status: transaction.status || 'completed',
-              totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+              totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : d,
+              lineItems: [],
+              paymentMethod: transaction.paymentMethod,
+              status: transaction.status
             }));
             allTransactions = allTransactions.concat(transactions);
             totalRevenue += data.totalRevenue;
           }
         }
     
-        const groupByWeek = (transactions: SaleMetadata[]) => {
+        const groupByWeek = (transactions: getSaleMetadata[]) => {
           return transactions.reduce((acc, transaction) => {
             const week = Math.floor((transaction.timestamp.getDate() - 1) / 7);
             acc[week] = (acc[week] || 0) + transaction.totalPrice;
@@ -305,7 +315,6 @@ export const useSalesService = (): SalesService => {
         return {
           totalRevenue,
           salesCount: allTransactions.length,
-          transactions: allTransactions,
           monthlyRevenue: monthlyData
         };
       } catch (error) {
