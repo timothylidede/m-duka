@@ -19,11 +19,11 @@ interface ChartData {
 
 const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
   const [chartData, setChartData] = useState<ChartData>({
-    labels: [],
-    datasets: [{ data: [], color: () => '', strokeWidth: 2 }],
+    labels: [''],
+    datasets: [{ data: [0], color: () => '', strokeWidth: 2 }], // Default with a single 0 to prevent errors
   });
   const [totalRevenue, setTotalRevenue] = useState(0);
-
+  const [hasError, setHasError] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const salesService = useSalesService();
 
@@ -72,39 +72,40 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
             }
         }
 
-        // Log original dataset
-        console.log('Original dataset:', dataset);
-
-        // Ensure all data values are valid numbers
-        dataset = dataset.map(val => {
+        // Ensure all data values are valid numbers - silently fix any invalid values
+        const sanitizedData = dataset.map(val => {
           if (isNaN(val) || !isFinite(val) || val === null || val === undefined) return 0;
-          return val;
+          return val || 0;
         });
 
-        // ** Ensure dataset length matches labels length **
-        if (dataset.length !== labels.length) {
-          // Option 1: If dataset is empty or has only one value, fill with zeros
-          // dataset = Array(labels.length).fill(0);
-
-          // Option 2: Or, if dataset has at least one value, duplicate it
-          dataset = labels.map((_, index) => (dataset[index] !== undefined ? dataset[index] : 0));
+        // Handle edge case: if we have no valid data, use a single zero point
+        if (sanitizedData.length === 0 || sanitizedData.every(val => val === 0)) {
+          const safeData = sanitizedData.length > 0 ? sanitizedData : [0];
+          const safeLabels = labels.length > 0 ? labels : [''];
+          
+          setChartData({
+            labels: safeLabels,
+            datasets: [{
+              data: safeData,
+              color,
+              strokeWidth: 3,
+            }],
+          });
+        } else {
+          setChartData({
+            labels,
+            datasets: [{
+              data: sanitizedData,
+              color,
+              strokeWidth: 3,
+            }],
+          });
         }
 
-        // Log sanitized dataset
-        console.log('Sanitized dataset:', dataset);
-
-        setTotalRevenue(data.totalRevenue || 0);
-
-        const transformedData = {
-          labels,
-          datasets: [{
-            data: dataset,
-            color,
-            strokeWidth: 3, // Slightly thicker for better visibility
-          }],
-        };
-
-        setChartData(transformedData);
+        // Ensure totalRevenue is a valid number
+        const safeRevenue = isFinite(data.totalRevenue) ? data.totalRevenue || 0 : 0;
+        setTotalRevenue(safeRevenue);
+        setHasError(false);
 
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -112,11 +113,12 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
           useNativeDriver: true,
         }).start();
       } catch (error) {
-        console.error('Error fetching chart data:', error);
+        // Set default values on error, without logging
         setChartData({
-          labels: ['Error'],
+          labels: [''],
           datasets: [{ data: [0], color: () => '#f44336', strokeWidth: 2 }],
         });
+        setHasError(true);
       }
     };
 
@@ -187,22 +189,25 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
           {formatTotalRevenue(totalRevenue)}
         </Text>
       </View>
-      <LineChart
-        data={chartData}
-        width={chartWidth}
-        height={220}
-        chartConfig={chartConfig}
-        bezier
-        style={styles.chart}
-        withVerticalLabels={true}
-        withHorizontalLabels={true}
-        withDots={true}
-        withShadow={true}
-        withInnerLines={false}
-        withOuterLines={true}
-        segments={4}
-        fromZero={true}
-      />
+      {!hasError && (
+        <LineChart
+          data={chartData}
+          width={chartWidth}
+          height={220}
+          chartConfig={chartConfig}
+          bezier
+          style={styles.chart}
+          withVerticalLabels={true}
+          withHorizontalLabels={true}
+          withDots={true}
+          withShadow={true}
+          withInnerLines={false}
+          withOuterLines={true}
+          segments={4}
+          fromZero={true}
+          yAxisInterval={1} // Ensure there's at least one interval to prevent errors
+        />
+      )}
       <Text style={styles.chartDescription}>
         {timeRange === 'today' 
           ? 'Revenue by 4-hour intervals' 
