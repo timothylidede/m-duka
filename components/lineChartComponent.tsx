@@ -52,7 +52,7 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
             break;
           case 'month':
             data = await salesService.getMonthlySalesData();
-            labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+            labels = ['3 Weeks Ago', '2 Weeks Ago ', 'Last Week', 'This Week'];
             dataset = data.monthlyRevenue || [];
             color = (opacity = 1) => `rgba(255, 152, 0, ${opacity})`; // Orange for month
             break;
