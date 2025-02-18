@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, Dimensions, StyleSheet, Animated } from 'react-native';
+import { View, Text, Dimensions, StyleSheet, Animated, FlatList } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSalesService } from '../services/sales';
 import { SalesData } from '../services/sales';
@@ -17,11 +17,17 @@ interface ChartData {
   }[];
 }
 
+interface LegendItem {
+  label: string;
+  index: number;
+}
+
 const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
   const [chartData, setChartData] = useState<ChartData>({
     labels: [],
     datasets: [{ data: [], color: () => '', strokeWidth: 2 }],
   });
+  const [legendData, setLegendData] = useState<LegendItem[]>([]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const salesService = useSalesService();
@@ -41,27 +47,28 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         let labels: string[] = [];
         let dataset: number[] = [];
         let color = (opacity = 1) => `rgba(63, 81, 181, ${opacity})`; // Deep purple to match design
+        let timeLabels: LegendItem[] = [];
 
         switch (timeRange) {
           case 'week':
             data = await salesService.getWeeklySalesData();
-            // Dynamic labels for week, from most recent to least recent day
-            labels = ['Today', 'Yesterday', '2 Days Ago', '3 Days Ago', '4 Days Ago', '5 Days Ago', '6 Days Ago'];
+            labels = Array.from({ length: 7 }, (_, i) => (i + 1).toString());
             dataset = data.weeklyRevenue || [];
             color = (opacity = 1) => `rgba(0, 188, 212, ${opacity})`; // Cyan for week
+            timeLabels = ['Today', 'Yesterday', '2 Days Ago', '3 Days Ago', '4 Days Ago', '5 Days Ago', '6 Days Ago'].map((label, index) => ({ label, index }));
             break;
           case 'month':
             data = await salesService.getMonthlySalesData();
-            // Dynamic labels for month, from most recent to least recent week
-            labels = ['This Week', 'Last Week', '2 Weeks Ago', '3 Weeks Ago'];
+            labels = Array.from({ length: 4 }, (_, i) => (i + 1).toString());
             dataset = data.monthlyRevenue || [];
             color = (opacity = 1) => `rgba(255, 152, 0, ${opacity})`; // Orange for month
+            timeLabels = ['This Week', 'Last Week', '2 Weeks Ago', '3 Weeks Ago'].map((label, index) => ({ label, index }));
             break;
           default:
             data = await salesService.getTodaysSalesData();
-            // Dynamic labels for today, from most recent to least recent hour
-            labels = ['Now', '4 hrs ago', '8 hrs ago', '12 hrs ago', '16 hrs ago', '20 hrs ago'];
+            labels = ['0', '4', '8', '12', '16', '20'];
             dataset = data.hourlyRevenue ? data.hourlyRevenue.filter((_, i) => i % 4 === 0) : [];
+            timeLabels = ['Now', '4 hrs ago', '8 hrs ago', '12 hrs ago', '16 hrs ago', '20 hrs ago'].map((label, index) => ({ label, index }));
         }
 
         const transformedData = {
@@ -74,6 +81,7 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         };
 
         setChartData(transformedData);
+        setLegendData(timeLabels);
 
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -86,6 +94,7 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
           labels: ['Error'],
           datasets: [{ data: [0], color: () => '', strokeWidth: 2 }],
         });
+        setLegendData([{ label: 'Error', index: 0 }]);
       }
     };
 
@@ -117,6 +126,12 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
   const screenWidth = Dimensions.get('window').width - 32; // Subtracting padding on both sides
   const chartWidth = screenWidth;
 
+  const renderLegendItem = ({ item }: { item: LegendItem }) => (
+    <View style={styles.legendItem}>
+      <Text style={styles.legendText}>{item.index + 1}. {item.label}</Text>
+    </View>
+  );
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <Text style={styles.header}>Revenue Trends</Text>
@@ -128,12 +143,18 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         bezier
         style={styles.chart}
         withVerticalLabels={true}
-        withHorizontalLabels={true}
+        withHorizontalLabels={false}
         withDots={true}
         withShadow={false}
         withInnerLines={false}
         withOuterLines={true}
         segments={4}
+      />
+      <FlatList
+        data={legendData}
+        renderItem={renderLegendItem}
+        keyExtractor={item => item.label}
+        style={styles.legendContainer}
       />
     </Animated.View>
   );
@@ -166,6 +187,18 @@ const styles = StyleSheet.create({
     color: '#f44336',
     fontSize: 16,
     fontWeight: '500',
+  },
+  legendContainer: {
+    marginTop: 10,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  legendText: {
+    fontSize: 14,
+    color: '#3f51b5',
   },
 });
 
