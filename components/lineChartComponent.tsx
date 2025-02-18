@@ -41,7 +41,7 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         let data: SalesData;
         let labels: string[] = [];
         let dataset: number[] = [];
-        let color = (opacity = 1) => `rgba(63, 81, 181, ${opacity})`; // Deep purple to match design
+        let color = (opacity = 1) => `rgba(63, 81, 181, ${opacity})`; // Deep purple for default
 
         switch (timeRange) {
           case 'week':
@@ -78,23 +78,22 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         // Ensure all data values are valid numbers
         dataset = dataset.map(val => {
           if (isNaN(val) || !isFinite(val) || val === null || val === undefined) return 0;
-          return parseFloat(val.toString()) || 0; // Ensure we always have a valid number
+          return val;
         });
 
-        // Add an additional check to prevent edge cases
-        if (dataset.some(val => !isFinite(val))) {
-          dataset = dataset.map(val => isFinite(val) ? val : 0);
+        // ** Ensure dataset length matches labels length **
+        if (dataset.length !== labels.length) {
+          // Option 1: If dataset is empty or has only one value, fill with zeros
+          // dataset = Array(labels.length).fill(0);
+
+          // Option 2: Or, if dataset has at least one value, duplicate it
+          dataset = labels.map((_, index) => (dataset[index] !== undefined ? dataset[index] : 0));
         }
 
         // Log sanitized dataset
         console.log('Sanitized dataset:', dataset);
 
-        // Provide default values if dataset is empty
-        if (dataset.length === 0) {
-          dataset = [0];
-        }
-
-        setTotalRevenue(isFinite(data.totalRevenue) ? data.totalRevenue || 0 : 0);
+        setTotalRevenue(data.totalRevenue || 0);
 
         const transformedData = {
           labels,
@@ -203,7 +202,6 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         withOuterLines={true}
         segments={4}
         fromZero={true}
-        yAxisInterval={1} // Ensure there's at least one interval
       />
       <Text style={styles.chartDescription}>
         {timeRange === 'today' 
