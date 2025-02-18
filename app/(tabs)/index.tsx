@@ -61,6 +61,8 @@ export default function Index() {
   // Authentication state
   const [authChecked, setAuthChecked] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const [currentFetchId, setCurrentFetchId] = useState(0);
   
   // UI state
   const [isFormVisible, setIsFormVisible] = useState(false);
@@ -92,6 +94,8 @@ export default function Index() {
 
   // Fetch sales data based on time range
   const fetchSalesData = async (range: 'today' | 'week' | 'month' = timeRange) => {
+    const fetchId = currentFetchId + 1;
+    setCurrentFetchId(fetchId);
     setIsLoadingData(true);
     try {
       let data: SalesData;
@@ -106,18 +110,25 @@ export default function Index() {
           data = await salesService.getTodaysSalesData();
       }
       
-      setSalesData({
-        totalRevenue: data.totalRevenue || 0,
-        salesCount: data.salesCount || 0,
-        averageSale: data.salesCount ? (data.totalRevenue / data.salesCount) : 0
-      });
+      // Only update if this is the most recent fetch
+      if (fetchId === currentFetchId) {
+        setSalesData({
+          totalRevenue: data.totalRevenue || 0,
+          salesCount: data.salesCount || 0,
+          averageSale: data.salesCount ? (data.totalRevenue / data.salesCount) : 0
+        });
+      }
     } catch (error) {
       console.error('Error fetching sales data:', error);
       Alert.alert('Error', 'Failed to fetch sales data');
     } finally {
-      setIsLoadingData(false); // Set loading state to false after fetch completes
+      setIsLoadingData(false);
     }
   };
+
+  useEffect(() => {
+    fetchSalesData(timeRange);
+  }, [timeRange]);
 
   // Check authentication and fetch initial data
   useEffect(() => {
@@ -176,7 +187,7 @@ export default function Index() {
 
   const handleTimeRangeChange = (range: 'today' | 'week' | 'month') => {
     setTimeRange(range);
-    fetchSalesData(range);
+    fetchSalesData(range); // Pass the new range directly
   };
 
   const handleSalePress = () => {
