@@ -163,7 +163,6 @@ export const useSalesService = (): SalesService => {
             status: transaction.status || 'unknown'
           }));
           
-          // Group by hour
           const groupByHour = (transactions: getSaleMetadata[]) => {
             // Initialize an array with 24 elements, all set to 0
             const hourlyRevenue = new Array(24).fill(0);
@@ -176,22 +175,21 @@ export const useSalesService = (): SalesService => {
             
             return hourlyRevenue;
           };
-    
+      
           // Calculate hourly revenue
           const hourlyData = groupByHour(transactions);
-    
-          // Return the sales data
+      
+          // Return the sales data with hours in order
           return {
             totalRevenue,
             salesCount: transactions.length,
-            hourlyRevenue: hourlyData
+            hourlyRevenue: hourlyData // This will naturally order from 0 to 23, with the latest hour on the right
           };
         } else {
           // If no sales data exists for today
           return {
             totalRevenue: 0,
             salesCount: 0,
-            transactions: [],
             hourlyRevenue: Array(24).fill(0)
           };
         }
@@ -200,24 +198,29 @@ export const useSalesService = (): SalesService => {
         throw error;
       }
     },
-    
+
     async getWeeklySalesData(): Promise<SalesData> {
       try {
         const now = new Date();
         const endDate = new Date(now);
         const startDate = new Date(now);
         startDate.setDate(now.getDate() - 6); // 7 days including today
-        
+    
+        // Convert dates to Firestore timestamps
+        const startTimestamp = Timestamp.fromDate(startDate);
+        const endTimestamp = Timestamp.fromDate(endDate);
+    
+        // Fetch all sales within this range
+        const salesRef = collection(firestore, `shops/${shopId}/sales`);
+        const q = query(salesRef, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
+        const querySnapshot = await getDocs(q);
+    
         let allTransactions: getSaleMetadata[] = [];
         let totalRevenue = 0;
     
-        for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().split('T')[0];
-          const salesRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
-          const dateDoc = await getDoc(salesRef);
-          
-          if (dateDoc.exists()) {
-            const data = dateDoc.data();
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.transactions) {
             interface TransactionData {
               id: string;
               lineItems: Array<{
@@ -231,12 +234,11 @@ export const useSalesService = (): SalesService => {
               status?: string;
               totalPrice?: number;
             }
-    
-            // Use getSaleMetadata for mapping
+
             const transactions: getSaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
               id: transaction.id,
               totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : d,
+              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(doc.id),
               lineItems: [],
               paymentMethod: transaction.paymentMethod,
               status: transaction.status
@@ -244,8 +246,9 @@ export const useSalesService = (): SalesService => {
             allTransactions = allTransactions.concat(transactions);
             totalRevenue += data.totalRevenue;
           }
-        }
+        });
     
+        // Group by day of the week
         const groupByDay = (transactions: getSaleMetadata[]) => {
           return transactions.reduce((acc, transaction) => {
             const day = transaction.timestamp.getDay();
@@ -255,12 +258,14 @@ export const useSalesService = (): SalesService => {
         };
     
         const dailyRevenue = groupByDay(allTransactions);
-        const weeklyData = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((_, i) => dailyRevenue[i] || 0);
-    
+        // We need to reorder the days so that Sunday is first and Saturday is last
+        const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const weeklyData = daysOfWeek.map(day => dailyRevenue[daysOfWeek.indexOf(day)] || 0);
+
         return {
           totalRevenue,
           salesCount: allTransactions.length,
-          weeklyRevenue: weeklyData
+          weeklyRevenue: weeklyData // This will ensure Sunday is first and Saturday is last
         };
       } catch (error) {
         console.error('Error fetching weekly sales:', error);
@@ -273,17 +278,22 @@ export const useSalesService = (): SalesService => {
         const now = new Date();
         const endDate = new Date(now);
         const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30); // 31 days including today
-        
+    
+        // Convert dates to Firestore timestamps
+        const startTimestamp = Timestamp.fromDate(startDate);
+        const endTimestamp = Timestamp.fromDate(endDate);
+    
+        // Fetch all sales within this range
+        const salesRef = collection(firestore, `shops/${shopId}/sales`);
+        const q = query(salesRef, where('date', '>=', startTimestamp), where('date', '<=', endTimestamp));
+        const querySnapshot = await getDocs(q);
+    
         let allTransactions: getSaleMetadata[] = [];
         let totalRevenue = 0;
     
-        for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().split('T')[0];
-          const salesRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
-          const dateDoc = await getDoc(salesRef);
-          
-          if (dateDoc.exists()) {
-            const data = dateDoc.data();
+        querySnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.transactions) {
             interface TransactionData {
               id: string;
               lineItems: Array<{
@@ -297,12 +307,11 @@ export const useSalesService = (): SalesService => {
               status?: string;
               totalPrice?: number;
             }
-    
-            // Use getSaleMetadata for mapping
+            
             const transactions: getSaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
               id: transaction.id,
               totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : d,
+              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(doc.id),
               lineItems: [],
               paymentMethod: transaction.paymentMethod,
               status: transaction.status
@@ -310,8 +319,9 @@ export const useSalesService = (): SalesService => {
             allTransactions = allTransactions.concat(transactions);
             totalRevenue += data.totalRevenue;
           }
-        }
+        });
     
+        // Group by week
         const groupByWeek = (transactions: getSaleMetadata[]) => {
           return transactions.reduce((acc, transaction) => {
             const week = Math.floor((transaction.timestamp.getDate() - 1) / 7);
@@ -321,13 +331,14 @@ export const useSalesService = (): SalesService => {
         };
     
         const weeklyRevenue = groupByWeek(allTransactions);
-        const monthlyData = Array.from({ length: 5 }, (_, i) => weeklyRevenue[i] || 0); // Assuming up to 5 weeks in a month
-    
+        // Here we need to reverse the order so that the latest week is on the right
+        const monthlyData = Array.from({ length: 5 }, (_, i) => weeklyRevenue[4 - i] || 0); // Reverse order to put latest week on the right
+
         return {
           totalRevenue,
           salesCount: allTransactions.length,
-          monthlyRevenue: monthlyData
-        };
+          monthlyRevenue: monthlyData // This will ensure the latest week is last
+    };
       } catch (error) {
         console.error('Error fetching monthly sales:', error);
         throw error;
