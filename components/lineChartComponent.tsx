@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Dimensions, StyleSheet, Animated } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSalesService } from '../services/sales';
@@ -23,7 +23,7 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
     datasets: [{ data: [], color: () => '', strokeWidth: 2 }],
   });
 
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const salesService = useSalesService();
 
   if (!salesService) {
@@ -45,19 +45,22 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         switch (timeRange) {
           case 'week':
             data = await salesService.getWeeklySalesData();
-            labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            // Dynamic labels for week, from most recent to least recent day
+            labels = ['Today', 'Yesterday', '2 Days Ago', '3 Days Ago', '4 Days Ago', '5 Days Ago', '6 Days Ago'];
             dataset = data.weeklyRevenue || [];
             color = (opacity = 1) => `rgba(0, 188, 212, ${opacity})`; // Cyan for week
             break;
           case 'month':
             data = await salesService.getMonthlySalesData();
-            labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+            // Dynamic labels for month, from most recent to least recent week
+            labels = ['This Week', 'Last Week', '2 Weeks Ago', '3 Weeks Ago'];
             dataset = data.monthlyRevenue || [];
             color = (opacity = 1) => `rgba(255, 152, 0, ${opacity})`; // Orange for month
             break;
           default:
             data = await salesService.getTodaysSalesData();
-            labels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
+            // Dynamic labels for today, from most recent to least recent hour
+            labels = ['Now', '4 hrs ago', '8 hrs ago', '12 hrs ago', '16 hrs ago', '20 hrs ago'];
             dataset = data.hourlyRevenue ? data.hourlyRevenue.filter((_, i) => i % 4 === 0) : [];
         }
 
@@ -111,7 +114,6 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
     },
   };
 
-  // Adjust width to prevent x-axis cutoff
   const screenWidth = Dimensions.get('window').width - 32; // Subtracting padding on both sides
   const chartWidth = screenWidth;
 
