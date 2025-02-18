@@ -46,28 +46,24 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         switch (timeRange) {
           case 'week':
             data = await salesService.getWeeklySalesData();
-            // Improved labels with actual day names
             labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             dataset = data.weeklyRevenue || [];
             color = (opacity = 1) => `rgba(0, 188, 212, ${opacity})`; // Cyan for week
             break;
           case 'month':
             data = await salesService.getMonthlySalesData();
-            // Using more descriptive labels for monthly view
             labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
             dataset = data.monthlyRevenue || [];
             color = (opacity = 1) => `rgba(255, 152, 0, ${opacity})`; // Orange for month
             break;
           default:
             data = await salesService.getTodaysSalesData();
-            // Using more meaningful hour labels that show the actual time
             const now = new Date();
             labels = [];
             for (let i = 0; i < 6; i++) {
-              const hour = (now.getHours() - (i * 4) + 24) % 24; // Calculate hours going backward
-              labels.unshift(`${hour}:00`); // Add to beginning to maintain chronological order
+              const hour = (now.getHours() - (i * 4) + 24) % 24;
+              labels.unshift(`${hour}:00`);
             }
-            // Get hourly data in 4-hour chunks
             const hourlyData = data.hourlyRevenue || [];
             dataset = [];
             for (let i = 0; i < 24; i += 4) {
@@ -76,9 +72,18 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
             }
         }
 
+        // Log original dataset
+        console.log('Original dataset:', dataset);
+
         // Ensure all data values are valid numbers
-        dataset = dataset.map(val => (isNaN(val) || !isFinite(val)) ? 0 : val);
-        
+        dataset = dataset.map(val => {
+          if (isNaN(val) || !isFinite(val) || val === null || val === undefined) return 0;
+          return val;
+        });
+
+        // Log sanitized dataset
+        console.log('Sanitized dataset:', dataset);
+
         setTotalRevenue(data.totalRevenue || 0);
 
         const transformedData = {
@@ -135,7 +140,6 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
     propsForLabels: {
       fontSize: 11,
       fontWeight: '400',
-      // Rotate labels slightly for better readability when needed
       rotation: timeRange === 'today' ? 25 : 0,
     },
     useShadowColorFromDataset: false,
