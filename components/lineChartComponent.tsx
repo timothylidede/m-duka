@@ -76,6 +76,9 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
             }
         }
 
+        // Ensure all data values are valid numbers
+        dataset = dataset.map(val => (isNaN(val) || !isFinite(val)) ? 0 : val);
+        
         setTotalRevenue(data.totalRevenue || 0);
 
         const transformedData = {
@@ -98,7 +101,7 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
         console.error('Error fetching chart data:', error);
         setChartData({
           labels: ['Error'],
-          datasets: [{ data: [0], color: () => '', strokeWidth: 2 }],
+          datasets: [{ data: [0], color: () => '#f44336', strokeWidth: 2 }],
         });
       }
     };
@@ -106,13 +109,15 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
     fetchChartData();
   }, [timeRange, salesService, fadeAnim]);
 
-  // Format currency for Y-axis labels
+  // Format currency for Y-axis labels with KES
   const formatYLabel = (value: string) => {
     const num = parseInt(value, 10);
+    if (isNaN(num)) return 'KES 0';
+    
     if (num >= 1000) {
-      return `$${(num / 1000).toFixed(1)}k`;
+      return `KES ${(num / 1000).toFixed(1)}k`;
     }
-    return `$${num}`;
+    return `KES ${num}`;
   };
 
   const chartConfig = {
@@ -155,12 +160,18 @@ const LineChartComponent: React.FC<Props> = ({ timeRange }) => {
     }
   };
 
+  // Format total revenue with KES
+  const formatTotalRevenue = (amount: number) => {
+    if (isNaN(amount) || !isFinite(amount)) return 'KES 0';
+    return `KES ${amount.toLocaleString()}`;
+  };
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.headerRow}>
         <Text style={styles.header}>{getChartTitle()}</Text>
         <Text style={styles.totalRevenue}>
-          {`$${totalRevenue.toLocaleString()}`}
+          {formatTotalRevenue(totalRevenue)}
         </Text>
       </View>
       <LineChart
