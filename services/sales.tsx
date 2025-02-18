@@ -82,7 +82,7 @@ export const useSalesService = (): SalesService => {
           }],
           timestamp: new Date(),
           paymentMethod: 'cash',
-          status: 'not completed',
+          status: 'pending',
           totalPrice: amount // Adding totalPrice to match the SaleMetadata interface
         };
     
@@ -134,6 +134,12 @@ export const useSalesService = (): SalesService => {
         const dateDoc = await getDoc(salesRef);
         if (dateDoc.exists()) {
           const data = dateDoc.data();
+          
+          // Directly fetching totalRevenue and salesCount
+          const totalRevenue = data.totalRevenue;
+          const salesCount = data.salesCount;
+          
+          // Mapping transactions with less detail since we're not calculating revenue or count
           interface TransactionData {
             id: string;
             lineItems: Array<{
@@ -147,36 +153,41 @@ export const useSalesService = (): SalesService => {
             status?: string;
             totalPrice?: number;
           }
-    
-          // Use getSaleMetadata for mapping
+          
           const transactions: getSaleMetadata[] = (data.transactions as TransactionData[]).map((transaction) => ({
             id: transaction.id,
-            totalPrice: transaction.totalPrice || transaction.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            totalPrice: transaction.totalPrice || 0,
             timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(),
             lineItems: [],
-            paymentMethod: transaction.paymentMethod,
-            status: transaction.status
+            paymentMethod: transaction.paymentMethod || 'unknown',
+            status: transaction.status || 'unknown'
           }));
           
-          const totalRevenue = transactions.reduce((sum, transaction) => sum + transaction.totalPrice, 0);
-          
-          const groupByHour = (transactions: getSaleMetadata[]) => { 
-            return transactions.reduce((acc, transaction) => {
+          // Group by hour
+          const groupByHour = (transactions: getSaleMetadata[]) => {
+            // Initialize an array with 24 elements, all set to 0
+            const hourlyRevenue = new Array(24).fill(0);
+            
+            // Iterate over each transaction and sum up the revenue for the corresponding hour
+            transactions.forEach((transaction) => {
               const hour = transaction.timestamp.getHours();
-              acc[hour] = (acc[hour] || 0) + transaction.totalPrice;
-              return acc;
-            }, {} as { [key: number]: number });
+              hourlyRevenue[hour] += transaction.totalPrice;
+            });
+            
+            return hourlyRevenue;
           };
     
-          const hourlyRevenue = groupByHour(transactions);
-          const hourlyData = Array.from({ length: 24 }, (_, i) => hourlyRevenue[i] || 0);
+          // Calculate hourly revenue
+          const hourlyData = groupByHour(transactions);
     
+          // Return the sales data
           return {
             totalRevenue,
             salesCount: transactions.length,
             hourlyRevenue: hourlyData
           };
         } else {
+          // If no sales data exists for today
           return {
             totalRevenue: 0,
             salesCount: 0,
