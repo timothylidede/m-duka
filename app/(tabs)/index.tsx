@@ -381,9 +381,7 @@ export default function Index() {
                 />
               </View> 
   
-              <View style={[styles.lastUpdatedContainer, { display: isLoadingData ? 'none' : 'flex' }]}>
-                <Text style={styles.lastUpdatedText}>Last Updated: {lastUpdated}</Text>
-              </View>
+              <Text style={styles.lastUpdate}>Last updated: {lastUpdated}</Text>
             </>
           )}
         </Animated.View>
@@ -610,25 +608,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
   },
-  lastUpdatedContainer: {
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    margin: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  lastUpdatedText: {
+  lastUpdate: {
+    textAlign: 'center',
     color: '#64748B',
-    fontSize: 14,
-    marginBottom: 50,
+    padding: 20,
+    fontSize: 12,
+    marginBottom: 60, // Adjusted to match the bottom margin in Business.tsx
   },
 });
