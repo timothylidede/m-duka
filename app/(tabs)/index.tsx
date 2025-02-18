@@ -613,6 +613,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     padding: 20,
     fontSize: 12,
-    marginBottom: 60, // Adjusted to match the bottom margin in Business.tsx
+    marginBottom: 140, // Adjusted to match the bottom margin in Business.tsx
   },
 });
