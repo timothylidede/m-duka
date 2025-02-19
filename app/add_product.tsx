@@ -1,3 +1,16 @@
+// import React from "react";
+// import { View, Text } from "react-native";
+
+// const AddProduct = () => {
+//   return (
+//     <View className="flex justify-center items-center min-h-screen">
+//       <Text>Add Product</Text>
+//     </View>
+//   );
+// };
+
+// export default AddProduct;
+
 import { Stack, router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,9 +27,11 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { connectToDatabase } from "../localDatabase/database";
 import { Picker } from "@react-native-picker/picker";
 import { Product } from "../localDatabase/types";
-import { addShopProduct } from "../localDatabase/shopOwnerServices"; // Import the function to add a product
+import { addproduct } from "@/localDatabase/products";
+// import { addShopProduct } from "../localDatabase/shopOwnerServices"; // Import the function to add a product
 
 export default function AddNewProduct() {
   const [productName, setProductName] = useState("");
@@ -37,7 +52,7 @@ export default function AddNewProduct() {
     "bags",
   ];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!productName || !price || !quantity || !unit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
@@ -61,7 +76,7 @@ export default function AddNewProduct() {
       quantity: parseInt(quantity),
       unit: unit,
       isNearlyStockedOut: false,
-      isStockedOut: false,
+      isStockedOut: parseInt(quantity) === 0 ? true : false,
       movingFast: 0,
       dailySales: 0,
       weeklySales: 0,
@@ -72,17 +87,28 @@ export default function AddNewProduct() {
       monthlyRevenue: 0,
       yearlyRevenue: 0,
     };
+    console.log(product);
+
+    const db = await connectToDatabase();
+    await addproduct(db, product);
+    console.log("Product added successfully");
+
+    //   addproduct(db, product);
+    //   console.log("Product added successfully");
+    // });
+
+    // console.log("Product added successfully");
 
     // Add the product to the database
-    addShopProduct(product, (id) => {
-      if (id) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Success", "Product added successfully!");
-        router.back(); // Navigate back after success
-      } else {
-        Alert.alert("Error", "Failed to add product. Please try again.");
-      }
-    });
+    // addShopProduct(product, (id) => {
+    //   if (id) {
+    //     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    //     Alert.alert("Success", "Product added successfully!");
+    //     router.back(); // Navigate back after success
+    //   } else {
+    //     Alert.alert("Error", "Failed to add product. Please try again.");
+    //   }
+    // });
   };
 
   return (

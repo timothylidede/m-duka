@@ -1,5 +1,5 @@
-import { RelativePathString, Stack } from 'expo-router';
-import React from 'react';
+import { RelativePathString, Stack } from "expo-router";
+import React from "react";
 import {
   View,
   Text,
@@ -10,12 +10,12 @@ import {
   Alert,
   Pressable,
   StatusBar,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+} from "react-native";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 interface InventoryStats {
   totalItems: number;
@@ -43,18 +43,18 @@ interface QuickAction {
 const ProfilePage: React.FC = () => {
   const router = useRouter();
 
-  const routeInventoryQuickAction = (nextPagePath:RelativePathString) => {
+  const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(nextPagePath); // Update the path to match your file structure
   };
 
   const storeProfile: StoreProfile = {
-    storeName: 'Main Street Quick Mart',
-    storeId: 'MSE-001',
-    location: 'Carwash Street, Nairobi',
-    managerName: 'John Muthaiga',
-    contactNumber: '+254743891547',
-    lastStockUpdate: '2025-02-05 09:30 AM',
+    storeName: "Main Street Quick Mart",
+    storeId: "MSE-001",
+    location: "Carwash Street, Nairobi",
+    managerName: "John Muthaiga",
+    contactNumber: "+254743891547",
+    lastStockUpdate: "2025-02-05 09:30 AM",
     inventoryStats: {
       totalItems: 1247,
       lowStock: 23,
@@ -65,53 +65,77 @@ const ProfilePage: React.FC = () => {
 
   const QuickActions: QuickAction[] = [
     // { actionName: 'Add New Item', iconName: 'plus' },
-    { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../supplierManagement' },
-    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product'},
-    { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product'},
-    { actionName: 'Add a new Good', iconName: 'users', nextPagePath: '../add_product'},
+    {
+      actionName: "Supplier Management",
+      iconName: "file-text",
+      nextPagePath: "../supplierManagement",
+    },
+    {
+      actionName: "Stock Restock Alerts",
+      iconName: "bar-chart-2",
+      nextPagePath: "../add_product",
+    },
+    {
+      actionName: "Demand Forecast",
+      iconName: "box",
+      nextPagePath: "../add_product",
+    },
+    {
+      actionName: "Add a new Good",
+      iconName: "users",
+      nextPagePath: "../add_product",
+    },
   ];
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('lastOpenedTime');
-      router.replace('/login');
+      await AsyncStorage.removeItem("lastOpenedTime");
+      router.replace("/login");
     } catch (error) {
-      Alert.alert('Error', 'Failed to log out. Please try again.');
+      Alert.alert("Error", "Failed to log out. Please try again.");
     }
   };
 
   return (
     <>
-      <Stack.Screen 
+      <Stack.Screen
         options={{
-          title: 'Inventory',
+          title: "Inventory",
           headerStyle: {
-            backgroundColor: '#2E3192',
+            backgroundColor: "#2E3192",
           },
-          headerTintColor: '#fff',
+          headerTintColor: "#fff",
           headerTitleStyle: {
-            fontWeight: '600',
+            fontWeight: "600",
           },
           headerShadowVisible: false,
-        }} 
+        }}
       />
       <StatusBar barStyle="light-content" />
-      
+
       <SafeAreaView style={styles.container}>
         <ScrollView>
           <LinearGradient
-            colors={['#2E3192', '#1BFFFF']}
+            colors={["#2E3192", "#1BFFFF"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
           >
             <View style={styles.storeInfo}>
-              <Feather name="shopping-bag" size={40} color="white" style={styles.storeIcon} />
+              <Feather
+                name="shopping-bag"
+                size={40}
+                color="white"
+                style={styles.storeIcon}
+              />
               <Text style={styles.storeName}>{storeProfile.storeName}</Text>
               <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
             </View>
-            
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
               <Feather name="log-out" size={20} color="#2E3192" />
               <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
@@ -129,7 +153,9 @@ const ProfilePage: React.FC = () => {
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Location</Text>
-                  <Text style={styles.detailValue}>{storeProfile.location}</Text>
+                  <Text style={styles.detailValue}>
+                    {storeProfile.location}
+                  </Text>
                 </View>
               </View>
               <View style={styles.detailRow}>
@@ -138,7 +164,9 @@ const ProfilePage: React.FC = () => {
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Manager</Text>
-                  <Text style={styles.detailValue}>{storeProfile.managerName}</Text>
+                  <Text style={styles.detailValue}>
+                    {storeProfile.managerName}
+                  </Text>
                 </View>
               </View>
               <View style={styles.detailRow}>
@@ -147,7 +175,9 @@ const ProfilePage: React.FC = () => {
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Contact</Text>
-                  <Text style={styles.detailValue}>{storeProfile.contactNumber}</Text>
+                  <Text style={styles.detailValue}>
+                    {storeProfile.contactNumber}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -158,20 +188,23 @@ const ProfilePage: React.FC = () => {
                 <Text style={styles.sectionTitle}>Inventory Overview</Text>
               </View>
               <View style={styles.statsGrid}>
-
                 <View style={styles.statsCard}>
-                <Pressable
-                  onPress={() => Alert.alert('Button Pressed', 'You pressed the view!')}
-                  style={({ pressed }) => [
-                    styles.pressableView,
-                    { backgroundColor: pressed ? '#ddd' : '#fff' }, // Change background color when pressed
-                  ]}
-                >
-                  {/* <Text style={styles.text}>Press Me</Text> */}
-                  <Feather name="package" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
-                  <Text style={styles.statsLabel}>Total Items</Text>
-                </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      Alert.alert("Button Pressed", "You pressed the view!")
+                    }
+                    style={({ pressed }) => [
+                      styles.pressableView,
+                      { backgroundColor: pressed ? "#ddd" : "#fff" }, // Change background color when pressed
+                    ]}
+                  >
+                    {/* <Text style={styles.text}>Press Me</Text> */}
+                    <Feather name="package" size={24} color="#2E3192" />
+                    <Text style={styles.statsValue}>
+                      {storeProfile.inventoryStats.totalItems}
+                    </Text>
+                    <Text style={styles.statsLabel}>Total Items</Text>
+                  </Pressable>
                 </View>
 
                 <View style={[styles.statsCard, styles.alertCard]}>
@@ -193,35 +226,45 @@ const ProfilePage: React.FC = () => {
                 <View style={styles.statsCard}>
                   <Feather name="dollar-sign" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
-                    KES {storeProfile.inventoryStats.totalValue.toLocaleString()}
+                    KES{" "}
+                    {storeProfile.inventoryStats.totalValue.toLocaleString()}
                   </Text>
                   <Text style={styles.statsLabel}>Total Value</Text>
                 </View>
-
               </View>
             </View>
 
             <View style={styles.section}>
-              
               <View style={styles.sectionHeader}>
                 <Feather name="zap" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
               </View>
 
               {QuickActions.map((action, index) => (
-                <TouchableOpacity style={styles.actionButton} key={index} onPress={()=>{routeInventoryQuickAction(action.nextPagePath)}}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  key={index}
+                  onPress={() => {
+                    routeInventoryQuickAction(action.nextPagePath);
+                  }}
+                >
                   <LinearGradient
-                    colors={['#2E3192', '#1BFFFF']}
+                    colors={["#2E3192", "#1BFFFF"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.actionGradient}
                   >
-                    <Feather name={action.iconName as any} size={24} color="white" />
-                    <Text style={styles.actionButtonText}>{action.actionName}</Text>
+                    <Feather
+                      name={action.iconName as any}
+                      size={24}
+                      color="white"
+                    />
+                    <Text style={styles.actionButtonText}>
+                      {action.actionName}
+                    </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               ))}
-
             </View>
 
             <Text style={styles.lastUpdate}>
@@ -237,14 +280,14 @@ const ProfilePage: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
   header: {
     padding: 24,
     // borderBottomLeftRadius: 24,
     // borderBottomRightRadius: 24,
     borderRadius: 30,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -252,10 +295,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginLeft: 9,
     marginRight: 9,
-
   },
   storeInfo: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
   },
   storeIcon: {
@@ -263,77 +305,76 @@ const styles = StyleSheet.create({
   },
   storeName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
   },
   storeId: {
     fontSize: 14,
-    color: '#fff',
+    color: "#fff",
     opacity: 0.9,
     marginTop: 4,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 8,
     marginTop: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-
   },
   logoutButtonText: {
-    color: '#2E3192',
+    color: "#2E3192",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   content: {
     padding: 20,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 24,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 12,
-    color: '#1E293B',
+    color: "#1E293B",
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: "#E2E8F0",
   },
   detailIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   detailContent: {
@@ -341,82 +382,79 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
     marginBottom: 4,
   },
   detailValue: {
     fontSize: 16,
-    color: '#1E293B',
-    fontWeight: '500',
-
+    color: "#1E293B",
+    fontWeight: "500",
   },
   statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
-    justifyContent: 'space-between',
-
+    justifyContent: "space-between",
   },
   statsCard: {
-    width: '47%',
-    backgroundColor: '#F8FAFC',
+    width: "47%",
+    backgroundColor: "#F8FAFC",
     padding: 16,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 30 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-
   },
   alertCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: "#FEF2F2",
   },
   criticalCard: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: "#FEE2E2",
   },
   statsValue: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2E3192',
+    fontWeight: "bold",
+    color: "#2E3192",
     marginTop: 8,
     marginBottom: 4,
   },
   alertValue: {
-    color: '#DC2626',
+    color: "#DC2626",
   },
   statsLabel: {
     fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
+    color: "#64748B",
+    textAlign: "center",
   },
   actionButton: {
     marginBottom: 12,
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   actionGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
   },
   actionButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 12,
   },
   lastUpdate: {
-    textAlign: 'center',
-    color: '#64748B',
+    textAlign: "center",
+    color: "#64748B",
     fontSize: 12,
     marginBottom: 60,
   },
@@ -424,8 +462,8 @@ const styles = StyleSheet.create({
   pressableView: {
     padding: 16,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
