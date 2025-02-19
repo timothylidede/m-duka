@@ -17,87 +17,90 @@ const TransactionItem = ({
   transaction: SaleMetadata; 
   index: number;
   onStatusUpdate?: (id: string, newStatus: 'completed' | 'pending' | 'failed') => void;
-}) => (
-  <Animated.View 
-    entering={FadeInDown.delay(index * 100)}
-    style={styles.transactionCard}
-  >
-    <TouchableOpacity
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (onStatusUpdate) {
-          const nextStatus = 
-            transaction.status === 'pending' ? 'completed' : 
-            transaction.status === 'completed' ? 'failed' : 'pending';
-          onStatusUpdate(transaction.id, nextStatus);
-        }
-      }}
-      activeOpacity={0.7}
-      style={styles.transactionContent}
+}) => {
+  console.log('Rendering TransactionItem:', transaction);
+  return (
+    <Animated.View 
+      entering={FadeInDown.delay(index * 100)}
+      style={styles.transactionCard}
     >
-      <View style={styles.transactionHeader}>
-        <View style={styles.idContainer}>
-          <View 
-            style={[
-              styles.statusDot,
-              { 
-                backgroundColor: 
-                  transaction.status === 'completed' ? '#22C55E' : 
-                  transaction.status === 'pending' ? '#EAB308' : '#EF4444'
-              }
-            ]}
-          />
-          <Text style={styles.transactionId}>#{transaction.id}</Text>
-        </View>
-        <View style={styles.timeContainer}>
-          <Feather name="clock" size={14} color="#64748B" style={styles.clockIcon} />
-          <Text style={styles.timeText}>
-            {new Date(transaction.timestamp).toLocaleTimeString()}
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.itemsContainer}>
-        {transaction.lineItems.map((item, idx) => (
-          <View key={idx} style={styles.itemRow}>
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemName}>{item.productId || 'Unknown Product'}</Text>
-              <View style={styles.itemMetrics}>
-                <Text style={styles.itemMetricText}>Qty: {item.quantity || 0}</Text>
-                <Text style={styles.bulletPoint}>•</Text>
-                <Text style={styles.itemMetricText}>KES {item.price || 0}/unit</Text>
-              </View>
-            </View>
-            <Text style={styles.itemTotal}>
-              KES {((item.price || 0) * (item.quantity || 0)).toLocaleString()}
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          if (onStatusUpdate) {
+            const nextStatus = 
+              transaction.status === 'pending' ? 'completed' : 
+              transaction.status === 'completed' ? 'failed' : 'pending';
+            onStatusUpdate(transaction.id, nextStatus);
+          }
+        }}
+        activeOpacity={0.7}
+        style={styles.transactionContent}
+      >
+        <View style={styles.transactionHeader}>
+          <View style={styles.idContainer}>
+            <View 
+              style={[
+                styles.statusDot,
+                { 
+                  backgroundColor: 
+                    transaction.status === 'completed' ? '#22C55E' : 
+                    transaction.status === 'pending' ? '#EAB308' : '#EF4444'
+                }
+              ]}
+            />
+            <Text style={styles.transactionId}>#{transaction.id}</Text>
+          </View>
+          <View style={styles.timeContainer}>
+            <Feather name="clock" size={14} color="#64748B" style={styles.clockIcon} />
+            <Text style={styles.timeText}>
+              {new Date(transaction.timestamp).toLocaleTimeString()}
             </Text>
           </View>
-        ))}
-      </View>
-      
-      <View style={styles.footer}>
-        <View style={styles.paymentMethod}>
-          <Text style={styles.footerLabel}>Payment Method</Text>
-          <View style={styles.paymentInfo}>
-            <Feather 
-              name={transaction.paymentMethod === 'card' ? 'credit-card' : 'smartphone'} 
-              size={14} 
-              color="#64748B" 
-              style={styles.paymentIcon}
-            />
-            <Text style={styles.paymentText}>{transaction.paymentMethod || 'Unknown'}</Text>
+        </View>
+        
+        <View style={styles.itemsContainer}>
+          {transaction.lineItems.map((item, idx) => (
+            <View key={idx} style={styles.itemRow}>
+              <View style={styles.itemDetails}>
+                <Text style={styles.itemName}>{item.productId || 'Unknown'}</Text>
+                <View style={styles.itemMetrics}>
+                  <Text style={styles.itemMetricText}>Qty: {item.quantity || 0}</Text>
+                  <Text style={styles.bulletPoint}>•</Text>
+                  <Text style={styles.itemMetricText}>KES {item.price || 0}/unit</Text>
+                </View>
+              </View>
+              <Text style={styles.itemTotal}>
+                KES {((item.price || 0) * (item.quantity || 0)).toLocaleString()}
+              </Text>
+            </View>
+          ))}
+        </View>
+        
+        <View style={styles.footer}>
+          <View style={styles.paymentMethod}>
+            <Text style={styles.footerLabel}>Payment Method</Text>
+            <View style={styles.paymentInfo}>
+              <Feather 
+                name={transaction.paymentMethod === 'card' ? 'credit-card' : 'smartphone'} 
+                size={14} 
+                color="#64748B" 
+                style={styles.paymentIcon}
+              />
+              <Text style={styles.paymentText}>{transaction.paymentMethod || 'Unknown'}</Text>
+            </View>
+          </View>
+          <View style={styles.totalAmount}>
+            <Text style={styles.totalLabel}>Total Amount</Text>
+            <Text style={styles.totalValue}>
+              KES {transaction.totalPrice.toLocaleString() || '0'}
+            </Text>
           </View>
         </View>
-        <View style={styles.totalAmount}>
-          <Text style={styles.totalLabel}>Total Amount</Text>
-          <Text style={styles.totalValue}>
-            KES {transaction.totalPrice.toLocaleString() || '0'}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  </Animated.View>
-);
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 export default function TransactionsPage() {
   const [refreshing, setRefreshing] = useState(false);
@@ -114,7 +117,7 @@ export default function TransactionsPage() {
         status: filter === 'all' ? undefined : filter,
         limit: 20
       });
-      console.log('Received transaction data:', data);
+      console.log('Received transaction data before set:', data);
       setTransactionData(data);
     } catch (error) {
       console.error('Failed to load transactions:', error);
@@ -124,12 +127,20 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
+    console.log('Effect triggered for initial load');
     loadTransactions();
   }, []);
 
   useEffect(() => {
-    loadTransactions(activeFilter);
+    console.log('Effect triggered for filter change, activeFilter:', activeFilter);
+    if (activeFilter) {
+      loadTransactions(activeFilter);
+    }
   }, [activeFilter]);
+
+  useEffect(() => {
+    console.log('Current transactionData:', transactionData);
+  }, [transactionData]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -231,7 +242,7 @@ export default function TransactionsPage() {
           </View>
           
           <View style={styles.metricsContainer}>
-            {transactionData && transactionData.transactions && (
+            {transactionData && (
               <View>
                 <View style={styles.metric}>
                   <Text style={styles.metricLabel}>
@@ -293,7 +304,7 @@ export default function TransactionsPage() {
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading transactions...</Text>
             </View>
-          ) : !transactionData || transactionData.transactions.length === 0 ? (
+          ) : transactionData === null || transactionData.transactions.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Feather name="inbox" size={48} color="#CBD5E1" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No transactions found</Text>
