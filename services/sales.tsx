@@ -17,6 +17,15 @@ interface SaleMetadata {
   totalPrice: number;
 }
 
+interface getSaleMetadata {
+  id: string;
+  totalPrice: number;
+  timestamp: Date;
+  lineItems?: []; // Keep as an array to maintain structure, but empty
+  paymentMethod?: string; // Could be kept or removed depending on future needs
+  status?: string; // Could be kept or removed depending on future needs
+}
+
 interface SalesData {
   totalRevenue: number;
   salesCount: number;
@@ -26,29 +35,32 @@ interface SalesData {
   monthlyRevenue?: number[];
 }
 
-// Simplified TransactionResult type for getTransactions
-interface TransactionResult {
-  totalRevenue: number;
-  salesCount: number;
-  transactions: SaleMetadata[];
-}
-
-// Remove getSaleMetadata as it's redundant or not used
-interface SalesService {
-  addNewSale: (amount: number) => Promise<void>;
-  getTodaysSalesData: () => Promise<SalesData>;
-  getWeeklySalesData: () => Promise<SalesData>;
-  getMonthlySalesData: () => Promise<SalesData>;
-  getTransactions: (options?: TransactionListOptions) => Promise<TransactionResult>;
-  updateTransactionStatus: (transactionId: string, newStatus: 'completed' | 'pending' | 'failed') => Promise<boolean>;
-}
-
 interface TransactionListOptions {
   status?: 'completed' | 'pending' | 'failed' | 'all';
   limit?: number;
   offset?: number;
   startDate?: Date;
   endDate?: Date;
+}
+
+interface TransactionListResult {
+  transactions: SaleMetadata[];
+  totalCount: number;
+  totalRevenue: number;
+  completedCount: number;
+  pendingCount: number;
+  failedCount: number;
+  completionRate: number;
+  averageTransactionValue: number;
+}
+
+interface SalesService {
+  addNewSale: (amount: number) => Promise<void>;
+  getTodaysSalesData: () => Promise<SalesData>;
+  getWeeklySalesData: () => Promise<SalesData>;
+  getMonthlySalesData: () => Promise<SalesData>;
+  getTransactions: (options?: TransactionListOptions) => Promise<TransactionListResult>;
+  updateTransactionStatus: (transactionId: string, newStatus: 'completed' | 'pending' | 'failed') => Promise<boolean>;
 }
 
 export const useSalesService = (): SalesService => {
@@ -74,9 +86,14 @@ export const useSalesService = (): SalesService => {
         transactions: [],
       }),
       getTransactions: async () => ({
-        totalRevenue: 0,
-        salesCount: 0,
         transactions: [],
+        totalCount: 0,
+        totalRevenue: 0,
+        completedCount: 0,
+        pendingCount: 0,
+        failedCount: 0,
+        completionRate: 0,
+        averageTransactionValue: 0,
       }),
       updateTransactionStatus: async () => false,
     };
@@ -85,9 +102,9 @@ export const useSalesService = (): SalesService => {
   const shopId = shopData.contact;
 
   // Helper function to convert Firestore transaction to SaleMetadata
-  const convertToSaleMetadata = (transaction: any): SaleMetadata => {
+  const convertToSaleMetadata = (transaction: any, dateStr?: string): SaleMetadata => {
     return {
-      id: transaction.id,
+      id: transaction.id || Date.now().toString(), // Default to timestamp if no ID
       lineItems: transaction.lineItems || [],
       timestamp: transaction.timestamp?.toDate() || new Date(),
       paymentMethod: transaction.paymentMethod || 'unknown',
@@ -102,19 +119,20 @@ export const useSalesService = (): SalesService => {
   return {
     async addNewSale(amount: number): Promise<void> {
       try {
+        // Create the sale metadata
         const sale: SaleMetadata = {
           id: Date.now().toString(),
           lineItems: [{
             price: amount,
             productId: 'No product ID',
-            quantity: 1, // Changed from 0 to 1 for a valid sale
+            quantity: 0,
           }],
           timestamp: new Date(),
           paymentMethod: 'cash',
           status: 'pending',
-          totalPrice: amount,
+          totalPrice: amount // Adding totalPrice to match the SaleMetadata interface
         };
-
+    
         // Format the date for the document ID (YYYY-MM-DD)
         const dateStr = sale.timestamp.toISOString().split('T')[0];
         
@@ -131,7 +149,7 @@ export const useSalesService = (): SalesService => {
             ...sale,
             timestamp: Timestamp.fromDate(sale.timestamp) // Convert Date to Firestore Timestamp
           }];
-
+    
           await updateDoc(dateDocRef, {
             salesCount: updatedTransactions.length,
             totalRevenue: currentData.totalRevenue + sale.totalPrice,
@@ -164,16 +182,43 @@ export const useSalesService = (): SalesService => {
         if (dateDoc.exists()) {
           const data = dateDoc.data();
           
+          // Directly fetching totalRevenue and salesCount
+          const totalRevenue = data.totalRevenue;
+          const salesCount = data.salesCount;
+          
+          // Mapping transactions with less detail since we're not calculating revenue or count
+          const transactions: getSaleMetadata[] = (data.transactions as any[]).map((transaction) => ({
+            id: transaction.id,
+            totalPrice: transaction.totalPrice || 0,
+            timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(),
+            lineItems: [],
+            paymentMethod: transaction.paymentMethod || 'unknown',
+            status: transaction.status || 'unknown'
+          }));
+          
+          const groupByHour = (transactions: getSaleMetadata[]) => {
+            const hourlyRevenue = new Array(24).fill(0);
+            transactions.forEach((transaction) => {
+              const hour = transaction.timestamp.getHours();
+              hourlyRevenue[hour] += transaction.totalPrice;
+            });
+            return hourlyRevenue;
+          };
+      
+          const hourlyData = groupByHour(transactions);
+      
           return {
-            totalRevenue: data.totalRevenue || 0,
-            salesCount: data.salesCount || 0,
-            transactions: (data.transactions || []).map((t: any) => convertToSaleMetadata(t)),
+            totalRevenue,
+            salesCount: transactions.length,
+            transactions: transactions.map(t => convertToSaleMetadata(t, dateStr)), // Convert back to SaleMetadata for consistency
+            hourlyRevenue: hourlyData
           };
         } else {
           return {
             totalRevenue: 0,
             salesCount: 0,
             transactions: [],
+            hourlyRevenue: Array(24).fill(0)
           };
         }
       } catch (error) {
@@ -193,22 +238,42 @@ export const useSalesService = (): SalesService => {
         const q = query(salesRef, where('__name__', '>=', startOfWeek.toISOString().split('T')[0]));
         const querySnapshot = await getDocs(q);
 
+        let allTransactions: getSaleMetadata[] = [];
         let totalRevenue = 0;
-        let salesCount = 0;
-        let transactions: SaleMetadata[] = [];
 
         querySnapshot.forEach(doc => {
           const data = doc.data();
-          const docTransactions = (data.transactions || []).map((t: any) => convertToSaleMetadata(t));
-          transactions = transactions.concat(docTransactions);
-          totalRevenue += data.totalRevenue || 0;
-          salesCount += data.salesCount || 0;
+          if (data.transactions) {
+            const transactions: getSaleMetadata[] = (data.transactions as any[]).map((transaction) => ({
+              id: transaction.id,
+              totalPrice: transaction.totalPrice || 0,
+              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(),
+              lineItems: [],
+              paymentMethod: transaction.paymentMethod,
+              status: transaction.status
+            }));
+
+            allTransactions = allTransactions.concat(transactions);
+            totalRevenue += transactions.reduce((sum, transaction) => sum + transaction.totalPrice, 0);
+          }
         });
+
+        const groupByDay = (transactions: getSaleMetadata[]) => {
+          return transactions.reduce((acc, transaction) => {
+            const day = transaction.timestamp.getDay();
+            acc[day] = (acc[day] || 0) + transaction.totalPrice;
+            return acc;
+          }, {} as { [key: number]: number });
+        };
+
+        const dailyRevenue = groupByDay(allTransactions);
+        const daysData = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((_, i) => dailyRevenue[i] || 0);
 
         return {
           totalRevenue,
-          salesCount,
-          transactions,
+          salesCount: allTransactions.length,
+          transactions: allTransactions.map(t => convertToSaleMetadata(t)),
+          weeklyRevenue: daysData
         };
       } catch (error) {
         console.error('Error fetching weekly sales:', error);
@@ -225,22 +290,42 @@ export const useSalesService = (): SalesService => {
         const q = query(salesRef, where('__name__', '>=', startOfMonth.toISOString().split('T')[0]));
         const querySnapshot = await getDocs(q);
 
+        let allTransactions: getSaleMetadata[] = [];
         let totalRevenue = 0;
-        let salesCount = 0;
-        let transactions: SaleMetadata[] = [];
 
         querySnapshot.forEach(doc => {
           const data = doc.data();
-          const docTransactions = (data.transactions || []).map((t: any) => convertToSaleMetadata(t));
-          transactions = transactions.concat(docTransactions);
-          totalRevenue += data.totalRevenue || 0;
-          salesCount += data.salesCount || 0;
+          if (data.transactions) {
+            const transactions: getSaleMetadata[] = (data.transactions as any[]).map((transaction) => ({
+              id: transaction.id,
+              totalPrice: transaction.totalPrice || 0,
+              timestamp: transaction.timestamp ? transaction.timestamp.toDate() : new Date(),
+              lineItems: [],
+              paymentMethod: transaction.paymentMethod,
+              status: transaction.status
+            }));
+
+            allTransactions = allTransactions.concat(transactions);
+            totalRevenue += transactions.reduce((sum, transaction) => sum + transaction.totalPrice, 0);
+          }
         });
+
+        const groupByWeek = (transactions: getSaleMetadata[]) => {
+          return transactions.reduce((acc, transaction) => {
+            const week = Math.floor((transaction.timestamp.getTime() - startOfMonth.getTime()) / (7 * 24 * 60 * 60 * 1000));
+            acc[week] = (acc[week] || 0) + transaction.totalPrice;
+            return acc;
+          }, {} as { [key: number]: number });
+        };
+
+        const weeklyRevenue = groupByWeek(allTransactions);
+        const monthlyData = Array.from({ length: 4 }, (_, i) => weeklyRevenue[i] || 0); // Assuming 4 weeks in a month
 
         return {
           totalRevenue,
-          salesCount,
-          transactions,
+          salesCount: allTransactions.length,
+          transactions: allTransactions.map(t => convertToSaleMetadata(t)),
+          monthlyRevenue: monthlyData
         };
       } catch (error) {
         console.error('Error fetching monthly sales:', error);
@@ -248,7 +333,8 @@ export const useSalesService = (): SalesService => {
       }
     },
 
-    async getTransactions(options?: TransactionListOptions): Promise<TransactionResult> {
+    // New functions
+    async getTransactions(options?: TransactionListOptions): Promise<TransactionListResult> {
       let q = query(collection(firestore, `shops/${shopId}/sales`), orderBy('timestamp', 'desc'));
 
       if (options) {
@@ -273,12 +359,22 @@ export const useSalesService = (): SalesService => {
       const transactions: SaleMetadata[] = querySnapshot.docs.map(doc => convertToSaleMetadata(doc.data()));
 
       const totalRevenue = transactions.reduce((sum, sale) => sum + sale.totalPrice, 0);
-      const salesCount = transactions.length;
+      const totalCount = transactions.length;
+      const completedCount = transactions.filter(t => t.status === 'completed').length;
+      const pendingCount = transactions.filter(t => t.status === 'pending').length;
+      const failedCount = transactions.filter(t => t.status === 'failed').length;
+      const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+      const averageTransactionValue = totalCount > 0 ? totalRevenue / totalCount : 0;
 
       return {
-        totalRevenue,
-        salesCount,
         transactions,
+        totalCount,
+        totalRevenue,
+        completedCount,
+        pendingCount,
+        failedCount,
+        completionRate,
+        averageTransactionValue,
       };
     },
 
@@ -300,4 +396,4 @@ export const useSalesService = (): SalesService => {
   };
 };
 
-export type { SaleMetadata, SalesData, SalesService, TransactionListOptions, TransactionResult };
+export type { SaleMetadata, SalesData, SalesService, TransactionListOptions, TransactionListResult, getSaleMetadata };

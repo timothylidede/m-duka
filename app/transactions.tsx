@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useSalesService, SaleMetadata, TransactionResult } from '../services/sales'; // Updated import
+import { useSalesService, SaleMetadata, TransactionListResult } from '../services/sales'; // Updated to use TransactionListResult
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed';
 
@@ -102,7 +102,7 @@ const TransactionItem = ({
 export default function TransactionsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
-  const [transactionData, setTransactionData] = useState<TransactionResult | null>(null); // Updated type
+  const [transactionData, setTransactionData] = useState<TransactionListResult | null>(null); // Updated to TransactionListResult
   const [isLoading, setIsLoading] = useState(true);
   const salesService = useSalesService();
 
@@ -240,7 +240,7 @@ export default function TransactionsPage() {
                     Transactions
                   </Text>
                   <Text style={styles.metricValue}>
-                    {transactionData.salesCount || 0}
+                    {transactionData.totalCount || 0}
                   </Text>
                 </View>
                 <View style={styles.metricDivider} />
@@ -249,7 +249,7 @@ export default function TransactionsPage() {
                     Completion Rate
                   </Text>
                   <Text style={styles.metricValue}>
-                    {Math.round(calculateMetrics(transactionData.transactions).completionRate)}%
+                    {Math.round(transactionData.completionRate || 0)}%
                   </Text>
                 </View>
                 <View style={styles.metricDivider} />
@@ -258,7 +258,7 @@ export default function TransactionsPage() {
                     Avg. Transaction
                   </Text>
                   <Text style={styles.metricValue}>
-                    KES {calculateMetrics(transactionData.transactions).averageTransactionValue.toLocaleString() || "0"}
+                    KES {transactionData.averageTransactionValue?.toLocaleString() || "0"}
                   </Text>
                 </View>
               </View>
@@ -268,29 +268,26 @@ export default function TransactionsPage() {
 
         {/* Filter tabs */}
         <View style={styles.filterTabs}>
-          {(['all', 'completed', 'pending', 'failed'] as StatusFilter[]).map((filter) => {
-            const metrics = transactionData ? calculateMetrics(transactionData.transactions) : { completedCount: 0, pendingCount: 0, failedCount: 0 };
-            return (
-              <TouchableOpacity
-                key={filter}
-                onPress={() => handleFilterPress(filter)}
+          {(['all', 'completed', 'pending', 'failed'] as StatusFilter[]).map((filter) => (
+            <TouchableOpacity
+              key={filter}
+              onPress={() => handleFilterPress(filter)}
+              style={[
+                styles.filterTab,
+                activeFilter === filter && styles.activeFilterTab
+              ]}
+            >
+              <Text 
                 style={[
-                  styles.filterTab,
-                  activeFilter === filter && styles.activeFilterTab
+                  styles.filterTabText,
+                  activeFilter === filter && styles.activeFilterTabText
                 ]}
               >
-                <Text 
-                  style={[
-                    styles.filterTabText,
-                    activeFilter === filter && styles.activeFilterTabText
-                  ]}
-                >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  {filter !== 'all' ? ` (${filter === 'completed' ? metrics.completedCount : filter === 'pending' ? metrics.pendingCount : metrics.failedCount})` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                {filter !== 'all' && transactionData ? ` (${filter === 'completed' ? transactionData.completedCount : filter === 'pending' ? transactionData.pendingCount : transactionData.failedCount})` : ''}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.transactionsList}>
@@ -305,7 +302,7 @@ export default function TransactionsPage() {
               <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
             </View>
           ) : (
-            transactionData?.transactions.map((transaction, index) => (
+            transactionData?.transactions.map((transaction: SaleMetadata, index: number) => ( // Explicitly typed parameters
               <TransactionItem 
                 key={transaction.id} 
                 transaction={transaction}
