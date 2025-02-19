@@ -537,6 +537,7 @@ const styles = StyleSheet.create({
   // Transaction List Styles
   transactionsList: {
     paddingHorizontal: 16,
+    backgroundColor: 'lightblue', // Debug: Ensure container is visible
   },
   transactionCard: {
     backgroundColor: 'white',
@@ -547,7 +548,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    overflow: 'hidden',
+    overflow: 'visible', // Ensure no clipping
+    opacity: 1, // Ensure fully visible
+    display: 'flex', // Ensure displayed
+    minHeight: 100, // Minimum height for visibility
   },
   cardHeader: {
     flexDirection: 'row',
@@ -556,6 +560,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    backgroundColor: 'pink', // Debug: Highlight header
   },
   idContainer: {
     flexDirection: 'row',
