@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Platform, RefreshControl, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -40,12 +40,14 @@ const TransactionItem = ({
     }
   };
 
+  console.log('Rendering TransactionItem:', transaction.id, 'Index:', index); // Debug log
+
   return (
     <Animated.View 
       entering={FadeInDown.delay(index * 60).springify()}
-      style={styles.transactionCard}
+      style={[styles.transactionCard, styles.transactionCardDebug]} // Add debug style
     >
-      <View style={styles.cardHeader}>
+      <View style={[styles.cardHeader, styles.cardHeaderDebug]}>
         <View style={styles.idContainer}>
           <View style={[styles.statusIndicator, { backgroundColor: statusColors[transaction.status as keyof typeof statusColors] || '#94A3B8' }]}>
             <Text style={styles.statusText}>{statusNames[transaction.status as keyof typeof statusNames] || 'Unknown'}</Text>
@@ -61,7 +63,7 @@ const TransactionItem = ({
         </View>
       </View>
       
-      <View style={styles.itemsContainer}>
+      <View style={[styles.itemsContainer, styles.itemsContainerDebug]}>
         {transaction.lineItems.map((item, idx) => (
           <View key={idx} style={styles.itemRow}>
             <View style={styles.itemDetails}>
@@ -80,7 +82,7 @@ const TransactionItem = ({
         ))}
       </View>
       
-      <View style={styles.cardFooter}>
+      <View style={[styles.cardFooter, styles.cardFooterDebug]}>
         <View style={styles.footerLeft}>
           <View style={styles.paymentMethodContainer}>
             <Feather 
@@ -120,10 +122,12 @@ export default function TransactionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
-  
+  const isMounted = useRef(true);
+
   const salesService = useSalesService();
 
   const loadTransactions = async (filter: StatusFilter = 'all', page: number = 1) => {
+    console.log('Loading transactions with filter:', filter, 'page:', page);
     setIsLoading(true);
     try {
       const data = await salesService.getTransactions({
@@ -132,30 +136,40 @@ export default function TransactionsPage() {
       });
       
       if (data && data.transactions) {
-        // Calculate total pages
+        console.log('All transactions before pagination:', data.transactions.length);
         const totalPages = Math.ceil(data.transactions.length / itemsPerPage);
-        setTotalPages(totalPages > 0 ? totalPages : 1);
-        
-        // Pagination logic
+        console.log('Calculated total pages:', totalPages);
         const startIndex = (page - 1) * itemsPerPage;
         const paginatedTransactions = {
           ...data,
           transactions: data.transactions.slice(startIndex, startIndex + itemsPerPage)
         };
+        console.log('Paginated transactions length:', paginatedTransactions.transactions.length);
         
-        setTransactionData(paginatedTransactions);
+        if (isMounted.current) {
+          setTransactionData(paginatedTransactions);
+          setTotalPages(totalPages > 0 ? totalPages : 1);
+        }
       } else {
-        setTransactionData(data);
+        if (isMounted.current) {
+          setTransactionData(data || { transactions: [], totalCount: 0, totalRevenue: 0, completedCount: 0, pendingCount: 0, failedCount: 0, completionRate: 0, averageTransactionValue: 0 });
+        }
       }
     } catch (error) {
       console.error('Failed to load transactions:', error);
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    isMounted.current = true;
     loadTransactions(activeFilter, currentPage);
+    return () => {
+      isMounted.current = false;
+    };
   }, [activeFilter, currentPage]);
 
   const onRefresh = useCallback(() => {
@@ -169,7 +183,7 @@ export default function TransactionsPage() {
   const handleStatusUpdate = async (id: string, newStatus: 'completed' | 'pending' | 'failed') => {
     try {
       const success = await salesService.updateTransactionStatus(id, newStatus);
-      if (success) {
+      if (success && isMounted.current) {
         loadTransactions(activeFilter, currentPage);
       }
     } catch (error) {
@@ -202,6 +216,10 @@ export default function TransactionsPage() {
     }
   };
 
+  const [forceRender, setForceRender] = useState(0);
+
+  const forceUpdate = () => setForceRender(prev => prev + 1);
+
   return (
     <>
       <StatusBar barStyle="light-content" />
@@ -211,7 +229,7 @@ export default function TransactionsPage() {
         colors={['#2E3192', '#1BFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={[styles.header, { zIndex: 10 }]}
       >
         <View style={styles.headerContent}>
           <TouchableOpacity 
@@ -227,8 +245,8 @@ export default function TransactionsPage() {
       </LinearGradient>
       
       <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        style={[styles.container, { backgroundColor: 'lightgray' }]}
+        contentContainerStyle={[styles.contentContainer, { backgroundColor: 'lightgray', flexGrow: 1 }]}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
@@ -238,12 +256,17 @@ export default function TransactionsPage() {
           />
         }
       >
+        {/* Debug button */}
+        <TouchableOpacity onPress={forceUpdate} style={styles.debugButton}>
+          <Text>Force Update</Text>
+        </TouchableOpacity>
+
         {/* Summary Card */}
         <LinearGradient
           colors={['#2E3192', '#1BFFFF']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.summaryCard}
+          style={[styles.summaryCard, { backgroundColor: 'pink', marginTop: 0 }]}
         >
           <View style={styles.summaryHeader}>
             <View style={styles.dateContainer}>
@@ -288,7 +311,7 @@ export default function TransactionsPage() {
         </LinearGradient>
 
         {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
+        <View style={[styles.filterContainer, { backgroundColor: 'lightyellow' }]}>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -330,14 +353,15 @@ export default function TransactionsPage() {
         </View>
 
         {/* Transaction List */}
-        <View style={styles.transactionsList}>
+        <View style={[styles.transactionsList, { backgroundColor: 'lightblue', minHeight: 200 }]}>
+          
           {isLoading ? (
-            <View style={styles.loadingContainer}>
+            <View style={[styles.loadingContainer, { backgroundColor: 'orange' }]}>
               <ActivityIndicator size="large" color="#2E3192" />
               <Text style={styles.loadingText}>Loading transactions...</Text>
             </View>
           ) : transactionData === null || transactionData.transactions.length === 0 ? (
-            <View style={styles.emptyContainer}>
+            <View style={[styles.emptyContainer, { backgroundColor: 'red' }]}>
               <Feather name="inbox" size={56} color="#CBD5E1" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No transactions found</Text>
               <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
@@ -354,7 +378,7 @@ export default function TransactionsPage() {
               ))}
               
               {/* Pagination Controls */}
-              <View style={styles.paginationContainer}>
+              <View style={[styles.paginationContainer, { backgroundColor: 'lightgreen' }]}>
                 <TouchableOpacity
                   onPress={goToPrevPage}
                   disabled={currentPage <= 1}
@@ -381,7 +405,7 @@ export default function TransactionsPage() {
           )}
         </View>
         
-        <View style={styles.bottomSpacing} />
+        <View style={[styles.bottomSpacing, { backgroundColor: 'purple' }]} />
       </ScrollView>
     </>
   );
@@ -754,5 +778,35 @@ const styles = StyleSheet.create({
   // Misc
   bottomSpacing: {
     height: 32,
+  },
+
+  // Debug Styles
+  transactionCardDebug: {
+    borderWidth: 2, // Highlight with border
+    borderColor: 'red', // Red border for visibility
+  },
+
+  cardHeaderDebug: {
+    borderWidth: 1, // Highlight header
+    borderColor: 'blue',
+  },
+
+  itemsContainerDebug: {
+    borderWidth: 1, // Highlight items
+    borderColor: 'green',
+  },
+
+  cardFooterDebug: {
+    borderWidth: 1, // Highlight footer
+    borderColor: 'orange',
+  },
+
+  debugButton: {
+    padding: 10,
+    backgroundColor: 'gray',
+    margin: 10,
+    alignSelf: 'center',
+    borderWidth: 2,
+    borderColor: 'black', // More visible debug button
   },
 });
