@@ -1,5 +1,5 @@
 import { firestore } from '../config/firebase';
-import { collection, query, doc, getDoc, updateDoc, orderBy, limit, setDoc, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, doc, getDoc, updateDoc, orderBy, limit as limitQuery, setDoc, where, getDocs, Timestamp } from 'firebase/firestore';
 import { AuthContext } from '../context/AuthContext';
 import { useContext } from 'react';
 
@@ -437,17 +437,20 @@ export const useSalesService = (): SalesService => {
         throw error;
       }
     },
+    /**
+     * Updated getTransactions method to (optionally) filter by status
+     */
     async getTransactions(options?: TransactionListOptions): Promise<TransactionListResult> {
       console.log('Starting getTransactions with shopId:', shopId, 'options:', options);
-    
+
       // Query all sales documents (e.g., by date) under shops/${shopId}/sales
       let q = query(collection(firestore, `shops/${shopId}/sales`));
-    
-      // Apply date range filters if provided (assuming sales documents are named by date)
+
+      // Apply date range filters if provided
       if (options?.startDate || options?.endDate) {
         const startStr = options.startDate?.toISOString().split('T')[0];
         const endStr = options.endDate?.toISOString().split('T')[0];
-    
+
         if (startStr) {
           q = query(q, where('__name__', '>=', startStr));
           console.log('Added start date filter:', startStr);
@@ -457,35 +460,35 @@ export const useSalesService = (): SalesService => {
           console.log('Added end date filter:', endStr);
         }
       }
-    
-      // Limit can still be applied, but it will limit the number of sales documents, not transactions
+
+      // Limit the number of date documents, not transactions
       if (options?.limit) {
-        q = query(q, limit(options.limit));
+        q = query(q, limitQuery(options.limit));
         console.log('Applied limit:', options.limit);
       }
-    
+
       console.log('Executing query:', q);
       const querySnapshot = await getDocs(q);
-    
+
       console.log('Found sales documents:', querySnapshot.docs.length);
-    
+
       // Collect all transactions from all sales documents
       let allTransactions: SaleMetadata[] = [];
-      querySnapshot.forEach(doc => {
-        console.log('Processing sales document:', doc.id, 'data:', doc.data());
-        const data = doc.data();
-        const transactionsArray = data.transactions || []; // Get the transactions array from each sales document
-    
-        console.log('Transactions array length for document', doc.id, ':', transactionsArray.length);
-    
+      querySnapshot.forEach(docSnap => {
+        console.log('Processing sales document:', docSnap.id, 'data:', docSnap.data());
+        const data = docSnap.data();
+        const transactionsArray = data.transactions || [];
+
+        console.log('Transactions array length for document', docSnap.id, ':', transactionsArray.length);
+
         // Convert each transaction in the array to SaleMetadata
         transactionsArray.forEach((transaction: any, index: number) => {
           console.log('Converting transaction at index', index, ':', transaction);
           allTransactions.push(convertToSaleMetadata(transaction));
         });
       });
-    
-      // If no transactions found, return early with defaults
+
+      // If no transactions found, return early
       if (allTransactions.length === 0) {
         console.log('No transactions found, returning defaults');
         return {
@@ -499,7 +502,14 @@ export const useSalesService = (): SalesService => {
           averageTransactionValue: 0,
         };
       }
-    
+
+      /**
+       * NEW: Filter by status if provided and not "all"
+       */
+      if (options?.status && options.status !== 'all') {
+        allTransactions = allTransactions.filter(t => t.status === options.status);
+      }
+
       // Calculate metrics
       const totalRevenue = allTransactions.reduce((sum, sale) => sum + (sale.totalPrice || 0), 0);
       const totalCount = allTransactions.length;
@@ -508,9 +518,9 @@ export const useSalesService = (): SalesService => {
       const failedCount = allTransactions.filter(t => t.status === 'failed').length;
       const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
       const averageTransactionValue = totalCount > 0 ? totalRevenue / totalCount : 0;
-    
+
       console.log('Final transactions count:', totalCount, 'Pending count:', pendingCount);
-    
+
       return {
         transactions: allTransactions,
         totalCount,
@@ -523,16 +533,43 @@ export const useSalesService = (): SalesService => {
       };
     },
 
+    /**
+     * Updated updateTransactionStatus method
+     * We find which date-doc has the transaction, then update it in the array
+     */
     async updateTransactionStatus(transactionId: string, newStatus: 'completed' | 'pending' | 'failed'): Promise<boolean> {
       try {
-        const transactionRef = doc(collection(firestore, `shops/${shopId}/sales`), transactionId);
-        const docSnap = await getDoc(transactionRef);
+        // We'll scan all date-based docs to find the transaction
+        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
+        const snapshot = await getDocs(salesCollection);
 
-        if (docSnap.exists()) {
-          await updateDoc(transactionRef, { status: newStatus });
-          return true;
+        let docToUpdateId: string | null = null;
+        let transactions: any[] = [];
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!data.transactions) return;
+
+          // Find the transaction in this doc's array
+          const idx = data.transactions.findIndex((t: any) => t.id === transactionId);
+          if (idx !== -1) {
+            docToUpdateId = docSnap.id;
+            // Make a shallow copy of the existing transactions array
+            transactions = [...data.transactions];
+            // Update the status of the matched transaction
+            transactions[idx].status = newStatus;
+          }
+        });
+
+        if (!docToUpdateId) {
+          console.warn('Transaction not found in any sales doc');
+          return false;
         }
-        return false;
+
+        // Write the updated transactions array back to Firestore
+        const dateDocRef = doc(firestore, `shops/${shopId}/sales/${docToUpdateId}`);
+        await updateDoc(dateDocRef, { transactions });
+        return true;
       } catch (error) {
         console.error('Error updating transaction status:', error);
         return false;
