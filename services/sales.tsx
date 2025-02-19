@@ -438,6 +438,8 @@ export const useSalesService = (): SalesService => {
       }
     },
     async getTransactions(options?: TransactionListOptions): Promise<TransactionListResult> {
+      console.log('Starting getTransactions with shopId:', shopId, 'options:', options);
+    
       // Query all sales documents (e.g., by date) under shops/${shopId}/sales
       let q = query(collection(firestore, `shops/${shopId}/sales`));
     
@@ -448,34 +450,44 @@ export const useSalesService = (): SalesService => {
     
         if (startStr) {
           q = query(q, where('__name__', '>=', startStr));
+          console.log('Added start date filter:', startStr);
         }
         if (endStr) {
           q = query(q, where('__name__', '<=', endStr));
+          console.log('Added end date filter:', endStr);
         }
       }
     
-      // No status or timestamp filtering at the document level since those are in transactions array
       // Limit can still be applied, but it will limit the number of sales documents, not transactions
       if (options?.limit) {
         q = query(q, limit(options.limit));
+        console.log('Applied limit:', options.limit);
       }
     
+      console.log('Executing query:', q);
       const querySnapshot = await getDocs(q);
+    
+      console.log('Found sales documents:', querySnapshot.docs.length);
     
       // Collect all transactions from all sales documents
       let allTransactions: SaleMetadata[] = [];
       querySnapshot.forEach(doc => {
+        console.log('Processing sales document:', doc.id, 'data:', doc.data());
         const data = doc.data();
         const transactionsArray = data.transactions || []; // Get the transactions array from each sales document
     
+        console.log('Transactions array length for document', doc.id, ':', transactionsArray.length);
+    
         // Convert each transaction in the array to SaleMetadata
-        transactionsArray.forEach((transaction: any) => {
+        transactionsArray.forEach((transaction: any, index: number) => {
+          console.log('Converting transaction at index', index, ':', transaction);
           allTransactions.push(convertToSaleMetadata(transaction));
         });
       });
     
       // If no transactions found, return early with defaults
       if (allTransactions.length === 0) {
+        console.log('No transactions found, returning defaults');
         return {
           transactions: [],
           totalCount: 0,
@@ -496,6 +508,8 @@ export const useSalesService = (): SalesService => {
       const failedCount = allTransactions.filter(t => t.status === 'failed').length;
       const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
       const averageTransactionValue = totalCount > 0 ? totalRevenue / totalCount : 0;
+    
+      console.log('Final transactions count:', totalCount, 'Pending count:', pendingCount);
     
       return {
         transactions: allTransactions,

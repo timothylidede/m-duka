@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useSalesService, SaleMetadata, TransactionListResult } from '../services/sales'; // Updated to use TransactionListResult
+import { useSalesService, SaleMetadata, TransactionListResult } from '../services/sales';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed';
 
@@ -61,15 +61,15 @@ const TransactionItem = ({
         {transaction.lineItems.map((item, idx) => (
           <View key={idx} style={styles.itemRow}>
             <View style={styles.itemDetails}>
-              <Text style={styles.itemName}>{item.productId}</Text>
+              <Text style={styles.itemName}>{item.productId || 'Unknown Product'}</Text>
               <View style={styles.itemMetrics}>
-                <Text style={styles.itemMetricText}>Qty: {item.quantity}</Text>
+                <Text style={styles.itemMetricText}>Qty: {item.quantity || 0}</Text>
                 <Text style={styles.bulletPoint}>•</Text>
-                <Text style={styles.itemMetricText}>KES {item.price}/unit</Text>
+                <Text style={styles.itemMetricText}>KES {item.price || 0}/unit</Text>
               </View>
             </View>
             <Text style={styles.itemTotal}>
-              KES {(item.price * item.quantity).toLocaleString()}
+              KES {((item.price || 0) * (item.quantity || 0)).toLocaleString()}
             </Text>
           </View>
         ))}
@@ -85,13 +85,13 @@ const TransactionItem = ({
               color="#64748B" 
               style={styles.paymentIcon}
             />
-            <Text style={styles.paymentText}>{transaction.paymentMethod}</Text>
+            <Text style={styles.paymentText}>{transaction.paymentMethod || 'Unknown'}</Text>
           </View>
         </View>
         <View style={styles.totalAmount}>
           <Text style={styles.totalLabel}>Total Amount</Text>
           <Text style={styles.totalValue}>
-            KES {transaction.totalPrice.toLocaleString()}
+            KES {transaction.totalPrice.toLocaleString() || '0'}
           </Text>
         </View>
       </View>
@@ -102,18 +102,19 @@ const TransactionItem = ({
 export default function TransactionsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
-  const [transactionData, setTransactionData] = useState<TransactionListResult | null>(null); // Updated to TransactionListResult
+  const [transactionData, setTransactionData] = useState<TransactionListResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const salesService = useSalesService();
 
   const loadTransactions = async (filter: StatusFilter = 'all') => {
+    console.log('Loading transactions with filter:', filter);
     setIsLoading(true);
     try {
       const data = await salesService.getTransactions({
         status: filter === 'all' ? undefined : filter,
-        limit: 20 // Limit to recent transactions for better performance
+        limit: 20
       });
-      
+      console.log('Received transaction data:', data);
       setTransactionData(data);
     } catch (error) {
       console.error('Failed to load transactions:', error);
@@ -127,9 +128,7 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
-    if (activeFilter) {
-      loadTransactions(activeFilter);
-    }
+    loadTransactions(activeFilter);
   }, [activeFilter]);
 
   const onRefresh = React.useCallback(() => {
@@ -160,14 +159,13 @@ export default function TransactionsPage() {
     setActiveFilter(filter);
   };
 
-  // Helper function to calculate derived metrics locally
   const calculateMetrics = (transactions: SaleMetadata[]) => {
     const totalCount = transactions.length;
     const completedCount = transactions.filter(t => t.status === 'completed').length;
     const pendingCount = transactions.filter(t => t.status === 'pending').length;
     const failedCount = transactions.filter(t => t.status === 'failed').length;
     const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-    const averageTransactionValue = totalCount > 0 ? transactions.reduce((sum, t) => sum + t.totalPrice, 0) / totalCount : 0;
+    const averageTransactionValue = totalCount > 0 ? transactions.reduce((sum, t) => sum + (t.totalPrice || 0), 0) / totalCount : 0;
 
     return { totalCount, completedCount, pendingCount, failedCount, completionRate, averageTransactionValue };
   };
@@ -295,14 +293,14 @@ export default function TransactionsPage() {
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>Loading transactions...</Text>
             </View>
-          ) : transactionData?.transactions.length === 0 ? (
+          ) : !transactionData || transactionData.transactions.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Feather name="inbox" size={48} color="#CBD5E1" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No transactions found</Text>
               <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
             </View>
           ) : (
-            transactionData?.transactions.map((transaction: SaleMetadata, index: number) => ( // Explicitly typed parameters
+            transactionData.transactions.map((transaction: SaleMetadata, index: number) => (
               <TransactionItem 
                 key={transaction.id} 
                 transaction={transaction}
@@ -318,7 +316,6 @@ export default function TransactionsPage() {
     </>
   );
 }
-
 const styles = StyleSheet.create({
   // Keep all existing styles...
   
