@@ -62,7 +62,7 @@ const TransactionItem = ({
       </View>
       
       <View style={styles.itemsContainer}>
-        {transaction.lineItems.map((item, idx) => (
+        {transaction.lineItems && transaction.lineItems.map((item, idx) => (
           <View key={idx} style={styles.itemRow}>
             <View style={styles.itemDetails}>
               <Text style={styles.itemName}>{item.productId || 'Product'}</Text>
@@ -95,7 +95,7 @@ const TransactionItem = ({
         <View style={styles.footerRight}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>
-            KES {transaction.totalPrice.toLocaleString() || '0'}
+            KES {(transaction.totalPrice || 0).toLocaleString()}
           </Text>
         </View>
       </View>
@@ -115,7 +115,16 @@ const TransactionItem = ({
 export default function TransactionsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
-  const [transactionData, setTransactionData] = useState<TransactionListResult | null>(null);
+  const [transactionData, setTransactionData] = useState<TransactionListResult>({
+    transactions: [],
+    totalRevenue: 0,
+    totalCount: 0,
+    completedCount: 0,
+    pendingCount: 0,
+    failedCount: 0,
+    completionRate: 0,
+    averageTransactionValue: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -128,27 +137,48 @@ export default function TransactionsPage() {
     try {
       const data = await salesService.getTransactions({
         status: filter === 'all' ? undefined : filter,
-        limit: 100 // Get more than we need for pagination
+        limit: 100, // Get more than we need for pagination
       });
-      
-      if (data && data.transactions) {
+  
+      if (data && data.transactions && Array.isArray(data.transactions)) {
         // Calculate total pages
         const totalPages = Math.ceil(data.transactions.length / itemsPerPage);
         setTotalPages(totalPages > 0 ? totalPages : 1);
-        
+  
         // Pagination logic
         const startIndex = (page - 1) * itemsPerPage;
         const paginatedTransactions = {
           ...data,
-          transactions: data.transactions.slice(startIndex, startIndex + itemsPerPage)
+          transactions: data.transactions.slice(startIndex, startIndex + itemsPerPage),
         };
-        
+  
         setTransactionData(paginatedTransactions);
       } else {
-        setTransactionData(data);
+        // Provide fallback data structure if API returns unexpected format
+        setTransactionData({
+          transactions: [],
+          totalRevenue: 0,
+          totalCount: 0,
+          completedCount: 0,
+          pendingCount: 0,
+          failedCount: 0,
+          completionRate: 0,
+          averageTransactionValue: 0,
+        });
       }
     } catch (error) {
       console.error('Failed to load transactions:', error);
+      // Set default empty state on error
+      setTransactionData({
+        transactions: [],
+        totalRevenue: 0,
+        totalCount: 0,
+        completedCount: 0,
+        pendingCount: 0,
+        failedCount: 0,
+        completionRate: 0,
+        averageTransactionValue: 0,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -257,33 +287,29 @@ export default function TransactionsPage() {
           <View style={styles.revenueContainer}>
             <Text style={styles.revenueLabel}>Total Revenue</Text>
             <Text style={styles.revenueAmount}>
-              KES {transactionData?.totalRevenue?.toLocaleString() || "0"}
+              KES {(transactionData?.totalRevenue || 0).toLocaleString()}
             </Text>
           </View>
           
           <View style={styles.metricsRow}>
-            {transactionData && (
-              <>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricValue}>{transactionData.totalCount || 0}</Text>
-                  <Text style={styles.metricLabel}>Transactions</Text>
-                </View>
-                
-                <View style={styles.metricDivider} />
-                
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricValue}>{Math.round(transactionData.completionRate || 0)}%</Text>
-                  <Text style={styles.metricLabel}>Completion Rate</Text>
-                </View>
-                
-                <View style={styles.metricDivider} />
-                
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricValue}>KES {Math.round(transactionData.averageTransactionValue || 0).toLocaleString()}</Text>
-                  <Text style={styles.metricLabel}>Avg. Value</Text>
-                </View>
-              </>
-            )}
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{transactionData?.totalCount || 0}</Text>
+              <Text style={styles.metricLabel}>Transactions</Text>
+            </View>
+            
+            <View style={styles.metricDivider} />
+            
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{Math.round(transactionData?.completionRate || 0)}%</Text>
+              <Text style={styles.metricLabel}>Completion Rate</Text>
+            </View>
+            
+            <View style={styles.metricDivider} />
+            
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>KES {Math.round(transactionData?.averageTransactionValue || 0).toLocaleString()}</Text>
+              <Text style={styles.metricLabel}>Avg. Value</Text>
+            </View>
           </View>
         </LinearGradient>
 
@@ -319,10 +345,10 @@ export default function TransactionsPage() {
                   ]}
                 >
                   {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  {filter !== 'all' && transactionData ? 
-                    ` (${filter === 'completed' ? transactionData.completedCount : 
-                       filter === 'pending' ? transactionData.pendingCount : 
-                       transactionData.failedCount})` : ''}
+                  {filter !== 'all' ? 
+                    ` (${filter === 'completed' ? transactionData?.completedCount || 0 : 
+                       filter === 'pending' ? transactionData?.pendingCount || 0 : 
+                       transactionData?.failedCount || 0})` : ''}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -336,7 +362,7 @@ export default function TransactionsPage() {
               <ActivityIndicator size="large" color="#2E3192" />
               <Text style={styles.loadingText}>Loading transactions...</Text>
             </View>
-          ) : transactionData === null || transactionData.transactions.length === 0 ? (
+          ) : !transactionData || !transactionData.transactions || transactionData.transactions.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Feather name="inbox" size={56} color="#CBD5E1" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No transactions found</Text>
