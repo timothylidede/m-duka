@@ -105,7 +105,13 @@ export const useSalesService = (): SalesService => {
     return {
       id: transaction.id || Date.now().toString(), // Default to timestamp if no ID
       lineItems: transaction.lineItems || [],
-      timestamp: transaction.timestamp?.toDate() || new Date(),
+      timestamp: (() => {
+        if (transaction.timestamp instanceof Timestamp) return transaction.timestamp.toDate();
+        if (transaction.timestamp instanceof Date) return transaction.timestamp;
+        if (typeof transaction.timestamp === 'string') return new Date(transaction.timestamp);
+        if (typeof transaction.timestamp === 'number') return new Date(transaction.timestamp * 1000); // Assuming UNIX timestamp in seconds
+        return new Date(); // Fallback
+      })(),
       paymentMethod: transaction.paymentMethod || 'unknown',
       status: (transaction.status as 'completed' | 'pending' | 'failed') || 'pending',
       totalPrice: transaction.totalPrice || 
@@ -432,39 +438,67 @@ export const useSalesService = (): SalesService => {
       }
     },
     async getTransactions(options?: TransactionListOptions): Promise<TransactionListResult> {
-      let q = query(collection(firestore, `shops/${shopId}/sales`), orderBy('timestamp', 'desc'));
-
-      if (options) {
-        if (options.status && options.status !== 'all') {
-          q = query(q, where('status', '==', options.status));
+      // Query all sales documents (e.g., by date) under shops/${shopId}/sales
+      let q = query(collection(firestore, `shops/${shopId}/sales`));
+    
+      // Apply date range filters if provided (assuming sales documents are named by date)
+      if (options?.startDate || options?.endDate) {
+        const startStr = options.startDate?.toISOString().split('T')[0];
+        const endStr = options.endDate?.toISOString().split('T')[0];
+    
+        if (startStr) {
+          q = query(q, where('__name__', '>=', startStr));
         }
-        if (options.limit) {
-          q = query(q, limit(options.limit));
-        }
-        if (options.offset) {
-          console.warn('Offset is not directly supported by Firestore. Consider using startAfter for pagination.');
-        }
-        if (options.startDate) {
-          q = query(q, where('timestamp', '>=', options.startDate));
-        }
-        if (options.endDate) {
-          q = query(q, where('timestamp', '<=', options.endDate));
+        if (endStr) {
+          q = query(q, where('__name__', '<=', endStr));
         }
       }
-
+    
+      // No status or timestamp filtering at the document level since those are in transactions array
+      // Limit can still be applied, but it will limit the number of sales documents, not transactions
+      if (options?.limit) {
+        q = query(q, limit(options.limit));
+      }
+    
       const querySnapshot = await getDocs(q);
-      const transactions: SaleMetadata[] = querySnapshot.docs.map(doc => convertToSaleMetadata(doc.data()));
-
-      const totalRevenue = transactions.reduce((sum, sale) => sum + sale.totalPrice, 0);
-      const totalCount = transactions.length;
-      const completedCount = transactions.filter(t => t.status === 'completed').length;
-      const pendingCount = transactions.filter(t => t.status === 'pending').length;
-      const failedCount = transactions.filter(t => t.status === 'failed').length;
+    
+      // Collect all transactions from all sales documents
+      let allTransactions: SaleMetadata[] = [];
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        const transactionsArray = data.transactions || []; // Get the transactions array from each sales document
+    
+        // Convert each transaction in the array to SaleMetadata
+        transactionsArray.forEach((transaction: any) => {
+          allTransactions.push(convertToSaleMetadata(transaction));
+        });
+      });
+    
+      // If no transactions found, return early with defaults
+      if (allTransactions.length === 0) {
+        return {
+          transactions: [],
+          totalCount: 0,
+          totalRevenue: 0,
+          completedCount: 0,
+          pendingCount: 0,
+          failedCount: 0,
+          completionRate: 0,
+          averageTransactionValue: 0,
+        };
+      }
+    
+      // Calculate metrics
+      const totalRevenue = allTransactions.reduce((sum, sale) => sum + (sale.totalPrice || 0), 0);
+      const totalCount = allTransactions.length;
+      const completedCount = allTransactions.filter(t => t.status === 'completed').length;
+      const pendingCount = allTransactions.filter(t => t.status === 'pending').length;
+      const failedCount = allTransactions.filter(t => t.status === 'failed').length;
       const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
       const averageTransactionValue = totalCount > 0 ? totalRevenue / totalCount : 0;
-
+    
       return {
-        transactions,
+        transactions: allTransactions,
         totalCount,
         totalRevenue,
         completedCount,
