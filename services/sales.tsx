@@ -101,23 +101,24 @@ export const useSalesService = (): SalesService => {
 
   const shopId = shopData.contact;
 
-  const convertToSaleMetadata = (transaction: any, dateStr?: string): SaleMetadata => {
+  const convertToSaleMetadata = (transaction: any): SaleMetadata => {
     return {
-      id: transaction.id || Date.now().toString(), // Default to timestamp if no ID
+      id: transaction.id || Date.now().toString(),
       lineItems: transaction.lineItems || [],
       timestamp: (() => {
         if (transaction.timestamp instanceof Timestamp) return transaction.timestamp.toDate();
         if (transaction.timestamp instanceof Date) return transaction.timestamp;
         if (typeof transaction.timestamp === 'string') return new Date(transaction.timestamp);
-        if (typeof transaction.timestamp === 'number') return new Date(transaction.timestamp * 1000); // Assuming UNIX timestamp in seconds
-        return new Date(); // Fallback
+        if (typeof transaction.timestamp === 'number') return new Date(transaction.timestamp * 1000);
+        return new Date();
       })(),
       paymentMethod: transaction.paymentMethod || 'unknown',
-      status: (transaction.status as 'completed' | 'pending' | 'failed') || 'pending',
-      totalPrice: transaction.totalPrice || 
-                  (transaction.lineItems ? 
-                   transaction.lineItems.reduce((sum: number, item: any) => 
-                     sum + (item.price * item.quantity), 0) : 0),
+      // Convert any status value to lowercase to match filtering expectations.
+      status: transaction.status ? transaction.status.toLowerCase() : 'pending',
+      totalPrice: transaction.totalPrice ||
+                  (transaction.lineItems
+                    ? transaction.lineItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0)
+                    : 0),
     };
   };
 
