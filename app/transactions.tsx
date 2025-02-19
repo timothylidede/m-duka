@@ -1,31 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Platform, RefreshControl, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useSalesService, SaleMetadata, TransactionResult } from '../services/sales'; // Updated import
 
-type Transaction = {
-  id: string;
-  timeStamp: string;
-  totalPrice: number;
-  status: 'completed' | 'pending' | 'failed';
-  paymentMethod: string;
-  lineItems: {
-    productId: string;
-    price: number;
-    quantity: number;
-  }[];
-};
+type StatusFilter = 'all' | 'completed' | 'pending' | 'failed';
 
-const TransactionItem = ({ transaction, index }: { transaction: Transaction; index: number }) => (
+const TransactionItem = ({ 
+  transaction, 
+  index, 
+  onStatusUpdate 
+}: { 
+  transaction: SaleMetadata; 
+  index: number;
+  onStatusUpdate?: (id: string, newStatus: 'completed' | 'pending' | 'failed') => void;
+}) => (
   <Animated.View 
     entering={FadeInDown.delay(index * 100)}
     style={styles.transactionCard}
   >
     <TouchableOpacity
-      onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (onStatusUpdate) {
+          const nextStatus = 
+            transaction.status === 'pending' ? 'completed' : 
+            transaction.status === 'completed' ? 'failed' : 'pending';
+          onStatusUpdate(transaction.id, nextStatus);
+        }
+      }}
       activeOpacity={0.7}
       style={styles.transactionContent}
     >
@@ -46,7 +52,7 @@ const TransactionItem = ({ transaction, index }: { transaction: Transaction; ind
         <View style={styles.timeContainer}>
           <Feather name="clock" size={14} color="#64748B" style={styles.clockIcon} />
           <Text style={styles.timeText}>
-            {new Date(transaction.timeStamp).toLocaleTimeString()}
+            {new Date(transaction.timestamp).toLocaleTimeString()}
           </Text>
         </View>
       </View>
@@ -94,45 +100,76 @@ const TransactionItem = ({ transaction, index }: { transaction: Transaction; ind
 );
 
 export default function TransactionsPage() {
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [transactions] = React.useState<Transaction[]>([
-    {
-      id: "T001",
-      timeStamp: "2025-02-12T12:30:00",
-      totalPrice: 150,
-      status: 'completed',
-      paymentMethod: 'card',
-      lineItems: [
-        { productId: "Premium Milk", price: 50, quantity: 2 },
-        { productId: "Whole Grain Bread", price: 50, quantity: 1 }
-      ]
-    },
-    {
-      id: "T002",
-      timeStamp: "2025-02-12T14:15:00",
-      totalPrice: 300,
-      status: 'completed',
-      paymentMethod: 'mobile',
-      lineItems: [
-        { productId: "Fresh Eggs", price: 100, quantity: 2 },
-        { productId: "Butter", price: 100, quantity: 1 }
-      ]
-    }
-  ]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
+  const [transactionData, setTransactionData] = useState<TransactionResult | null>(null); // Updated type
+  const [isLoading, setIsLoading] = useState(true);
+  const salesService = useSalesService();
 
-  const totalRevenue = transactions.reduce((sum, t) => sum + t.totalPrice, 0);
-  const completedTransactions = transactions.filter(t => t.status === 'completed').length;
+  const loadTransactions = async (filter: StatusFilter = 'all') => {
+    setIsLoading(true);
+    try {
+      const data = await salesService.getTransactions({
+        status: filter === 'all' ? undefined : filter,
+        limit: 20 // Limit to recent transactions for better performance
+      });
+      
+      setTransactionData(data);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  useEffect(() => {
+    if (activeFilter) {
+      loadTransactions(activeFilter);
+    }
+  }, [activeFilter]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
+    loadTransactions(activeFilter).then(() => {
       setRefreshing(false);
-    }, 1000);
-  }, []);
+    });
+  }, [activeFilter]);
+
+  const handleStatusUpdate = async (id: string, newStatus: 'completed' | 'pending' | 'failed') => {
+    try {
+      const success = await salesService.updateTransactionStatus(id, newStatus);
+      if (success) {
+        loadTransactions(activeFilter);
+      }
+    } catch (error) {
+      console.error('Failed to update transaction status:', error);
+    }
+  };
 
   const handleBackPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
+  };
+
+  const handleFilterPress = (filter: StatusFilter) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveFilter(filter);
+  };
+
+  // Helper function to calculate derived metrics locally
+  const calculateMetrics = (transactions: SaleMetadata[]) => {
+    const totalCount = transactions.length;
+    const completedCount = transactions.filter(t => t.status === 'completed').length;
+    const pendingCount = transactions.filter(t => t.status === 'pending').length;
+    const failedCount = transactions.filter(t => t.status === 'failed').length;
+    const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+    const averageTransactionValue = totalCount > 0 ? transactions.reduce((sum, t) => sum + t.totalPrice, 0) / totalCount : 0;
+
+    return { totalCount, completedCount, pendingCount, failedCount, completionRate, averageTransactionValue };
   };
 
   return (
@@ -191,48 +228,92 @@ export default function TransactionsPage() {
               Today's Total Revenue
             </Text>
             <Text style={styles.revenueAmount}>
-              KES {totalRevenue.toLocaleString()}
+              KES {transactionData?.totalRevenue.toLocaleString() || "0"}
             </Text>
           </View>
           
           <View style={styles.metricsContainer}>
-            <View style={styles.metric}>
-              <Text style={styles.metricLabel}>
-                Transactions
-              </Text>
-              <Text style={styles.metricValue}>
-                {transactions.length}
-              </Text>
-            </View>
-            <View style={styles.metricDivider} />
-            <View style={styles.metric}>
-              <Text style={styles.metricLabel}>
-                Completion Rate
-              </Text>
-              <Text style={styles.metricValue}>
-                {((completedTransactions / transactions.length) * 100).toFixed(0)}%
-              </Text>
-            </View>
-            <View style={styles.metricDivider} />
-            <View style={styles.metric}>
-              <Text style={styles.metricLabel}>
-                Avg. Transaction
-              </Text>
-              <Text style={styles.metricValue}>
-                KES {(totalRevenue / transactions.length).toLocaleString()}
-              </Text>
-            </View>
+            {transactionData && transactionData.transactions && (
+              <View>
+                <View style={styles.metric}>
+                  <Text style={styles.metricLabel}>
+                    Transactions
+                  </Text>
+                  <Text style={styles.metricValue}>
+                    {transactionData.salesCount || 0}
+                  </Text>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metric}>
+                  <Text style={styles.metricLabel}>
+                    Completion Rate
+                  </Text>
+                  <Text style={styles.metricValue}>
+                    {Math.round(calculateMetrics(transactionData.transactions).completionRate)}%
+                  </Text>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metric}>
+                  <Text style={styles.metricLabel}>
+                    Avg. Transaction
+                  </Text>
+                  <Text style={styles.metricValue}>
+                    KES {calculateMetrics(transactionData.transactions).averageTransactionValue.toLocaleString() || "0"}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </LinearGradient>
 
+        {/* Filter tabs */}
+        <View style={styles.filterTabs}>
+          {(['all', 'completed', 'pending', 'failed'] as StatusFilter[]).map((filter) => {
+            const metrics = transactionData ? calculateMetrics(transactionData.transactions) : { completedCount: 0, pendingCount: 0, failedCount: 0 };
+            return (
+              <TouchableOpacity
+                key={filter}
+                onPress={() => handleFilterPress(filter)}
+                style={[
+                  styles.filterTab,
+                  activeFilter === filter && styles.activeFilterTab
+                ]}
+              >
+                <Text 
+                  style={[
+                    styles.filterTabText,
+                    activeFilter === filter && styles.activeFilterTabText
+                  ]}
+                >
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  {filter !== 'all' ? ` (${filter === 'completed' ? metrics.completedCount : filter === 'pending' ? metrics.pendingCount : metrics.failedCount})` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={styles.transactionsList}>
-          {transactions.map((transaction, index) => (
-            <TransactionItem 
-              key={transaction.id} 
-              transaction={transaction}
-              index={index}
-            />
-          ))}
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading transactions...</Text>
+            </View>
+          ) : transactionData?.transactions.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Feather name="inbox" size={48} color="#CBD5E1" style={styles.emptyIcon} />
+              <Text style={styles.emptyText}>No transactions found</Text>
+              <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
+            </View>
+          ) : (
+            transactionData?.transactions.map((transaction, index) => (
+              <TransactionItem 
+                key={transaction.id} 
+                transaction={transaction}
+                index={index}
+                onStatusUpdate={handleStatusUpdate}
+              />
+            ))
+          )}
         </View>
         
         <View style={styles.bottomSpacing} />
@@ -242,6 +323,70 @@ export default function TransactionsPage() {
 }
 
 const styles = StyleSheet.create({
+  // Keep all existing styles...
+  
+  // Add new styles for filters and empty states
+  filterTabs: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginVertical: 16,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  activeFilterTab: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterTabText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  activeFilterTabText: {
+    color: '#1E293B',
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#64748B',
+    fontSize: 16,
+  },
+  emptyContainer: {
+    padding: 48,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  // Add any additional styles you need
+  
+  // Ensure existing styles from the original component are included here
+  // ...existing styles from TransactionsPage...
   header: {
     width: '100%',
     zIndex: 10,
