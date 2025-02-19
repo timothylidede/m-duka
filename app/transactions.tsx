@@ -132,18 +132,16 @@ export default function TransactionsPage() {
   
   const salesService = useSalesService();
 
-  /**
-   * Updated loadTransactions to do local filtering & pagination
-   */
   const loadTransactions = async (filter: StatusFilter = 'all', page: number = 1) => {
     setIsLoading(true);
     try {
       // 1. Fetch all transactions from Firestore
       const data = await salesService.getTransactions({
-        // pass 'all' so the service doesn't filter by status, or pass the actual filter if you want server-side filtering
         status: 'all',
         limit: 100, 
       });
+
+      console.log('Fetched data:', data); // Debug log
 
       if (data && data.transactions && Array.isArray(data.transactions)) {
         // 2. Filter by status locally
@@ -152,13 +150,19 @@ export default function TransactionsPage() {
           filtered = data.transactions.filter(t => t.status === filter);
         }
 
+        console.log('Filtered transactions:', filtered); // Debug log
+
         // 3. Calculate total pages
         const totalPages = Math.ceil(filtered.length / itemsPerPage);
         setTotalPages(totalPages > 0 ? totalPages : 1);
 
+        console.log('Total pages:', totalPages); // Debug log
+
         // 4. Paginate
         const startIndex = (page - 1) * itemsPerPage;
         const paginatedTransactions = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+        console.log('Paginated transactions:', paginatedTransactions); // Debug log
 
         // 5. Update state
         setTransactionData({
@@ -166,6 +170,7 @@ export default function TransactionsPage() {
           transactions: paginatedTransactions
         });
       } else {
+        console.log('No transactions found in data'); // Debug log
         setTransactionData({
           transactions: [],
           totalRevenue: 0,
@@ -195,6 +200,7 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
+    console.log('Loading transactions with filter:', activeFilter, 'and page:', currentPage); // Debug log
     loadTransactions(activeFilter, currentPage);
   }, [activeFilter, currentPage]);
 
