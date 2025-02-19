@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSalesService } from '../../services/sales';
 import { AuthContext } from '../../context/AuthContext';
 import LineChartComponent from '@/components/lineChartComponent';
+import { connectToDatabase, createTables } from '../../localDatabase/database';
 
 // Define SalesData type
 interface SalesData {
@@ -159,6 +160,19 @@ export default function Index() {
       ]).start();
     }
   }, [isLoggedIn]);
+
+  const loadDatabase = useCallback(async () => {
+    try {
+      const db = await connectToDatabase()
+      await createTables(db)
+    } catch (error) {
+      console.error(error)
+    }
+  }, [])
+  
+  useEffect(() => {
+    loadDatabase()
+  }, [loadDatabase])
 
   const handleTimeRangeChange = (range: 'today' | 'week' | 'month') => {
     setTimeRange(range);
