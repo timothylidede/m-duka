@@ -583,7 +583,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
