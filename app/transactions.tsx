@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Platform, RefreshControl, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  StatusBar,
+  ActivityIndicator
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
@@ -9,12 +19,12 @@ import { useSalesService, SaleMetadata, TransactionListResult } from '../service
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed';
 
-const TransactionItem = ({ 
-  transaction, 
-  index, 
-  onStatusUpdate 
-}: { 
-  transaction: SaleMetadata; 
+const TransactionItem = ({
+  transaction,
+  index,
+  onStatusUpdate
+}: {
+  transaction: SaleMetadata;
   index: number;
   onStatusUpdate?: (id: string, newStatus: 'completed' | 'pending' | 'failed') => void;
 }) => {
@@ -23,46 +33,56 @@ const TransactionItem = ({
     pending: '#F59E0B',
     failed: '#EF4444'
   };
-  
+
   const statusNames = {
     completed: 'Completed',
     pending: 'Pending',
     failed: 'Failed'
   };
-  
+
   const handleStatusToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onStatusUpdate) {
-      const nextStatus = 
-        transaction.status === 'pending' ? 'completed' : 
-        transaction.status === 'completed' ? 'failed' : 'pending';
+      const nextStatus =
+        transaction.status === 'pending'
+          ? 'completed'
+          : transaction.status === 'completed'
+          ? 'failed'
+          : 'pending';
       onStatusUpdate(transaction.id, nextStatus);
     }
   };
 
   return (
-    <Animated.View 
+    <Animated.View
       entering={FadeInDown.delay(index * 60).springify()}
       style={styles.transactionCard}
     >
       <View style={styles.cardHeader}>
         <View style={styles.idContainer}>
-          <View style={[styles.statusIndicator, { backgroundColor: statusColors[transaction.status as keyof typeof statusColors] || '#94A3B8' }]}>
-            <Text style={styles.statusText}>{statusNames[transaction.status as keyof typeof statusNames] || 'Unknown'}</Text>
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: statusColors[transaction.status as keyof typeof statusColors] || '#94A3B8' }
+            ]}
+          >
+            <Text style={styles.statusText}>
+              {statusNames[transaction.status as keyof typeof statusNames] || 'Unknown'}
+            </Text>
           </View>
           <Text style={styles.transactionId}>#{transaction.id.slice(-6)}</Text>
         </View>
-        
         <View style={styles.dateTimeContainer}>
           <Feather name="calendar" size={14} color="#64748B" style={styles.iconSpacing} />
           <Text style={styles.timeText}>
-            {new Date(transaction.timestamp).toLocaleDateString()} • {new Date(transaction.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            {new Date(transaction.timestamp).toLocaleDateString()} •{' '}
+            {new Date(transaction.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
       </View>
-      
+
       <View style={styles.itemsContainer}>
-        {transaction.lineItems && transaction.lineItems.map((item, idx) => (
+        {transaction.lineItems.map((item, idx) => (
           <View key={idx} style={styles.itemRow}>
             <View style={styles.itemDetails}>
               <Text style={styles.itemName}>{item.productId || 'Product'}</Text>
@@ -70,7 +90,9 @@ const TransactionItem = ({
                 <View style={styles.quantityBadge}>
                   <Text style={styles.quantityText}>×{item.quantity || 0}</Text>
                 </View>
-                <Text style={styles.itemPrice}>KES {item.price?.toLocaleString() || 0}/unit</Text>
+                <Text style={styles.itemPrice}>
+                  KES {item.price?.toLocaleString() || 0}/unit
+                </Text>
               </View>
             </View>
             <Text style={styles.itemTotal}>
@@ -79,19 +101,20 @@ const TransactionItem = ({
           </View>
         ))}
       </View>
-      
+
       <View style={styles.cardFooter}>
         <View style={styles.footerLeft}>
           <View style={styles.paymentMethodContainer}>
-            <Feather 
-              name={transaction.paymentMethod === 'card' ? 'credit-card' : 'smartphone'} 
-              size={16} 
-              color="#64748B" 
+            <Feather
+              name={transaction.paymentMethod === 'card' ? 'credit-card' : 'smartphone'}
+              size={16}
+              color="#64748B"
             />
-            <Text style={styles.paymentMethodText}>{transaction.paymentMethod || 'Unknown'}</Text>
+            <Text style={styles.paymentMethodText}>
+              {transaction.paymentMethod || 'Unknown'}
+            </Text>
           </View>
         </View>
-        
         <View style={styles.footerRight}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>
@@ -99,7 +122,7 @@ const TransactionItem = ({
           </Text>
         </View>
       </View>
-      
+
       <TouchableOpacity
         onPress={handleStatusToggle}
         style={styles.statusToggleButton}
@@ -126,51 +149,39 @@ export default function TransactionsPage() {
     averageTransactionValue: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  // We keep pagination in case you want to limit the rendered items.
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
-  
+
   const salesService = useSalesService();
 
   const loadTransactions = async (filter: StatusFilter = 'all', page: number = 1) => {
     setIsLoading(true);
     try {
-      // 1. Fetch all transactions from Firestore
+      // Fetch all transactions and then filter locally
       const data = await salesService.getTransactions({
         status: 'all',
-        limit: 100, 
+        limit: 100
       });
 
-      console.log('Fetched data:', data); // Debug log
-
       if (data && data.transactions && Array.isArray(data.transactions)) {
-        // 2. Filter by status locally
         let filtered = data.transactions;
         if (filter !== 'all') {
-          filtered = data.transactions.filter(t => t.status === filter);
+          filtered = data.transactions.filter((t) => t.status === filter);
         }
 
-        console.log('Filtered transactions:', filtered); // Debug log
+        const totalPagesCalc = Math.ceil(filtered.length / itemsPerPage);
+        setTotalPages(totalPagesCalc > 0 ? totalPagesCalc : 1);
 
-        // 3. Calculate total pages
-        const totalPages = Math.ceil(filtered.length / itemsPerPage);
-        setTotalPages(totalPages > 0 ? totalPages : 1);
-
-        console.log('Total pages:', totalPages); // Debug log
-
-        // 4. Paginate
         const startIndex = (page - 1) * itemsPerPage;
         const paginatedTransactions = filtered.slice(startIndex, startIndex + itemsPerPage);
 
-        console.log('Paginated transactions:', paginatedTransactions); // Debug log
-
-        // 5. Update state
         setTransactionData({
           ...data,
           transactions: paginatedTransactions
         });
       } else {
-        console.log('No transactions found in data'); // Debug log
         setTransactionData({
           transactions: [],
           totalRevenue: 0,
@@ -179,7 +190,7 @@ export default function TransactionsPage() {
           pendingCount: 0,
           failedCount: 0,
           completionRate: 0,
-          averageTransactionValue: 0,
+          averageTransactionValue: 0
         });
       }
     } catch (error) {
@@ -192,7 +203,7 @@ export default function TransactionsPage() {
         pendingCount: 0,
         failedCount: 0,
         completionRate: 0,
-        averageTransactionValue: 0,
+        averageTransactionValue: 0
       });
     } finally {
       setIsLoading(false);
@@ -200,7 +211,6 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
-    console.log('Loading transactions with filter:', activeFilter, 'and page:', currentPage); // Debug log
     loadTransactions(activeFilter, currentPage);
   }, [activeFilter, currentPage]);
 
@@ -231,28 +241,32 @@ export default function TransactionsPage() {
   const handleFilterPress = (filter: StatusFilter) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveFilter(filter);
-    setCurrentPage(1); // Reset to first page on filter change
+    setCurrentPage(1);
   };
 
   const goToNextPage = () => {
     if (currentPage < totalPages) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentPage(prev => prev + 1);
-    }
-  };
-  
-  const goToPrevPage = () => {
-    if (currentPage > 1) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage((prev) => prev + 1);
     }
   };
 
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const renderItem = ({ item, index }: { item: SaleMetadata; index: number }) => (
+    <TransactionItem transaction={item} index={index} onStatusUpdate={handleStatusUpdate} />
+  );
+
   return (
-    <>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
-      {/* Header Section */}
+
+      {/* Header */}
       <LinearGradient
         colors={['#2E3192', '#1BFFFF']}
         start={{ x: 0, y: 0 }}
@@ -260,10 +274,10 @@ export default function TransactionsPage() {
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={handleBackPress}
             style={styles.backButton}
-            hitSlop={{top: 10, right: 10, bottom: 10, left: 10}}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
             <Feather name="arrow-left" size={22} color="white" />
           </TouchableOpacity>
@@ -271,161 +285,154 @@ export default function TransactionsPage() {
           <View style={styles.headerRight} />
         </View>
       </LinearGradient>
-      
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+
+      {/* FlatList for Transactions */}
+      <FlatList
+        data={transactionData.transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh}
-            colors={['#2E3192']}
-            tintColor="#2E3192"
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2E3192']} tintColor="#2E3192" />
         }
-      >
-        {/* Summary Card */}
-        <LinearGradient
-          colors={['#2E3192', '#1BFFFF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.summaryCard}
-        >
-          <View style={styles.summaryHeader}>
-            <View style={styles.dateContainer}>
-              <Feather name="activity" size={18} color="white" />
-              <Text style={styles.dateText}>
-                {new Date().toLocaleDateString([], {month: 'long', day: 'numeric', year: 'numeric'})}
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.revenueContainer}>
-            <Text style={styles.revenueLabel}>Total Revenue</Text>
-            <Text style={styles.revenueAmount}>
-              KES {(transactionData?.totalRevenue || 0).toLocaleString()}
-            </Text>
-          </View>
-          
-          <View style={styles.metricsRow}>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{transactionData?.totalCount || 0}</Text>
-              <Text style={styles.metricLabel}>Transactions</Text>
-            </View>
-            
-            <View style={styles.metricDivider} />
-            
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{Math.round(transactionData?.completionRate || 0)}%</Text>
-              <Text style={styles.metricLabel}>Completion Rate</Text>
-            </View>
-            
-            <View style={styles.metricDivider} />
-            
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>KES {Math.round(transactionData?.averageTransactionValue || 0).toLocaleString()}</Text>
-              <Text style={styles.metricLabel}>Avg. Value</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterTabs}
-          >
-            {(['all', 'completed', 'pending', 'failed'] as StatusFilter[]).map((filter) => (
-              <TouchableOpacity
-                key={filter}
-                onPress={() => handleFilterPress(filter)}
-                style={[
-                  styles.filterTab,
-                  activeFilter === filter && styles.activeFilterTab
-                ]}
-              >
-                {filter !== 'all' && (
-                  <View style={[
-                    styles.filterDot, 
-                    { backgroundColor: 
-                      filter === 'completed' ? '#10B981' : 
-                      filter === 'pending' ? '#F59E0B' : '#EF4444' 
-                    }
-                  ]} />
-                )}
-                <Text 
-                  style={[
-                    styles.filterTabText,
-                    activeFilter === filter && styles.activeFilterTabText
-                  ]}
-                >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  {filter !== 'all' ? 
-                    ` (${filter === 'completed' ? transactionData?.completedCount || 0 : 
-                       filter === 'pending' ? transactionData?.pendingCount || 0 : 
-                       transactionData?.failedCount || 0})` : ''}
+        ListHeaderComponent={
+          <>
+            {/* Summary Card */}
+            <LinearGradient
+              colors={['#2E3192', '#1BFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.summaryCard}
+            >
+              <View style={styles.summaryHeader}>
+                <View style={styles.dateContainer}>
+                  <Feather name="activity" size={18} color="white" />
+                  <Text style={styles.dateText}>
+                    {new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.revenueContainer}>
+                <Text style={styles.revenueLabel}>Total Revenue</Text>
+                <Text style={styles.revenueAmount}>
+                  KES {(transactionData?.totalRevenue || 0).toLocaleString()}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+              </View>
+              <View style={styles.metricsRow}>
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricValue}>{transactionData?.totalCount || 0}</Text>
+                  <Text style={styles.metricLabel}>Transactions</Text>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricValue}>{Math.round(transactionData?.completionRate || 0)}%</Text>
+                  <Text style={styles.metricLabel}>Completion Rate</Text>
+                </View>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricValue}>
+                    KES {Math.round(transactionData?.averageTransactionValue || 0).toLocaleString()}
+                  </Text>
+                  <Text style={styles.metricLabel}>Avg. Value</Text>
+                </View>
+              </View>
+            </LinearGradient>
 
-        {/* Transaction List */}
-        <View style={styles.transactionsList}>
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2E3192" />
-              <Text style={styles.loadingText}>Loading transactions...</Text>
+            {/* Filter Tabs */}
+            <View style={styles.filterContainer}>
+              <FlatList
+                data={['all', 'completed', 'pending', 'failed'] as StatusFilter[]}
+                horizontal
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleFilterPress(item)}
+                    style={[
+                      styles.filterTab,
+                      activeFilter === item && styles.activeFilterTab
+                    ]}
+                  >
+                    {item !== 'all' && (
+                      <View
+                        style={[
+                          styles.filterDot,
+                          {
+                            backgroundColor:
+                              item === 'completed'
+                                ? '#10B981'
+                                : item === 'pending'
+                                ? '#F59E0B'
+                                : '#EF4444'
+                          }
+                        ]}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.filterTabText,
+                        activeFilter === item && styles.activeFilterTabText
+                      ]}
+                    >
+                      {item.charAt(0).toUpperCase() + item.slice(1)}
+                      {item !== 'all'
+                        ? ` (${
+                            item === 'completed'
+                              ? transactionData?.completedCount || 0
+                              : item === 'pending'
+                              ? transactionData?.pendingCount || 0
+                              : transactionData?.failedCount || 0
+                          })`
+                        : ''}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterTabs}
+              />
             </View>
-          ) : !transactionData || !transactionData.transactions || transactionData.transactions.length === 0 ? (
+          </>
+        }
+        ListEmptyComponent={
+          isLoading ? null : (
             <View style={styles.emptyContainer}>
               <Feather name="inbox" size={56} color="#CBD5E1" style={styles.emptyIcon} />
               <Text style={styles.emptyText}>No transactions found</Text>
               <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
             </View>
-          ) : (
-            <>
-              {transactionData.transactions.map((transaction: SaleMetadata, index: number) => (
-                <TransactionItem 
-                  key={transaction.id} 
-                  transaction={transaction}
-                  index={index}
-                  onStatusUpdate={handleStatusUpdate}
-                />
-              ))}
-              
-              {/* Pagination Controls */}
-              <View style={styles.paginationContainer}>
-                <TouchableOpacity
-                  onPress={goToPrevPage}
-                  disabled={currentPage <= 1}
-                  style={[styles.paginationButton, currentPage <= 1 && styles.paginationButtonDisabled]}
-                >
-                  <Feather name="chevron-left" size={20} color={currentPage <= 1 ? "#94A3B8" : "#1E293B"} />
-                </TouchableOpacity>
-                
-                <View style={styles.paginationInfo}>
-                  <Text style={styles.paginationText}>
-                    Page {currentPage} of {totalPages}
-                  </Text>
-                </View>
-                
-                <TouchableOpacity
-                  onPress={goToNextPage}
-                  disabled={currentPage >= totalPages}
-                  style={[styles.paginationButton, currentPage >= totalPages && styles.paginationButtonDisabled]}
-                >
-                  <Feather name="chevron-right" size={20} color={currentPage >= totalPages ? "#94A3B8" : "#1E293B"} />
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          )
+        }
+        contentContainerStyle={styles.contentContainer}
+      />
+
+      {/* Pagination Controls */}
+      <View style={styles.paginationContainer}>
+        <TouchableOpacity
+          onPress={goToPrevPage}
+          disabled={currentPage <= 1}
+          style={[
+            styles.paginationButton,
+            currentPage <= 1 && styles.paginationButtonDisabled
+          ]}
+        >
+          <Feather name="chevron-left" size={20} color={currentPage <= 1 ? "#94A3B8" : "#1E293B"} />
+        </TouchableOpacity>
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            Page {currentPage} of {totalPages}
+          </Text>
         </View>
-        
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-    </>
+        <TouchableOpacity
+          onPress={goToNextPage}
+          disabled={currentPage >= totalPages}
+          style={[
+            styles.paginationButton,
+            currentPage >= totalPages && styles.paginationButtonDisabled
+          ]}
+        >
+          <Feather name="chevron-right" size={20} color={currentPage >= totalPages ? "#94A3B8" : "#1E293B"} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.bottomSpacing} />
+    </View>
   );
 }
 
@@ -434,13 +441,13 @@ const styles = StyleSheet.create({
   header: {
     width: '100%',
     paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 0,
-    paddingBottom: 12,
+    paddingBottom: 12
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   backButton: {
     width: 36,
@@ -448,30 +455,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)'
   },
   headerTitle: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.5
   },
   headerRight: {
-    width: 36,
+    width: 36
   },
-  
   // Container Styles
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8FAFC'
   },
   contentContainer: {
     paddingBottom: 24,
+    overflow: 'visible'
   },
-  
   // Summary Card Styles
   summaryCard: {
-    marginTop: -12,
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 16,
@@ -480,73 +485,72 @@ const styles = StyleSheet.create({
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 16,
+    shadowRadius: 16
   },
   summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 16
   },
   dateContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   dateText: {
     color: 'white',
     marginLeft: 8,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   revenueContainer: {
-    marginBottom: 20,
+    marginBottom: 20
   },
   revenueLabel: {
     color: 'white',
     fontSize: 14,
     opacity: 0.9,
-    marginBottom: 6,
+    marginBottom: 6
   },
   revenueAmount: {
     color: 'white',
     fontSize: 32,
     fontWeight: 'bold',
-    letterSpacing: 0.3,
+    letterSpacing: 0.3
   },
   metricsRow: {
     flexDirection: 'row',
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    borderTopColor: 'rgba(255, 255, 255, 0.15)'
   },
   metricItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   metricLabel: {
     color: 'white',
     opacity: 0.8,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 2
   },
   metricValue: {
     color: 'white',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   metricDivider: {
     width: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginHorizontal: 8,
+    marginHorizontal: 8
   },
-  
   // Filter Styles
   filterContainer: {
-    marginBottom: 8,
+    marginBottom: 8
   },
   filterTabs: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 8
   },
   filterTab: {
     paddingVertical: 8,
@@ -555,30 +559,30 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#F1F5F9',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   activeFilterTab: {
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#E0E7FF'
   },
   filterDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 6,
+    marginRight: 6
   },
   filterTabText: {
     color: '#64748B',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   activeFilterTabText: {
     color: '#4338CA',
-    fontWeight: '600',
+    fontWeight: '600'
   },
-  
   // Transaction List Styles
   transactionsList: {
     paddingHorizontal: 16,
+    overflow: 'visible'
   },
   transactionCard: {
     backgroundColor: 'white',
@@ -589,6 +593,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
+    overflow: 'visible'
   },
   cardHeader: {
     flexDirection: 'row',
@@ -596,44 +601,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F1F5F9'
   },
   idContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   statusIndicator: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
-    marginRight: 10,
+    marginRight: 10
   },
   statusText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   transactionId: {
     fontSize: 14,
     fontWeight: '600',
     color: '#334155',
-    letterSpacing: 0.2,
+    letterSpacing: 0.2
   },
   dateTimeContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   timeText: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 13
   },
   iconSpacing: {
-    marginRight: 5,
+    marginRight: 5
   },
-  
   // Item List Styles
   itemsContainer: {
-    padding: 16,
+    padding: 16
   },
   itemRow: {
     flexDirection: 'row',
@@ -641,44 +645,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F1F5F9'
   },
   itemDetails: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 8
   },
   itemName: {
     fontSize: 15,
     color: '#1E293B',
     fontWeight: '500',
-    marginBottom: 6,
+    marginBottom: 6
   },
   itemMetrics: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   quantityBadge: {
     backgroundColor: '#E0E7FF',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
-    marginRight: 8,
+    marginRight: 8
   },
   quantityText: {
     color: '#4338CA',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   itemPrice: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 13
   },
   itemTotal: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1E293B',
+    color: '#1E293B'
   },
-  
   // Card Footer Styles
   cardFooter: {
     flexDirection: 'row',
@@ -687,35 +690,34 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#F8FAFC',
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#F1F5F9'
   },
   footerLeft: {
-    flex: 1,
+    flex: 1
   },
   paymentMethodContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   paymentMethodText: {
     marginLeft: 8,
     color: '#64748B',
     fontSize: 14,
-    textTransform: 'capitalize',
+    textTransform: 'capitalize'
   },
   footerRight: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   totalLabel: {
     color: '#64748B',
     fontSize: 12,
-    marginBottom: 2,
+    marginBottom: 2
   },
   totalValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: '#1E293B'
   },
-  
   // Status Toggle Button
   statusToggleButton: {
     flexDirection: 'row',
@@ -723,51 +725,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 12,
     backgroundColor: '#4338CA',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16
   },
   statusToggleText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 8
   },
-  
   // Loading & Empty States
   loadingContainer: {
     padding: 40,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   loadingText: {
     color: '#64748B',
     fontSize: 16,
-    marginTop: 12,
+    marginTop: 12
   },
   emptyContainer: {
     padding: 48,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   emptyIcon: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#334155',
-    marginBottom: 8,
+    marginBottom: 8
   },
   emptySubtext: {
     fontSize: 14,
     color: '#64748B',
     textAlign: 'center',
-    maxWidth: '80%',
+    maxWidth: '80%'
   },
-  
   // Pagination Controls
   paginationContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   paginationButton: {
     width: 36,
@@ -777,23 +779,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E2E8F0'
   },
   paginationButtonDisabled: {
     backgroundColor: '#F1F5F9',
-    borderColor: '#E2E8F0',
+    borderColor: '#E2E8F0'
   },
   paginationInfo: {
-    marginHorizontal: 16,
+    marginHorizontal: 16
   },
   paginationText: {
     color: '#334155',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500'
   },
-  
   // Misc
   bottomSpacing: {
-    height: 32,
-  },
+    height: 32
+  }
 });
+
+export { TransactionsPage };
