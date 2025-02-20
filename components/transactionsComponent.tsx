@@ -14,14 +14,8 @@ const TransactionItem = ({
   index: number;
   onStatusUpdate?: (id: string, newStatus: 'completed' | 'pending' | 'failed') => void;
 }) => {
-  console.log('Rendering TransactionItem:', {
-    id: transaction.id,
-    status: transaction.status,
-    totalPrice: transaction.totalPrice,
-    lineItems: transaction.lineItems,
-    paymentMethod: transaction.paymentMethod,
-    timestamp: transaction.timestamp,
-  });
+  // Add debug logging that's more specific
+  console.log('Rendering TransactionItem with data:', JSON.stringify(transaction));
 
   const statusColors = {
     completed: '#10B981',
@@ -51,7 +45,7 @@ const TransactionItem = ({
   return (
     <Animated.View
       entering={FadeInDown.delay(index * 60).springify()}
-      style={[styles.transactionCard, { backgroundColor: 'rgba(255, 0, 255, 0.1)' }]} // Temporary magenta for debugging
+      style={styles.transactionCard}
     >
       {/* Header */}
       <View style={styles.cardHeader}>
@@ -97,7 +91,9 @@ const TransactionItem = ({
             </View>
           ))
         ) : (
-          <Text style={styles.noItemsText}>No items</Text>
+          <View style={styles.noItemsContainer}>
+            <Text style={styles.noItemsText}>Transaction Amount: KES {transaction.totalPrice?.toLocaleString() || 0}</Text>
+          </View>
         )}
       </View>
 
@@ -111,7 +107,7 @@ const TransactionItem = ({
               color="#64748B"
             />
             <Text style={styles.paymentMethodText}>
-              {transaction.paymentMethod || 'Unknown'}
+              {transaction.paymentMethod || 'Cash'}
             </Text>
           </View>
         </View>
@@ -142,13 +138,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     marginHorizontal: 16,
-    padding: 16, // Ensure padding for visibility
-    elevation: 2,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    overflow: 'visible',
+    elevation: 2,
+    overflow: 'hidden', // Change from visible to hidden
   },
   cardHeader: {
     flexDirection: 'row',
@@ -192,6 +187,12 @@ const styles = StyleSheet.create({
   },
   itemsContainer: {
     padding: 16,
+  },
+  noItemsContainer: {
+    padding: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
   },
   itemRow: {
     flexDirection: 'row',
@@ -287,8 +288,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   noItemsText: {
-    color: '#64748B',
+    color: '#1E293B',
     fontSize: 14,
+    fontWeight: '500',
     textAlign: 'center',
     padding: 10,
   },

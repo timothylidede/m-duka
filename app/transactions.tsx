@@ -213,14 +213,26 @@ export default function TransactionsPage() {
             <Text style={styles.loadingText}>Loading transactions...</Text>
           </View>
         ) : transactionData.transactions.length > 0 ? (
-          transactionData.transactions.map((transaction, index) => (
-            <TransactionItem
-              key={transaction.id}
-              transaction={transaction}
-              index={index}
-              onStatusUpdate={handleStatusUpdate}
-            />
-          ))
+          transactionData.transactions.map((transaction, index) => {
+            // Normalize transaction data structure
+            const normalizedTransaction = {
+              id: transaction.id,
+              status: transaction.status,
+              totalPrice: transaction.totalPrice || 0,
+              paymentMethod: transaction.paymentMethod || 'cash',
+              timestamp: transaction.timestamp || new Date(),
+              lineItems: transaction.lineItems || [],
+            };
+            
+            return (
+              <TransactionItem
+                key={normalizedTransaction.id}
+                transaction={normalizedTransaction}
+                index={index}
+                onStatusUpdate={handleStatusUpdate}
+              />
+            );
+          })
         ) : (
           <View style={styles.emptyContainer}>
             <Feather name="inbox" size={56} color="#CBD5E1" />

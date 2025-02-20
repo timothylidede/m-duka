@@ -397,13 +397,13 @@ export const useSalesService = (): SalesService => {
 
     async getTransactions(options?: TransactionListOptions): Promise<TransactionListResult> {
       console.log('Starting getTransactions with shopId:', shopId, 'options:', options);
-
+    
       let q = query(collection(firestore, `shops/${shopId}/sales`));
-
+    
       if (options?.startDate || options?.endDate) {
         const startStr = options.startDate?.toISOString().split('T')[0];
         const endStr = options.endDate?.toISOString().split('T')[0];
-
+    
         if (startStr) {
           q = query(q, where('__name__', '>=', startStr));
           console.log('Added start date filter:', startStr);
@@ -413,19 +413,19 @@ export const useSalesService = (): SalesService => {
           console.log('Added end date filter:', endStr);
         }
       }
-
+    
       const querySnapshot = await getDocs(q);
-
+    
       console.log('Found sales documents:', querySnapshot.docs.length);
-
+    
       let allTransactions: SaleMetadata[] = [];
       querySnapshot.forEach(docSnap => {
         console.log('Processing sales document:', docSnap.id, 'data:', docSnap.data());
         const data = docSnap.data();
         const transactionsArray = data.transactions || [];
-
+    
         console.log('Transactions array length for document', docSnap.id, ':', transactionsArray.length);
-
+    
         transactionsArray.forEach((transaction: any, index: number) => {
           console.log('Converting transaction at index', index, ':', transaction);
           const saleMetadata = convertToSaleMetadata(transaction);
@@ -433,7 +433,7 @@ export const useSalesService = (): SalesService => {
           allTransactions.push(saleMetadata);
         });
       });
-
+    
       if (allTransactions.length === 0) {
         console.log('No transactions found, returning defaults');
         return {
@@ -447,40 +447,31 @@ export const useSalesService = (): SalesService => {
           averageTransactionValue: 0,
         };
       }
-
-      if (options?.status && options.status !== 'all') {
-        console.log('Filtering by status:', options.status);
-        allTransactions = allTransactions.filter(t => t.status === options.status);
-        console.log('Transactions after status filter:', allTransactions.length);
-      }
-
-      const limit = options?.limit || 10;
-      const offset = options?.offset || 0;
-
-      const paginatedTransactions = allTransactions.slice(offset, offset + limit);
-      console.log('Paginated transactions:', paginatedTransactions.map(t => ({ id: t.id, status: t.status, amount: t.totalPrice })));
-
-      const totalRevenue = allTransactions.reduce((sum, sale) => sum + (sale.totalPrice || 0), 0);
-      const salesCount = allTransactions.length;
-      const completedCount = allTransactions.filter(t => t.status === 'completed').length;
-      const pendingCount = allTransactions.filter(t => t.status === 'pending').length;
-      const failedCount = allTransactions.filter(t => t.status === 'failed').length;
-      const completionRate = salesCount > 0 ? (completedCount / salesCount) * 100 : 0;
-      const averageTransactionValue = salesCount > 0 ? totalRevenue / salesCount : 0;
-
-      console.log('Final metrics - Total Count:', salesCount, 'Pending Count:', pendingCount, 'Total Revenue:', totalRevenue);
-
+    
+      const paginatedTransactions = allTransactions.slice(options?.offset || 0, (options?.offset || 0) + (options?.limit || 10))
+        .map(transaction => ({
+          id: transaction.id,
+          status: transaction.status || 'pending',
+          totalPrice: transaction.totalPrice || 0,
+          lineItems: transaction.lineItems || [],
+          paymentMethod: transaction.paymentMethod || 'cash',
+          timestamp: transaction.timestamp || new Date(),
+        }));
+    
+      console.log('Paginated transactions:', paginatedTransactions);
+    
       return {
         transactions: paginatedTransactions,
-        salesCount,
-        totalRevenue,
-        completedCount,
-        pendingCount,
-        failedCount,
-        completionRate,
-        averageTransactionValue,
+        salesCount: allTransactions.length,
+        totalRevenue: allTransactions.reduce((sum, transaction) => sum + transaction.totalPrice, 0),
+        completedCount: allTransactions.filter(t => t.status === 'completed').length,
+        pendingCount: allTransactions.filter(t => t.status === 'pending').length,
+        failedCount: allTransactions.filter(t => t.status === 'failed').length,
+        completionRate: allTransactions.length ? (allTransactions.filter(t => t.status === 'completed').length / allTransactions.length) * 100 : 0,
+        averageTransactionValue: allTransactions.length ? allTransactions.reduce((sum, t) => sum + t.totalPrice, 0) / allTransactions.length : 0,
       };
     },
+    
 
     async updateTransactionStatus(transactionId: string, newStatus: 'completed' | 'pending' | 'failed'): Promise<boolean> {
       try {
