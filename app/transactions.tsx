@@ -38,25 +38,48 @@ export default function TransactionsPage() {
   const itemsPerPage = 10;
 
   const salesService = useSalesService();
+  console.log('Sales service initialized:', !!salesService.getTransactions);
 
   const loadTransactions = async (filter: StatusFilter = 'all', page: number = 1) => {
+    console.log('loadTransactions called with filter:', filter, 'page:', page);
     setIsLoading(true);
     try {
+      console.log('Fetching transactions from salesService...');
       const data = await salesService.getTransactions({
-        status: filter === 'all' ? 'all' : filter,
+        status: filter,
         limit: 100,
       });
+      console.log('Data received from salesService:', data);
 
       if (data && data.transactions) {
+        console.log('Transactions length:', data.transactions.length);
         const totalPagesCalc = Math.ceil(data.transactions.length / itemsPerPage);
         setTotalPages(totalPagesCalc > 0 ? totalPagesCalc : 1);
+        console.log('totalPages set to:', totalPagesCalc > 0 ? totalPagesCalc : 1);
 
         const startIndex = (page - 1) * itemsPerPage;
         const paginatedTransactions = data.transactions.slice(startIndex, startIndex + itemsPerPage);
+        console.log('Paginated transactions:', paginatedTransactions);
 
         setTransactionData({
           ...data,
           transactions: paginatedTransactions,
+        });
+        console.log('transactionData updated:', {
+          ...data,
+          transactions: paginatedTransactions,
+        });
+      } else {
+        console.log('No valid data or transactions');
+        setTransactionData({
+          transactions: [],
+          totalRevenue: 0,
+          totalCount: 0,
+          completedCount: 0,
+          pendingCount: 0,
+          failedCount: 0,
+          completionRate: 0,
+          averageTransactionValue: 0,
         });
       }
     } catch (error) {
@@ -73,69 +96,63 @@ export default function TransactionsPage() {
       });
     } finally {
       setIsLoading(false);
+      console.log('isLoading set to false');
     }
   };
 
-  // Static data for testing visibility
+  // Fetch transactions on mount and when filter/page changes
   useEffect(() => {
-    setTransactionData({
-      transactions: [
-        {
-          id: '1',
-          status: 'completed',
-          timestamp: new Date(),
-          lineItems: [{ productId: 'Test Product', quantity: 2, price: 500 }],
-          paymentMethod: 'card',
-          totalPrice: 1000,
-        },
-      ],
-      totalRevenue: 1000,
-      totalCount: 1,
-      completedCount: 1,
-      pendingCount: 0,
-      failedCount: 0,
-      completionRate: 100,
-      averageTransactionValue: 1000,
-    });
-    setIsLoading(false);
-  }, []);
+    console.log('Initial loadTransactions useEffect');
+    loadTransactions(activeFilter, currentPage);
+  }, [activeFilter, currentPage]);
 
   const onRefresh = useCallback(() => {
+    console.log('onRefresh triggered');
     setRefreshing(true);
     loadTransactions(activeFilter, 1).then(() => {
       setCurrentPage(1);
       setRefreshing(false);
+      console.log('Refresh completed');
     });
   }, [activeFilter]);
 
   const handleStatusUpdate = async (id: string, newStatus: 'completed' | 'pending' | 'failed') => {
+    console.log('handleStatusUpdate:', id, newStatus);
     try {
       const success = await salesService.updateTransactionStatus(id, newStatus);
+      console.log('Update status success:', success);
       if (success) {
         loadTransactions(activeFilter, currentPage);
       }
     } catch (error) {
-      console.error('Failed to update transaction status:', error);
+      console.error('Failed to update status:', error);
     }
   };
 
   const handleBackPress = () => {
+    console.log('handleBackPress');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
 
   const handleFilterPress = (filter: StatusFilter) => {
+    console.log('handleFilterPress:', filter);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveFilter(filter);
     setCurrentPage(1);
-    loadTransactions(filter, 1); // Trigger fetch with new filter
   };
+
+  console.log('Rendering TransactionsPage, state:', {
+    isLoading,
+    activeFilter,
+    currentPage,
+    totalPages,
+    transactions: transactionData.transactions.length,
+  });
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      {/* Header */}
       <LinearGradient
         colors={['#2E3192', '#1BFFFF']}
         start={{ x: 0, y: 0 }}
@@ -153,8 +170,6 @@ export default function TransactionsPage() {
           <Text style={styles.headerTitle}>Transactions</Text>
           <View style={styles.headerRight} />
         </View>
-
-        {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <View style={styles.dateContainer}>
@@ -191,7 +206,6 @@ export default function TransactionsPage() {
         </View>
       </LinearGradient>
 
-      {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         {['all', 'completed', 'pending', 'failed'].map((filter) => (
           <TouchableOpacity
@@ -217,12 +231,11 @@ export default function TransactionsPage() {
         ))}
       </View>
 
-      {/* Transactions List */}
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         style={styles.transactionsList}
         contentContainerStyle={styles.contentContainer}
-      >
+      >s
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2E3192" />
@@ -246,10 +259,12 @@ export default function TransactionsPage() {
         )}
       </ScrollView>
 
-      {/* Pagination */}
       <View style={styles.paginationContainer}>
         <TouchableOpacity
-          onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          onPress={() => {
+            console.log('Prev page, currentPage:', currentPage);
+            setCurrentPage((p) => Math.max(1, p - 1));
+          }}
           disabled={currentPage === 1}
           style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
         >
@@ -259,7 +274,10 @@ export default function TransactionsPage() {
           Page {currentPage} of {totalPages}
         </Text>
         <TouchableOpacity
-          onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          onPress={() => {
+            console.log('Next page, currentPage:', currentPage, 'totalPages:', totalPages);
+            setCurrentPage((p) => Math.min(totalPages, p + 1));
+          }}
           disabled={currentPage === totalPages}
           style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
         >
