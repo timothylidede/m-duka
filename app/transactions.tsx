@@ -25,7 +25,7 @@ export default function TransactionsPage() {
   const [transactionData, setTransactionData] = useState<TransactionListResult>({
     transactions: [],
     totalRevenue: 0,
-    totalCount: 0,
+    salesCount: 0,
     completedCount: 0,
     pendingCount: 0,
     failedCount: 0,
@@ -62,7 +62,7 @@ export default function TransactionsPage() {
         setTransactionData({
           transactions: [],
           totalRevenue: 0,
-          totalCount: 0,
+          salesCount: 0,
           completedCount: 0,
           pendingCount: 0,
           failedCount: 0,
@@ -75,7 +75,7 @@ export default function TransactionsPage() {
       setTransactionData({
         transactions: [],
         totalRevenue: 0,
-        totalCount: 0,
+        salesCount: 0,
         completedCount: 0,
         pendingCount: 0,
         failedCount: 0,
@@ -158,7 +158,7 @@ export default function TransactionsPage() {
           </View>
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{transactionData?.totalCount || 0}</Text>
+              <Text style={styles.metricValue}>{transactionData?.salesCount || 0}</Text>
               <Text style={styles.metricLabel}>Transactions</Text>
             </View>
             <View style={styles.metricDivider} />
@@ -212,7 +212,7 @@ export default function TransactionsPage() {
             <ActivityIndicator size="large" color="#2E3192" />
             <Text style={styles.loadingText}>Loading transactions...</Text>
           </View>
-        ) : transactionData.transactions?.length > 0 ? (
+        ) : transactionData.transactions.length > 0 ? (
           transactionData.transactions.map((transaction, index) => (
             <TransactionItem
               key={transaction.id}

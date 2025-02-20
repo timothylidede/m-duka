@@ -45,13 +45,13 @@ interface TransactionListOptions {
 
 interface TransactionListResult {
   transactions: SaleMetadata[];
-  totalCount: number;
+  salesCount: number;
   totalRevenue: number;
-  completedCount: number;
-  pendingCount: number;
-  failedCount: number;
-  completionRate: number;
-  averageTransactionValue: number;
+  completedCount?: number;
+  pendingCount?: number;
+  failedCount?: number;
+  completionRate?: number;
+  averageTransactionValue?: number;
 }
 
 interface SalesService {
@@ -74,7 +74,7 @@ export const useSalesService = (): SalesService => {
       getMonthlySalesData: async () => ({ totalRevenue: 0, salesCount: 0, transactions: [] }),
       getTransactions: async () => ({
         transactions: [],
-        totalCount: 0,
+        salesCount: 0,
         totalRevenue: 0,
         completedCount: 0,
         pendingCount: 0,
@@ -438,7 +438,7 @@ export const useSalesService = (): SalesService => {
         console.log('No transactions found, returning defaults');
         return {
           transactions: [],
-          totalCount: 0,
+          salesCount: 0,
           totalRevenue: 0,
           completedCount: 0,
           pendingCount: 0,
@@ -461,18 +461,18 @@ export const useSalesService = (): SalesService => {
       console.log('Paginated transactions:', paginatedTransactions.map(t => ({ id: t.id, status: t.status, amount: t.totalPrice })));
 
       const totalRevenue = allTransactions.reduce((sum, sale) => sum + (sale.totalPrice || 0), 0);
-      const totalCount = allTransactions.length;
+      const salesCount = allTransactions.length;
       const completedCount = allTransactions.filter(t => t.status === 'completed').length;
       const pendingCount = allTransactions.filter(t => t.status === 'pending').length;
       const failedCount = allTransactions.filter(t => t.status === 'failed').length;
-      const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-      const averageTransactionValue = totalCount > 0 ? totalRevenue / totalCount : 0;
+      const completionRate = salesCount > 0 ? (completedCount / salesCount) * 100 : 0;
+      const averageTransactionValue = salesCount > 0 ? totalRevenue / salesCount : 0;
 
-      console.log('Final metrics - Total Count:', totalCount, 'Pending Count:', pendingCount, 'Total Revenue:', totalRevenue);
+      console.log('Final metrics - Total Count:', salesCount, 'Pending Count:', pendingCount, 'Total Revenue:', totalRevenue);
 
       return {
         transactions: paginatedTransactions,
-        totalCount,
+        salesCount,
         totalRevenue,
         completedCount,
         pendingCount,
