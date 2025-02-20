@@ -1,4 +1,4 @@
-import { Stack, router } from "expo-router";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   View,
@@ -9,33 +9,20 @@ import {
   Alert,
   ScrollView,
   StatusBar,
-  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Picker } from "@react-native-picker/picker";
 import { Product } from "../localDatabase/types";
-import { addShopProduct } from "../localDatabase/shopOwnerServices"; // Import the function to add a product
+import { addShopProduct } from "../localDatabase/shopOwnerServices";
 
 export default function AddNewProduct() {
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("pieces"); // Default unit
-
-  // List of possible units
-  const units = [
-    "pieces",
-    "kg",
-    "grams",
-    "liters",
-    "ml",
-    "packets",
-    "boxes",
-    "bottles",
-    "bags",
-  ];
+  const [unit, setUnit] = useState("pieces");
+  const units = ["pieces", "kg", "grams", "liters", "ml", "packets", "boxes", "bottles", "bags"];
 
   const handleSubmit = () => {
     if (!productName || !price || !quantity || !unit) {
@@ -53,9 +40,8 @@ export default function AddNewProduct() {
       return;
     }
 
-    // Create a new product object
     const product: Product = {
-      id: Math.random().toString(), // Generate a unique ID (you can use a better ID generation method)
+      id: Math.random().toString(),
       name: productName,
       price: parseFloat(price),
       quantity: parseInt(quantity),
@@ -73,12 +59,11 @@ export default function AddNewProduct() {
       yearlyRevenue: 0,
     };
 
-    // Add the product to the database
     addShopProduct(product, (id) => {
       if (id) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("Success", "Product added successfully!");
-        router.back(); // Navigate back after success
+        router.back();
       } else {
         Alert.alert("Error", "Failed to add product. Please try again.");
       }
@@ -87,21 +72,7 @@ export default function AddNewProduct() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Add New Product",
-          headerStyle: {
-            backgroundColor: "#2E3192",
-          },
-          headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "600",
-          },
-          headerShadowVisible: false,
-        }}
-      />
       <StatusBar barStyle="light-content" />
-
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.formContainer}>
           <Text style={styles.formLabel}>Product Name</Text>
@@ -138,7 +109,7 @@ export default function AddNewProduct() {
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={unit}
-              onValueChange={(itemValue) => setUnit(itemValue)}
+              onValueChange={setUnit}
               style={styles.picker}
               dropdownIconColor="#2E3192"
             >
@@ -166,6 +137,7 @@ export default function AddNewProduct() {
 }
 
 const styles = StyleSheet.create({
+  // Keep your existing styles exactly the same
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
