@@ -113,35 +113,27 @@ const ProfilePage: React.FC = () => {
                 <Feather name="arrow-left" size={22} color="white" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Inventory</Text>
-              <View style={styles.headerActions}>
-                <TouchableOpacity
-                  onPress={() => routeInventoryQuickAction('../add_product')}
-                  style={[styles.actionButton, styles.headerActionButton]}
-                >
-                  <LinearGradient
-                    colors={['#2E3192', '#1BFFFF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.actionGradient}
-                  >
-                    <Feather name="plus" size={20} color="white" />
-                    <Text style={styles.headerActionText}>Add a New Product</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleLogout}
-                  style={styles.logoutButton}
-                >
-                  <Feather name="log-out" size={20} color="#2E3192" />
-                  <Text style={styles.logoutButtonText}>Logout</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={handleLogout}
+                style={styles.logoutButton}
+              >
+                <Feather name="log-out" size={20} color="#2E3192" />
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </TouchableOpacity>
             </View>
             
             <View style={styles.storeInfo}>
               <Feather name="shopping-bag" size={40} color="white" style={styles.storeIcon} />
               <Text style={styles.storeName}>{storeProfile.storeName}</Text>
               <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
+              
+              <TouchableOpacity
+                onPress={() => routeInventoryQuickAction('../add_product')}
+                style={styles.addProductButton}
+              >
+                <Feather name="plus" size={20} color="#2E3192" />
+                <Text style={styles.addProductButtonText}>Add a New Product</Text>
+              </TouchableOpacity>
             </View>
           </LinearGradient>
 
@@ -232,7 +224,7 @@ const ProfilePage: React.FC = () => {
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
               </View>
 
-              {QuickActions.map((action, index) => (
+              {QuickActions.slice(1).map((action, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.actionButton}
@@ -297,45 +289,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerActionButton: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  headerActionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  storeInfo: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  storeIcon: {
-    marginBottom: 12,
-  },
-  storeName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  storeId: {
-    fontSize: 14,
-    color: '#fff',
-    opacity: 0.9,
-    marginTop: 4,
-  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -353,6 +306,46 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     color: '#2E3192',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  storeInfo: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  storeIcon: {
+    marginBottom: 12,
+  },
+  storeName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  storeId: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  addProductButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    marginTop: 10,
+  },
+  addProductButtonText: {
+    color: '#2E3192',
+    fontSize: 16,
     fontWeight: '600',
   },
   content: {
