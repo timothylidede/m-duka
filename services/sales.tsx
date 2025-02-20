@@ -6,7 +6,7 @@ import { useContext } from 'react';
 // Define the interfaces
 interface SaleMetadata {
   id: string;
-  lineItems: Array<{
+  lineItems?: Array<{
     price: number;
     productId: string;
     quantity: number;
