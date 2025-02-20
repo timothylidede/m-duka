@@ -76,27 +76,45 @@ export default function TransactionsPage() {
     }
   };
 
-  // Static data for testing visibility
+  // Static data for testing visibility, with multiple statuses for filter testing
   useEffect(() => {
-    setTransactionData({
+    const staticData: TransactionListResult = {
       transactions: [
         {
           id: '1',
           status: 'completed',
           timestamp: new Date(),
-          lineItems: [{ productId: 'Test Product', quantity: 2, price: 500 }],
+          lineItems: [{ productId: 'Test Product 1', quantity: 2, price: 500 }],
           paymentMethod: 'card',
           totalPrice: 1000,
         },
+        {
+          id: '2',
+          status: 'pending',
+          timestamp: new Date(),
+          lineItems: [{ productId: 'Test Product 2', quantity: 1, price: 300 }],
+          paymentMethod: 'smartphone',
+          totalPrice: 300,
+        },
+        {
+          id: '3',
+          status: 'failed',
+          timestamp: new Date(),
+          lineItems: [{ productId: 'Test Product 3', quantity: 3, price: 200 }],
+          paymentMethod: 'card',
+          totalPrice: 600,
+        },
       ],
-      totalRevenue: 1000,
-      totalCount: 1,
+      totalRevenue: 1900,
+      totalCount: 3,
       completedCount: 1,
-      pendingCount: 0,
-      failedCount: 0,
-      completionRate: 100,
-      averageTransactionValue: 1000,
-    });
+      pendingCount: 1,
+      failedCount: 1,
+      completionRate: 33.33,
+      averageTransactionValue: 633.33,
+    };
+    setTransactionData(staticData);
+    setTotalPages(Math.ceil(staticData.transactions.length / itemsPerPage));
     setIsLoading(false);
   }, []);
 
@@ -128,14 +146,60 @@ export default function TransactionsPage() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveFilter(filter);
     setCurrentPage(1);
-    loadTransactions(filter, 1); // Trigger fetch with new filter
+    // Apply local filtering for static data, replace with loadTransactions for dynamic data
+    const staticData = {
+      transactions: [
+        {
+          id: '1',
+          status: 'completed',
+          timestamp: new Date(),
+          lineItems: [{ productId: 'Test Product 1', quantity: 2, price: 500 }],
+          paymentMethod: 'card',
+          totalPrice: 1000,
+        },
+        {
+          id: '2',
+          status: 'pending',
+          timestamp: new Date(),
+          lineItems: [{ productId: 'Test Product 2', quantity: 1, price: 300 }],
+          paymentMethod: 'smartphone',
+          totalPrice: 300,
+        },
+        {
+          id: '3',
+          status: 'failed',
+          timestamp: new Date(),
+          lineItems: [{ productId: 'Test Product 3', quantity: 3, price: 200 }],
+          paymentMethod: 'card',
+          totalPrice: 600,
+        },
+      ],
+      totalRevenue: 1900,
+      totalCount: 3,
+      completedCount: 1,
+      pendingCount: 1,
+      failedCount: 1,
+      completionRate: 33.33,
+      averageTransactionValue: 633.33,
+    };
+    const filteredTransactions =
+      filter === 'all'
+        ? staticData.transactions
+        : staticData.transactions.filter((t) => t.status === filter);
+    setTransactionData({
+      ...staticData,
+      transactions: filteredTransactions,
+    });
+    setTotalPages(Math.ceil(filteredTransactions.length / itemsPerPage));
+    // Uncomment the line below to use dynamic fetching instead of static filtering
+    // loadTransactions(filter, 1);
   };
+
+  console.log('Rendering TransactionsPage, isLoading:', isLoading, 'Transactions:', transactionData.transactions);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      {/* Header */}
       <LinearGradient
         colors={['#2E3192', '#1BFFFF']}
         start={{ x: 0, y: 0 }}
@@ -153,8 +217,6 @@ export default function TransactionsPage() {
           <Text style={styles.headerTitle}>Transactions</Text>
           <View style={styles.headerRight} />
         </View>
-
-        {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <View style={styles.dateContainer}>
@@ -197,27 +259,46 @@ export default function TransactionsPage() {
           <TouchableOpacity
             key={filter}
             onPress={() => handleFilterPress(filter as StatusFilter)}
-            style={[styles.filterTab, activeFilter === filter && styles.activeFilterTab]}
+            style={[
+              styles.filterTab,
+              activeFilter === filter && styles.activeFilterTab,
+            ]}
           >
+            <View
+              style={[
+                styles.filterDot,
+                {
+                  backgroundColor:
+                    filter === 'completed'
+                      ? '#10B981'
+                      : filter === 'pending'
+                      ? '#F59E0B'
+                      : filter === 'failed'
+                      ? '#EF4444'
+                      : 'transparent',
+                },
+              ]}
+            />
             <Text
-              style={[styles.filterTabText, activeFilter === filter && styles.activeFilterTabText]}
+              style={[
+                styles.filterTabText,
+                activeFilter === filter && styles.activeFilterTabText,
+              ]}
             >
               {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              {filter !== 'all'
-                ? ` (${
-                    filter === 'completed'
-                      ? transactionData?.completedCount
-                      : filter === 'pending'
-                      ? transactionData?.pendingCount
-                      : transactionData?.failedCount
-                  })`
-                : ''}
+              {filter !== 'all' &&
+                ` (${
+                  filter === 'completed'
+                    ? transactionData.completedCount ?? 0
+                    : filter === 'pending'
+                    ? transactionData.pendingCount ?? 0
+                    : transactionData.failedCount ?? 0
+                })`}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Transactions List */}
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         style={styles.transactionsList}
@@ -245,8 +326,6 @@ export default function TransactionsPage() {
           ))
         )}
       </ScrollView>
-
-      {/* Pagination */}
       <View style={styles.paginationContainer}>
         <TouchableOpacity
           onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -366,27 +445,37 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    justifyContent: 'space-around', // Distribute tabs evenly
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 24,
+    borderRadius: 20,
     backgroundColor: '#F1F5F9',
   },
   activeFilterTab: {
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#4338CA', // Active tab has a distinct color
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
   },
   filterTabText: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
   },
   activeFilterTabText: {
-    color: '#4338CA',
+    color: '#FFFFFF', // White text for active tab
     fontWeight: '600',
   },
   transactionsList: {
