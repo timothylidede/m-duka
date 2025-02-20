@@ -49,9 +49,13 @@ export default function TransactionsPage() {
         status: filter,
         limit: 100,
       });
-      console.log('Data received from salesService:', data);
+      console.log('Data received from salesService:', {
+        transactions: data.transactions?.length || 0,
+        totalRevenue: data.totalRevenue,
+        totalCount: data.totalCount,
+      });
 
-      if (data && data.transactions) {
+      if (data && Array.isArray(data.transactions)) {
         console.log('Transactions length:', data.transactions.length);
         const totalPagesCalc = Math.ceil(data.transactions.length / itemsPerPage);
         setTotalPages(totalPagesCalc > 0 ? totalPagesCalc : 1);
@@ -59,18 +63,18 @@ export default function TransactionsPage() {
 
         const startIndex = (page - 1) * itemsPerPage;
         const paginatedTransactions = data.transactions.slice(startIndex, startIndex + itemsPerPage);
-        console.log('Paginated transactions:', paginatedTransactions);
+        console.log('Paginated transactions:', paginatedTransactions.map(t => t.id));
 
         setTransactionData({
           ...data,
           transactions: paginatedTransactions,
         });
         console.log('transactionData updated:', {
-          ...data,
-          transactions: paginatedTransactions,
+          transactions: paginatedTransactions.length,
+          totalRevenue: data.totalRevenue,
         });
       } else {
-        console.log('No valid data or transactions');
+        console.log('No valid data or transactions received, setting empty state');
         setTransactionData({
           transactions: [],
           totalRevenue: 0,
@@ -96,13 +100,13 @@ export default function TransactionsPage() {
       });
     } finally {
       setIsLoading(false);
-      console.log('isLoading set to false');
+      console.log('isLoading set to false after fetch or error');
     }
   };
 
   // Fetch transactions on mount and when filter/page changes
   useEffect(() => {
-    console.log('Initial loadTransactions useEffect');
+    console.log('Initial loadTransactions useEffect, activeFilter:', activeFilter, 'currentPage:', currentPage);
     loadTransactions(activeFilter, currentPage);
   }, [activeFilter, currentPage]);
 
@@ -147,7 +151,7 @@ export default function TransactionsPage() {
     activeFilter,
     currentPage,
     totalPages,
-    transactions: transactionData.transactions.length,
+    transactions: transactionData.transactions?.length || 0,
   });
 
   return (
@@ -241,14 +245,7 @@ export default function TransactionsPage() {
             <ActivityIndicator size="large" color="#2E3192" />
             <Text style={styles.loadingText}>Loading transactions...</Text>
           </View>
-        ) : transactionData.transactions.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Feather name="inbox" size={56} color="#CBD5E1" />
-            <Text style={styles.emptyText}>No transactions found</Text>
-            <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
-            
-          </View>
-        ) : (
+        ) : transactionData.transactions?.length > 0 ? (
           <>
             {console.log('Rendering TransactionItems, count:', transactionData.transactions.length)}
             {transactionData.transactions.map((transaction, index) => (
@@ -260,6 +257,13 @@ export default function TransactionsPage() {
               />
             ))}
           </>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Feather name="inbox" size={56} color="#CBD5E1" />
+            <Text style={styles.emptyText}>No transactions found</Text>
+            <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
+            
+          </View>
         )}
       </ScrollView>
 
@@ -413,13 +417,20 @@ const styles = StyleSheet.create({
   },
   transactionsList: {
     flex: 1,
+    backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for debugging
   },
   contentContainer: {
     paddingBottom: 24,
+    paddingTop: 8,
+    flexGrow: 1,
+    backgroundColor: 'rgba(0, 255, 0, 0.1)', // Temporary green background for debugging
   },
   loadingContainer: {
-    padding: 40,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 40,
+    backgroundColor: 'rgba(0, 0, 255, 0.1)', // Temporary blue background for debugging
   },
   loadingText: {
     color: '#64748B',
@@ -427,8 +438,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   emptyContainer: {
-    padding: 48,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 48,
+    backgroundColor: 'rgba(255, 255, 0, 0.1)', // Temporary yellow background for debugging
   },
   emptyText: {
     fontSize: 18,
