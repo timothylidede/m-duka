@@ -418,13 +418,13 @@ const styles = StyleSheet.create({
   },
   transactionsList: {
     flex: 1,
-    backgroundColor: 'rgba(255, 0, 0, 0.1)', // Temporary red background for debugging
+    backgroundColor: 'rgba(255, 0, 0, 0.78)', // Temporary red background for debugging
   },
   contentContainer: {
     paddingBottom: 24,
     paddingTop: 8,
     flexGrow: 1,
-    backgroundColor: 'rgba(0, 255, 0, 0.1)', // Temporary green background for debugging
+    backgroundColor: 'rgba(0, 255, 0, 0.66)', // Temporary green background for debugging
   },
   loadingContainer: {
     flex: 1,
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 48,
-    backgroundColor: 'rgba(255, 255, 0, 0.1)', // Temporary yellow background for debugging
+    backgroundColor: 'rgba(255, 255, 0, 0.79)', // Temporary yellow background for debugging
   },
   emptyText: {
     fontSize: 18,
