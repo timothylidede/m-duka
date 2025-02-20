@@ -6,7 +6,8 @@ import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AnimatedSplashScreen from "./splash";
 import { View } from "react-native";
-
+import { SQLiteProvider } from "expo-sqlite";
+import { createDbIfNeeded } from "@/localDatabase/database";
 // Import AuthProvider from your context folder
 import { AuthProvider } from "../context/AuthContext";
 
@@ -85,6 +86,7 @@ export default function RootLayout() {
   return (
     // Wrap your navigation stack with the AuthProvider
     <AuthProvider>
+    <SQLiteProvider databaseName="myShopDatabase.db" onInit={createDbIfNeeded}>
     <Stack screenOptions={{ headerShown: false }}>
       {!isLoggedIn ? (
         <>
@@ -95,6 +97,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
       )}
     </Stack>
+    </SQLiteProvider>
   </AuthProvider>
   );
 }

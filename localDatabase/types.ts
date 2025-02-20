@@ -19,6 +19,7 @@ export interface Product {
     lastSynchronized?: number; // Optional for synchronization
   }
   
+  
 // The id is a string
 // contact as a string is used as the primary key for the shops table
   export interface shop {
