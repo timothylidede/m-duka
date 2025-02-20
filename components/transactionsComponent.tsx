@@ -14,6 +14,15 @@ const TransactionItem = ({
   index: number;
   onStatusUpdate?: (id: string, newStatus: 'completed' | 'pending' | 'failed') => void;
 }) => {
+  console.log('Rendering TransactionItem:', {
+    id: transaction.id,
+    status: transaction.status,
+    totalPrice: transaction.totalPrice,
+    lineItems: transaction.lineItems,
+    paymentMethod: transaction.paymentMethod,
+    timestamp: transaction.timestamp,
+  });
+
   const statusColors = {
     completed: '#10B981',
     pending: '#F59E0B',
@@ -42,7 +51,7 @@ const TransactionItem = ({
   return (
     <Animated.View
       entering={FadeInDown.delay(index * 60).springify()}
-      style={styles.transactionCard}
+      style={[styles.transactionCard, { backgroundColor: 'rgba(255, 0, 255, 0.1)' }]} // Temporary magenta for debugging
     >
       {/* Header */}
       <View style={styles.cardHeader}>
@@ -70,22 +79,26 @@ const TransactionItem = ({
 
       {/* Items List */}
       <View style={styles.itemsContainer}>
-        {transaction.lineItems.map((item, idx) => (
-          <View key={idx} style={styles.itemRow}>
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemName}>{item.productId || 'Product'}</Text>
-              <View style={styles.itemMetrics}>
-                <View style={styles.quantityBadge}>
-                  <Text style={styles.quantityText}>×{item.quantity || 0}</Text>
+        {Array.isArray(transaction.lineItems) && transaction.lineItems.length > 0 ? (
+          transaction.lineItems.map((item, idx) => (
+            <View key={idx} style={styles.itemRow}>
+              <View style={styles.itemDetails}>
+                <Text style={styles.itemName}>{item.productId || 'Product'}</Text>
+                <View style={styles.itemMetrics}>
+                  <View style={styles.quantityBadge}>
+                    <Text style={styles.quantityText}>×{item.quantity || 0}</Text>
+                  </View>
+                  <Text style={styles.itemPrice}>KES {item.price?.toLocaleString() || 0}/unit</Text>
                 </View>
-                <Text style={styles.itemPrice}>KES {item.price?.toLocaleString() || 0}/unit</Text>
               </View>
+              <Text style={styles.itemTotal}>
+                KES {((item.price || 0) * (item.quantity || 0)).toLocaleString()}
+              </Text>
             </View>
-            <Text style={styles.itemTotal}>
-              KES {((item.price || 0) * (item.quantity || 0)).toLocaleString()}
-            </Text>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.noItemsText}>No items</Text>
+        )}
       </View>
 
       {/* Footer */}
@@ -129,6 +142,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     marginHorizontal: 16,
+    padding: 16, // Ensure padding for visibility
     elevation: 2,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
@@ -271,6 +285,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  noItemsText: {
+    color: '#64748B',
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 10,
   },
 });
 
