@@ -43,7 +43,7 @@ interface QuickAction {
 const ProfilePage: React.FC = () => {
   const router = useRouter();
 
-  const routeInventoryQuickAction = (nextPagePath:RelativePathString) => {
+  const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(nextPagePath); // Update the path to match your file structure
   };
@@ -64,11 +64,10 @@ const ProfilePage: React.FC = () => {
   };
 
   const QuickActions: QuickAction[] = [
-    // { actionName: 'Add New Item', iconName: 'plus' },
+    { actionName: 'Add a New Product', iconName: 'plus', nextPagePath: '../add_product' }, // Moved to top, renamed
     { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../supplierManagement' },
-    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product'},
-    { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product'},
-    { actionName: 'Add a new Good', iconName: 'users', nextPagePath: '../add_product'},
+    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product' },
+    { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product' },
   ];
 
   const handleLogout = async () => {
@@ -105,16 +104,45 @@ const ProfilePage: React.FC = () => {
             end={{ x: 1, y: 1 }}
             style={styles.header}
           >
+            <View style={styles.headerContent}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              >
+                <Feather name="arrow-left" size={22} color="white" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Inventory</Text>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  onPress={() => routeInventoryQuickAction('../add_product')}
+                  style={[styles.actionButton, styles.headerActionButton]}
+                >
+                  <LinearGradient
+                    colors={['#2E3192', '#1BFFFF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionGradient}
+                  >
+                    <Feather name="plus" size={20} color="white" />
+                    <Text style={styles.headerActionText}>Add a New Product</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleLogout}
+                  style={styles.logoutButton}
+                >
+                  <Feather name="log-out" size={20} color="#2E3192" />
+                  <Text style={styles.logoutButtonText}>Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
             <View style={styles.storeInfo}>
               <Feather name="shopping-bag" size={40} color="white" style={styles.storeIcon} />
               <Text style={styles.storeName}>{storeProfile.storeName}</Text>
               <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
             </View>
-            
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Feather name="log-out" size={20} color="#2E3192" />
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
           </LinearGradient>
 
           <View style={styles.content}>
@@ -158,20 +186,18 @@ const ProfilePage: React.FC = () => {
                 <Text style={styles.sectionTitle}>Inventory Overview</Text>
               </View>
               <View style={styles.statsGrid}>
-
                 <View style={styles.statsCard}>
-                <Pressable
-                  onPress={() => Alert.alert('Button Pressed', 'You pressed the view!')}
-                  style={({ pressed }) => [
-                    styles.pressableView,
-                    { backgroundColor: pressed ? '#ddd' : '#fff' }, // Change background color when pressed
-                  ]}
-                >
-                  {/* <Text style={styles.text}>Press Me</Text> */}
-                  <Feather name="package" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
-                  <Text style={styles.statsLabel}>Total Items</Text>
-                </Pressable>
+                  <Pressable
+                    onPress={() => Alert.alert('Button Pressed', 'You pressed the view!')}
+                    style={({ pressed }) => [
+                      styles.pressableView,
+                      { backgroundColor: pressed ? '#ddd' : '#fff' },
+                    ]}
+                  >
+                    <Feather name="package" size={24} color="#2E3192" />
+                    <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
+                    <Text style={styles.statsLabel}>Total Items</Text>
+                  </Pressable>
                 </View>
 
                 <View style={[styles.statsCard, styles.alertCard]}>
@@ -197,19 +223,21 @@ const ProfilePage: React.FC = () => {
                   </Text>
                   <Text style={styles.statsLabel}>Total Value</Text>
                 </View>
-
               </View>
             </View>
 
             <View style={styles.section}>
-              
               <View style={styles.sectionHeader}>
                 <Feather name="zap" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
               </View>
 
               {QuickActions.map((action, index) => (
-                <TouchableOpacity style={styles.actionButton} key={index} onPress={()=>{routeInventoryQuickAction(action.nextPagePath)}}>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.actionButton}
+                  onPress={() => routeInventoryQuickAction(action.nextPagePath)}
+                >
                   <LinearGradient
                     colors={['#2E3192', '#1BFFFF']}
                     start={{ x: 0, y: 0 }}
@@ -221,7 +249,6 @@ const ProfilePage: React.FC = () => {
                   </LinearGradient>
                 </TouchableOpacity>
               ))}
-
             </View>
 
             <Text style={styles.lastUpdate}>
@@ -241,8 +268,6 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    // borderBottomLeftRadius: 24,
-    // borderBottomRightRadius: 24,
     borderRadius: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -252,7 +277,45 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginLeft: 9,
     marginRight: 9,
-
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  headerActionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   storeInfo: {
     alignItems: 'center',
@@ -276,19 +339,16 @@ const styles = StyleSheet.create({
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 8,
-    marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-
   },
   logoutButtonText: {
     color: '#2E3192',
@@ -348,14 +408,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
     fontWeight: '500',
-
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     justifyContent: 'space-between',
-
   },
   statsCard: {
     width: '47%',
@@ -365,11 +423,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 30 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-
   },
   alertCard: {
     backgroundColor: '#FEF2F2',
@@ -420,7 +477,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 60,
   },
-  // add pressable styling
   pressableView: {
     padding: 16,
     borderRadius: 16,
