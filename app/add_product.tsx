@@ -24,16 +24,25 @@ import {
   StatusBar,
   Platform,
 } from "react-native";
+// import useCallback from "react";
+import { useCallback, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { connectToDatabase } from "../localDatabase/database";
+import {
+  getDBConnection,
+  saveProducts,
+  createProductsTable,
+  getProducts,
+} from "@/localDatabase/database";
+
 import { Picker } from "@react-native-picker/picker";
 import { Product } from "../localDatabase/types";
-import { addproduct } from "@/localDatabase/products";
-// import { addShopProduct } from "../localDatabase/shopOwnerServices"; // Import the function to add a product
+import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 
 export default function AddNewProduct() {
+  const [Products, setNewProducts] = useState<Product[]>([]);
+  // const [newProduct, setNewProduct] = useState(Product);
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -52,7 +61,94 @@ export default function AddNewProduct() {
     "bags",
   ];
 
-  const handleSubmit = async () => {
+  // const addProductToDatabase = async () => {
+  //   if (!productName || !price || !quantity || !unit) {
+  //     Alert.alert("Invalid Input", "Please fill all the fields.");
+  //     return;
+  //   }
+
+  //   if (isNaN(Number(price))) {
+  //     Alert.alert("Invalid Price", "Please enter a valid price.");
+  //     return;
+  //   }
+
+  //   if (isNaN(Number(quantity))) {
+  //     Alert.alert("Invalid Quantity", "Please enter a valid quantity.");
+  //     return;
+  //   }
+
+  //   // Create a new product object
+  //   const product: Product = {
+  //     id: Math.random().toString(), // Generate a unique ID (you can use a better ID generation method)
+  //     name: productName,
+  //     price: parseFloat(price),
+  //     quantity: parseInt(quantity),
+  //     unit: unit,
+  //     isNearlyStockedOut: false,
+  //     isStockedOut: parseInt(quantity) === 0 ? true : false,
+  // movingFast: 0,
+  //   dailySales: 0,
+  //   weeklySales: 0,
+  //   monthlySales: 0,
+  //   yearlySales: 0,
+  //   dailyRevenue: 0,
+  //   weeklyRevenue: 0,
+  //   monthlyRevenue: 0,
+  //   yearlyRevenue: 0,
+  // };
+  // console.log(product);
+
+  // const db = await connectToDatabase();
+  // await addproduct(db, product);
+  // console.log("Product should have been added successfully apparently");
+  // let products = await getProducts(db);
+  // console.log(products);
+  // console.log("Product added successfully");
+
+  //   addproduct(db, product);
+  //   console.log("Product added successfully");
+  // });
+
+  // console.log("Product added successfully");
+
+  // Add the product to the database
+  // addShopProduct(product, (id) => {
+  //   if (id) {
+  //     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  //     Alert.alert("Success", "Product added successfully!");
+  //     router.back(); // Navigate back after success
+  //   } else {
+  //     Alert.alert("Error", "Failed to add product. Please try again.");
+  //   }
+  // });
+  // };
+
+  const loadDataCallback = useCallback(async () => {
+    try {
+      const initTodos = [
+        { id: 0, value: "go to shop" },
+        { id: 1, value: "eat at least a one healthy foods" },
+        { id: 2, value: "Do some exercises" },
+      ];
+      const db = await getDBConnection();
+      await createProductsTable(db);
+      // const storedTodoItems = await getTodoItems(db);
+      // if (storedTodoItems.length) {
+      //   setTodos(storedTodoItems);
+      // } else {
+      //   await saveTodoItems(db, initTodos);
+      //   setTodos(initTodos);
+      // }
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDataCallback();
+  }, [loadDataCallback]);
+
+  const addProductToDatabase = async () => {
     if (!productName || !price || !quantity || !unit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
@@ -68,47 +164,51 @@ export default function AddNewProduct() {
       return;
     }
 
-    // Create a new product object
-    const product: Product = {
-      id: Math.random().toString(), // Generate a unique ID (you can use a better ID generation method)
-      name: productName,
-      price: parseFloat(price),
-      quantity: parseInt(quantity),
-      unit: unit,
-      isNearlyStockedOut: false,
-      isStockedOut: parseInt(quantity) === 0 ? true : false,
-      movingFast: 0,
-      dailySales: 0,
-      weeklySales: 0,
-      monthlySales: 0,
-      yearlySales: 0,
-      dailyRevenue: 0,
-      weeklyRevenue: 0,
-      monthlyRevenue: 0,
-      yearlyRevenue: 0,
-    };
-    console.log(product);
+    console.log("Tests passed when adding product to database");
+    // if (!newTodo.trim()) return;
+    try {
+      // Create a new product object
+      let product: Product = {
+        id: productName, // Generate a unique ID (you can use a better ID generation method)
+        name: productName,
+        price: parseFloat(price),
+        quantity: parseInt(quantity),
+        unit: unit,
+        isNearlyStockedOut: false,
+        isStockedOut: parseInt(quantity) === 0 ? true : false,
+        movingFast: 0,
+        dailySales: 0,
+        weeklySales: 0,
+        monthlySales: 0,
+        yearlySales: 0,
+        dailyRevenue: 0,
+        weeklyRevenue: 0,
+        monthlyRevenue: 0,
+        yearlyRevenue: 0,
+      };
 
-    const db = await connectToDatabase();
-    await addproduct(db, product);
-    console.log("Product added successfully");
+      const newProducts: Product[] = [product];
+      setNewProducts(newProducts);
+      console.log(newProducts);
+      const db = await getDBConnection();
+      console.log("Connected to the database");
+      await saveProducts(db, newProducts);
+      console.log("Product added successfully");
 
-    //   addproduct(db, product);
-    //   console.log("Product added successfully");
-    // });
-
-    // console.log("Product added successfully");
-
-    // Add the product to the database
-    // addShopProduct(product, (id) => {
-    //   if (id) {
-    //     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    //     Alert.alert("Success", "Product added successfully!");
-    //     router.back(); // Navigate back after success
-    //   } else {
-    //     Alert.alert("Error", "Failed to add product. Please try again.");
-    //   }
-    // });
+      const storedTodoItems: Product[] = await getProducts(db);
+      console.log("Tried to get a product");
+      if (storedTodoItems.length) {
+        // setTodos(storedTodoItems);
+        console.log("There is an element in the products table");
+        console.log(storedTodoItems[0]);
+      } else {
+        // await saveTodoItems(db, initTodos);
+        // setTodos(initTodos);
+        console.log("There is no element in the products table");
+      }
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -174,7 +274,10 @@ export default function AddNewProduct() {
             </Picker>
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={addProductToDatabase}
+          >
             <LinearGradient
               colors={["#2E3192", "#1BFFFF"]}
               start={{ x: 0, y: 0 }}

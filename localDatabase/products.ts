@@ -57,7 +57,7 @@ export const addproduct = async (db: SQLiteDatabase, product: Product) => {
     ]
 
     try {
-      return db.executeSql(insertQuery, values)
+      await db.executeSql(insertQuery, values)
     } catch (error) {
       console.error(error)
       throw Error("Failed to add product")
