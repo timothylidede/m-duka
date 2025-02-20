@@ -235,7 +235,7 @@ export default function TransactionsPage() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         style={styles.transactionsList}
         contentContainerStyle={styles.contentContainer}
-      >s
+      >
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2E3192" />
@@ -246,16 +246,20 @@ export default function TransactionsPage() {
             <Feather name="inbox" size={56} color="#CBD5E1" />
             <Text style={styles.emptyText}>No transactions found</Text>
             <Text style={styles.emptySubtext}>Try changing filters or check back later</Text>
+            
           </View>
         ) : (
-          transactionData.transactions.map((transaction, index) => (
-            <TransactionItem
-              key={transaction.id}
-              transaction={transaction}
-              index={index}
-              onStatusUpdate={handleStatusUpdate}
-            />
-          ))
+          <>
+            {console.log('Rendering TransactionItems, count:', transactionData.transactions.length)}
+            {transactionData.transactions.map((transaction, index) => (
+              <TransactionItem
+                key={transaction.id}
+                transaction={transaction}
+                index={index}
+                onStatusUpdate={handleStatusUpdate}
+              />
+            ))}
+          </>
         )}
       </ScrollView>
 
