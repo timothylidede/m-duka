@@ -153,6 +153,14 @@ export default function TransactionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E3192" />
+        <Text style={styles.loadingText}>Loading transactions...</Text>
+      </View>
+    );
+  }
 
   const salesService = useSalesService();
 
@@ -164,6 +172,7 @@ export default function TransactionsPage() {
         status: 'all',
         limit: 100
       });
+      console.log('Fetched data:', data);
 
       if (data && data.transactions && Array.isArray(data.transactions)) {
         let filtered = data.transactions;
@@ -211,8 +220,27 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
-    loadTransactions(activeFilter, currentPage);
-  }, [activeFilter, currentPage]);
+    setTransactionData({
+      transactions: [
+        {
+          id: '1',
+          status: 'completed',
+          timestamp: new Date(), // Use Date object instead of Date.now()
+          lineItems: [{ productId: 'Test', quantity: 2, price: 500 }],
+          paymentMethod: 'card',
+          totalPrice: 1000,
+        },
+      ],
+      totalRevenue: 1000,
+      totalCount: 1,
+      completedCount: 1,
+      pendingCount: 0,
+      failedCount: 0,
+      completionRate: 100,
+      averageTransactionValue: 1000,
+    });
+    setIsLoading(false);
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
