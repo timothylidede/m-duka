@@ -248,6 +248,7 @@ export default function TransactionsPage() {
         ) : transactionData.transactions?.length > 0 ? (
           <>
             {console.log('Rendering TransactionItems, count:', transactionData.transactions.length)}
+            {console.log('Rendering TransactionItems: ', transactionData.transactions)}
             {transactionData.transactions.map((transaction, index) => (
               <TransactionItem
                 key={transaction.id}
