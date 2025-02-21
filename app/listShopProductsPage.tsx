@@ -16,8 +16,8 @@ import { Feather } from "@expo/vector-icons";
 const products = [
   {
     id: 1,
-    name: "Wireless Headphones",
-    price: 99.99,
+    name: "Hi, I am loading your shop's products",
+    price: 0.0,
     stock: 10,
     image: "https://via.placeholder.com/150",
   },
@@ -52,6 +52,7 @@ const products = [
 ];
 
 export default function ProductList() {
+  // const [products, setProducts] = useState
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter products based on search query

@@ -1,4 +1,17 @@
-import { router } from "expo-router";
+// import React from "react";
+// import { View, Text } from "react-native";
+
+// const AddProduct = () => {
+//   return (
+//     <View className="flex justify-center items-center min-h-screen">
+//       <Text>Add Product</Text>
+//     </View>
+//   );
+// };
+
+// export default AddProduct;
+
+import { Stack, router } from "expo-router";
 import React, { useState } from "react";
 import {
   View,
@@ -10,21 +23,49 @@ import {
   ScrollView,
   StatusBar,
 } from "react-native";
+// import useCallback from "react";
+import { useCallback, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+// import {
+//   getDBConnection,
+//   saveProducts,
+//   createProductsTable,
+//   getProducts,
+// } from "@/localDatabase/database";
+import { handleSaveProduct, loadProductsData } from "@/localDatabase/database";
+import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
+
 import { Picker } from "@react-native-picker/picker";
 import { Product } from "../localDatabase/types";
-import { addShopProduct } from "../localDatabase/shopOwnerServices";
+import { createDbIfNeeded } from "../localDatabase/database";
+import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 
 export default function AddNewProduct() {
+  // const [newProduct, setNewProduct] = useState(Product);
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("pieces");
-  const units = ["pieces", "kg", "grams", "liters", "ml", "packets", "boxes", "bottles", "bags"];
+  const [unit, setUnit] = useState("pieces"); // Default unit
+  // const [loadedProduct, setLoadedProduct] = useState<Product>();
 
-  const handleSubmit = () => {
+  const database = useSQLiteContext();
+
+  // List of possible units
+  const units = [
+    "pieces",
+    "kg",
+    "grams",
+    "liters",
+    "ml",
+    "packets",
+    "boxes",
+    "bottles",
+    "bags",
+  ];
+
+  const addProductToDatabase = async () => {
     if (!productName || !price || !quantity || !unit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
@@ -40,34 +81,50 @@ export default function AddNewProduct() {
       return;
     }
 
-    const product: Product = {
-      id: Math.random().toString(),
-      name: productName,
-      price: parseFloat(price),
-      quantity: parseInt(quantity),
-      unit: unit,
-      isNearlyStockedOut: false,
-      isStockedOut: false,
-      movingFast: 0,
-      dailySales: 0,
-      weeklySales: 0,
-      monthlySales: 0,
-      yearlySales: 0,
-      dailyRevenue: 0,
-      weeklyRevenue: 0,
-      monthlyRevenue: 0,
-      yearlyRevenue: 0,
-    };
+    console.log("Tests passed when adding product to database");
+    // if (!newTodo.trim()) return;
+    try {
+      // Create a new product object
+      let product: Product = {
+        id: productName, // Generate a unique ID (you can use a better ID generation method)
+        name: productName,
+        price: parseFloat(price),
+        quantity: parseInt(quantity),
+        unit: unit,
+        isNearlyStockedOut: false,
+        isStockedOut: parseInt(quantity) === 0 ? true : false,
+        movingFast: 0,
+        dailySales: 0,
+        weeklySales: 0,
+        monthlySales: 0,
+        yearlySales: 0,
+        dailyRevenue: 0,
+        weeklyRevenue: 0,
+        monthlyRevenue: 0,
+        yearlyRevenue: 0,
+      };
 
-    addShopProduct(product, (id) => {
-      if (id) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Success", "Product added successfully!");
-        router.back();
+      //save tHe products using handleSaveProduct
+      await handleSaveProduct(product, database);
+      console.log("Product added successfully");
+
+      const storedTodoItems = await loadProductsData(database);
+      console.log("Tried to get a product");
+      console.log(storedTodoItems?.length);
+
+      if (storedTodoItems?.length) {
+        // setTodos(storedTodoItems);
+        console.log("There is an element in the products table");
+        console.log(storedTodoItems);
       } else {
-        Alert.alert("Error", "Failed to add product. Please try again.");
+        // await saveTodoItems(db, initTodos);
+        // setTodos(initTodos);
+        console.log("There is no element in the products table but logging");
+        // console.log(storedTodoItems?.length);
       }
-    });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -119,7 +176,10 @@ export default function AddNewProduct() {
             </Picker>
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={addProductToDatabase}
+          >
             <LinearGradient
               colors={["#2E3192", "#1BFFFF"]}
               start={{ x: 0, y: 0 }}
