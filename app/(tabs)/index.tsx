@@ -27,7 +27,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSalesService } from "../../services/sales";
 import { AuthContext } from "../../context/AuthContext";
 import LineChartComponent from "@/components/lineChartComponent";
-// import { connectToDatabase, createTables } from '../../localDatabase/database';
+import { Audio } from 'expo-av'; // Import expo-av for audio playback
 
 // Define SalesData type
 interface SalesData {
@@ -90,12 +90,39 @@ export default function Index() {
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const formSlideAnim = useRef(new Animated.Value(0)).current;
 
+  // Audio
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+
   // Context
   const authContext = useContext(AuthContext);
   const shopData = authContext ? authContext.shopData : null;
 
   // Sales service
   const salesService = useSalesService();
+
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Load and play sound function
+  const playCashRegisterSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require("../(tabs)/assets/cash-register.mp3")
+      );
+      setSound(sound);
+      await sound.playAsync();
+    } catch (error) {
+      console.error("Error playing cash register sound:", error);
+    }
+  };
+
+  // Cleanup sound when component unmounts
+  useEffect(() => {
+    return sound
+      ? () => {
+          sound.unloadAsync();
+        }
+      : undefined;
+  }, [sound]);
 
   // Fetch sales data based on time range
   const fetchSalesData = async (
@@ -124,7 +151,7 @@ export default function Index() {
       console.error("Error fetching sales data:", error);
       Alert.alert("Error", "Failed to fetch sales data");
     } finally {
-      setIsLoadingData(false); // Set loading state to false after fetch completes
+      setIsLoadingData(false);
     }
   };
 
@@ -174,27 +201,15 @@ export default function Index() {
     }
   }, [isLoggedIn]);
 
-  // const loadDatabase = useCallback(async () => {
-  //   try {
-  //     const db = await connectToDatabase()
-  //     await createTables(db)
-  //   } catch (error) {
-  //     console.error(error)
-  //   }
-  // }, [])
-
-  // useEffect(() => {
-  //   loadDatabase()
-  // }, [loadDatabase])
-
   const handleTimeRangeChange = (range: "today" | "week" | "month") => {
     setTimeRange(range);
     fetchSalesData(range);
   };
 
-  const handleSalePress = () => {
+  const handleSalePress = async () => {
     setIsFormVisible(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await playCashRegisterSound(); // Play sound when button is pressed
     Animated.spring(formSlideAnim, {
       toValue: 1,
       useNativeDriver: true,
@@ -226,7 +241,7 @@ export default function Index() {
       setIsLoading(false);
     }
   };
-  // Render based on authContext initialization and auth state
+
   if (!authContext?.isInitialized) {
     return (
       <View style={styles.loadingContainer}>
@@ -256,7 +271,7 @@ export default function Index() {
       />
       <StatusBar barStyle="light-content" />
 
-      <ScrollView style={styles.container}>
+      <ScrollView ref={scrollViewRef} style={styles.container}>
         <View style={styles.timeRangeContainer}>
           {["today", "week", "month"].map((range) => (
             <TimeRangeButton
@@ -412,6 +427,9 @@ export default function Index() {
                     style={styles.input}
                     keyboardType="numeric"
                     value={saleAmount}
+                    onFocus={() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }}
                     onChangeText={setSaleAmount}
                     placeholder="KES 0.00"
                     placeholderTextColor="#94A3B8"
@@ -440,7 +458,6 @@ export default function Index() {
                 </Animated.View>
               )}
 
-              {/* LineChartComponent and Last Updated will be shown only when data is fetched */}
               <View
                 style={[
                   styles.lineChartContainer,
@@ -682,6 +699,6 @@ const styles = StyleSheet.create({
     color: "#64748B",
     padding: 20,
     fontSize: 12,
-    marginBottom: 100, // Adjusted to match the bottom margin in Business.tsx
+    marginBottom: 100,
   },
 });

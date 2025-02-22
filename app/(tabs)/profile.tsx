@@ -45,7 +45,7 @@ const ProfilePage: React.FC = () => {
 
   const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(nextPagePath); // Update the path to match your file structure
+    router.push(nextPagePath);
   };
 
   const storeProfile: StoreProfile = {
@@ -64,7 +64,7 @@ const ProfilePage: React.FC = () => {
   };
 
   const QuickActions: QuickAction[] = [
-    { actionName: 'Add a New Product', iconName: 'plus', nextPagePath: '../add_product' }, // Moved to top, renamed
+    { actionName: 'Add a New Product', iconName: 'plus', nextPagePath: '../add_product' },
     { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../supplierManagement' },
     { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product' },
     { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product' },
@@ -105,21 +105,7 @@ const ProfilePage: React.FC = () => {
             style={styles.header}
           >
             <View style={styles.headerContent}>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backButton}
-                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-              >
-                <Feather name="arrow-left" size={22} color="white" />
-              </TouchableOpacity>
               <Text style={styles.headerTitle}>Inventory</Text>
-              <TouchableOpacity
-                onPress={handleLogout}
-                style={styles.logoutButton}
-              >
-                <Feather name="log-out" size={20} color="#2E3192" />
-                <Text style={styles.logoutButtonText}>Logout</Text>
-              </TouchableOpacity>
             </View>
             
             <View style={styles.storeInfo}>
@@ -132,13 +118,23 @@ const ProfilePage: React.FC = () => {
               <Text style={styles.storeName}>{storeProfile.storeName}</Text>
               <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
               
-              <TouchableOpacity
-                onPress={() => routeInventoryQuickAction('../add_product')}
-                style={styles.addProductButton}
-              >
-                <Feather name="plus" size={20} color="#2E3192" />
-                <Text style={styles.addProductButtonText}>Add a New Product</Text>
-              </TouchableOpacity>
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  onPress={handleLogout}
+                  style={styles.logoutButton}
+                >
+                  <Feather name="log-out" size={20} color="white" />
+                  <Text style={styles.logoutButtonText}>Logout</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={() => routeInventoryQuickAction('../add_product')}
+                  style={styles.addProductButton}
+                >
+                  <Feather name="plus" size={20} color="#2E3192" />
+                  <Text style={styles.addProductButtonText}>Add a New Product</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </LinearGradient>
 
@@ -291,40 +287,15 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
   },
   headerTitle: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoutButtonText: {
-    color: '#2E3192',
-    fontSize: 14,
-    fontWeight: '600',
+    flex: 1,
+    textAlign: 'center',
   },
   storeInfo: {
     alignItems: 'center',
@@ -346,6 +317,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 20,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 12, // Matches addProductButton height
+    borderRadius: 25,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   addProductButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -359,7 +354,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    marginTop: 10,
   },
   addProductButtonText: {
     color: '#2E3192',

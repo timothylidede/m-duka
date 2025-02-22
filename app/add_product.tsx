@@ -1,16 +1,3 @@
-// import React from "react";
-// import { View, Text } from "react-native";
-
-// const AddProduct = () => {
-//   return (
-//     <View className="flex justify-center items-center min-h-screen">
-//       <Text>Add Product</Text>
-//     </View>
-//   );
-// };
-
-// export default AddProduct;
-
 import { Stack, router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -23,36 +10,19 @@ import {
   ScrollView,
   StatusBar,
 } from "react-native";
-// import useCallback from "react";
-import { useCallback, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-// import {
-//   getDBConnection,
-//   saveProducts,
-//   createProductsTable,
-//   getProducts,
-// } from "@/localDatabase/database";
-import { handleSaveProduct, loadProductsData } from "@/localDatabase/database";
-import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
-
 import { Picker } from "@react-native-picker/picker";
-import { Product } from "../localDatabase/types";
-import { createDbIfNeeded } from "../localDatabase/database";
-import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
+import { useInventoryService } from "../services/inventory";
 
 export default function AddNewProduct() {
-  // const [newProduct, setNewProduct] = useState(Product);
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("pieces"); // Default unit
-  // const [loadedProduct, setLoadedProduct] = useState<Product>();
+  const [unit, setUnit] = useState("pieces");
 
-  const database = useSQLiteContext();
+  const inventoryService = useInventoryService();
 
-  // List of possible units
   const units = [
     "pieces",
     "kg",
@@ -65,64 +35,37 @@ export default function AddNewProduct() {
     "bags",
   ];
 
-  const addProductToDatabase = async () => {
+  const addProductToInventory = async () => {
     if (!productName || !price || !quantity || !unit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
     }
 
-    if (isNaN(Number(price))) {
-      Alert.alert("Invalid Price", "Please enter a valid price.");
+    if (isNaN(Number(price)) || Number(price) <= 0) {
+      Alert.alert("Invalid Price", "Please enter a valid price greater than 0.");
       return;
     }
 
-    if (isNaN(Number(quantity))) {
+    if (isNaN(Number(quantity)) || Number(quantity) < 0) {
       Alert.alert("Invalid Quantity", "Please enter a valid quantity.");
       return;
     }
 
-    console.log("Tests passed when adding product to database");
-    // if (!newTodo.trim()) return;
     try {
-      // Create a new product object
-      let product: Product = {
-        id: productName, // Generate a unique ID (you can use a better ID generation method)
-        name: productName,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-        unit: unit,
-        isNearlyStockedOut: false,
-        isStockedOut: parseInt(quantity) === 0 ? true : false,
-        movingFast: 0,
-        dailySales: 0,
-        weeklySales: 0,
-        monthlySales: 0,
-        yearlySales: 0,
-        dailyRevenue: 0,
-        weeklyRevenue: 0,
-        monthlyRevenue: 0,
-        yearlyRevenue: 0,
-      };
+      await inventoryService.addInventoryItem({
+        productName,
+        unitPrice: Number(price),
+        stockAmount: Number(quantity),
+        unit,
+      });
 
-      //save tHe products using handleSaveProduct
-      await handleSaveProduct(product, database);
-      console.log("Product added successfully");
-
-      const storedTodoItems = await loadProductsData(database);
-      console.log("Tried to get a product");
-      console.log(storedTodoItems?.length);
-
-      if (storedTodoItems?.length) {
-        // setTodos(storedTodoItems);
-        console.log("There is an element in the products table");
-        console.log(storedTodoItems);
-      } else {
-        // await saveTodoItems(db, initTodos);
-        // setTodos(initTodos);
-        console.log("There is no element in the products table but logging");
-        // console.log(storedTodoItems?.length);
-      }
+      Alert.alert(
+        "Success",
+        "Product added successfully!",
+        [{ text: "OK", onPress: () => router.back() }]
+      );
     } catch (error) {
+      Alert.alert("Error", "Failed to add product. Please try again.");
       console.error(error);
     }
   };
@@ -130,55 +73,92 @@ export default function AddNewProduct() {
   return (
     <>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <LinearGradient
+        colors={["#2E3192", "#1BFFFF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Feather name="arrow-left" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Inventory</Text>
+      </LinearGradient>
+
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.formContainer}>
-          <Text style={styles.formLabel}>Product Name</Text>
-          <TextInput
-            style={styles.input}
-            value={productName}
-            onChangeText={setProductName}
-            placeholder="Enter product name"
-            placeholderTextColor="#94A3B8"
-            autoFocus
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.formLabel}>Product Name</Text>
+            <TextInput
+              style={styles.input}
+              value={productName}
+              onChangeText={setProductName}
+              placeholder="Enter product name"
+              placeholderTextColor="#94A3B8"
+              autoFocus
+            />
+          </View>
 
-          <Text style={styles.formLabel}>Price (KES)</Text>
-          <TextInput
-            style={styles.input}
-            value={price}
-            onChangeText={setPrice}
-            placeholder="Enter price"
-            placeholderTextColor="#94A3B8"
-            keyboardType="numeric"
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.formLabel}>Price (KES)</Text>
+            <View style={styles.priceInput}>
+              <Text style={styles.currencySymbol}>KES</Text>
+              <TextInput
+                style={[styles.input, styles.priceTextInput]}
+                value={price}
+                onChangeText={setPrice}
+                placeholder="0.00"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
 
-          <Text style={styles.formLabel}>Quantity</Text>
-          <TextInput
-            style={styles.input}
-            value={quantity}
-            onChangeText={setQuantity}
-            placeholder="Enter quantity"
-            placeholderTextColor="#94A3B8"
-            keyboardType="numeric"
-          />
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+              <Text style={styles.formLabel}>Quantity</Text>
+              <TextInput
+                style={styles.input}
+                value={quantity}
+                onChangeText={setQuantity}
+                placeholder="0"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+              />
+            </View>
 
-          <Text style={styles.formLabel}>Unit</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={unit}
-              onValueChange={setUnit}
-              style={styles.picker}
-              dropdownIconColor="#2E3192"
-            >
-              {units.map((unit, index) => (
-                <Picker.Item key={index} label={unit} value={unit} />
-              ))}
-            </Picker>
+            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+              <Text style={styles.formLabel}>Unit</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={unit}
+                  onValueChange={setUnit}
+                  style={styles.picker}
+                  dropdownIconColor="#2E3192"
+                >
+                  {units.map((unit, index) => (
+                    <Picker.Item 
+                      key={index} 
+                      label={unit} 
+                      value={unit}
+                      color="#1E293B"
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
           </View>
 
           <TouchableOpacity
             style={styles.submitButton}
-            onPress={addProductToDatabase}
+            onPress={addProductToInventory}
           >
             <LinearGradient
               colors={["#2E3192", "#1BFFFF"]}
@@ -197,9 +177,29 @@ export default function AddNewProduct() {
 }
 
 const styles = StyleSheet.create({
-  // Keep your existing styles exactly the same
-  container: {
+  header: {
+    height: 100,
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    color: 'white',
+    fontWeight: '600',
     flex: 1,
+    textAlign: 'center',
+    marginRight: 24, // To offset the back button width and keep title centered
+  },
+  backButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  container: {
+    flexGrow: 1,
     backgroundColor: "#F8FAFC",
     padding: 20,
   },
@@ -212,6 +212,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
+  },
+  inputGroup: {
+    marginBottom: 20,
   },
   formLabel: {
     fontSize: 16,
@@ -226,20 +229,40 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     fontSize: 16,
     color: "#1E293B",
-    marginBottom: 16,
     backgroundColor: "#F8FAFC",
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  priceInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    backgroundColor: "#F8FAFC",
+  },
+  currencySymbol: {
+    paddingLeft: 16,
+    fontSize: 16,
+    color: "#64748B",
+  },
+  priceTextInput: {
+    flex: 1,
+    borderWidth: 0,
+    marginLeft: 4,
   },
   pickerContainer: {
     borderWidth: 1,
     borderColor: "#E2E8F0",
     borderRadius: 16,
-    marginBottom: 16,
     backgroundColor: "#F8FAFC",
+    overflow: 'hidden',
   },
   picker: {
     width: "100%",
     color: "#1E293B",
-    borderRadius: 16,
   },
   submitButton: {
     borderRadius: 16,
@@ -249,7 +272,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
-    marginTop: 16,
+    marginTop: 8,
   },
   buttonGradient: {
     flexDirection: "row",
