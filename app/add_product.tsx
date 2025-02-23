@@ -152,7 +152,7 @@ export default function AddNewProduct() {
 
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.formContainer}>
-          <Text style={styles.formLabel}>Kindly describe your new product</Text>
+          <Text style={styles.formLabel}>Hi, describe your new product</Text>
 
           <TextInput
             style={styles.input}
@@ -167,7 +167,7 @@ export default function AddNewProduct() {
             style={styles.input}
             value={productName}
             onChangeText={setProductName}
-            placeholder="What do you name this product?"
+            placeholder="Enter the name of the product. "
             placeholderTextColor="#94A3B8"
             autoFocus
           />
@@ -192,18 +192,22 @@ export default function AddNewProduct() {
             </Picker>
           </View>
 
-          <Text style={styles.formLabel}>Price (KES)</Text>
+          <Text style={styles.formLabel}>
+            How much is one {productUnit} of{" "}
+            {productName ? productName : " your product"}?
+          </Text>
           <TextInput
             style={styles.input}
             value={price}
             onChangeText={setPrice}
-            placeholder="How much will you be selling?"
+            placeholder="i.e 50"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
           />
 
           <Text style={styles.formLabel}>
-            How many {productUnit ? productUnit : " units "} are you adding?
+            How many {productUnit ? productUnit : " units "} are you adding to
+            your inventory?
           </Text>
           <TextInput
             style={styles.input}
