@@ -78,12 +78,12 @@ const ProfilePage: React.FC = () => {
     {
       actionName: "Stock Restock Alerts",
       iconName: "bar-chart-2",
-      nextPagePath: "../add_product",
+      nextPagePath: "../stockRestockAlertPage",
     },
     {
       actionName: "Demand Forecast",
       iconName: "box",
-      nextPagePath: "../add_product",
+      nextPagePath: "../underConstruction",
     },
   ];
 
