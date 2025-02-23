@@ -67,6 +67,8 @@ export default function AddNewProduct() {
     "bags",
   ];
 
+  // a function that concatenates a list of strings
+
   const addProductToDatabase = async () => {
     if (!productName || !price || !quantity || !productUnit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
@@ -169,7 +171,7 @@ export default function AddNewProduct() {
             placeholderTextColor="#94A3B8"
             autoFocus
           />
-          
+
           <Text style={styles.formLabel}>
             What are the units for {productName ? productName : "the product"}
           </Text>
@@ -195,7 +197,7 @@ export default function AddNewProduct() {
             style={styles.input}
             value={price}
             onChangeText={setPrice}
-            placeholder="How much will you be selling it?"
+            placeholder="How much will you be selling?"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
           />
