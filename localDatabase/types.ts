@@ -1,21 +1,26 @@
+// THe attribute description was added to ensure that each product has a short description.
+// Useful for user 
+
+
 export interface Product {
     id: string; // Optional for creation (auto-incremented by the database)
     name: string;
     price: number;
     unit: string;
     quantity: number;
+    description: string;
     
-    isNearlyStockedOut?: boolean;
-    isStockedOut?: boolean;
-    movingFast?: number;
-    dailySales?: number;
-    weeklySales?: number;
-    monthlySales?: number;
-    yearlySales?: number;
-    dailyRevenue?: number;
-    weeklyRevenue?: number;
-    monthlyRevenue?: number;
-    yearlyRevenue?: number;
+    isNearlyStockedOut: boolean;
+    isStockedOut: boolean;
+    movingFast: number;
+    dailySales: number;
+    weeklySales: number;
+    monthlySales: number;
+    yearlySales: number;
+    dailyRevenue: number;
+    weeklyRevenue: number;
+    monthlyRevenue: number;
+    yearlyRevenue: number;
     lastSynchronized?: number; // Optional for synchronization
   }
   
@@ -49,6 +54,7 @@ export interface Product {
       price: 0,
       unit: '',
       quantity: 0,
+      description: '',
       isNearlyStockedOut: false,
       isStockedOut: true,
       movingFast: 0,

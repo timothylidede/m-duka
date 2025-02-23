@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import React, { useState } from "react";
+import { useEffect } from "react";
 import {
   View,
   Text,
@@ -11,54 +12,129 @@ import {
   TextInput,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { Product } from "../localDatabase/types";
+import {
+  handleDeleteProduct,
+  loadProductsData,
+} from "@/localDatabase/database";
+import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
+import { Alert } from "react-native";
+import { createDefaultProduct } from "../localDatabase/types";
+// import react logo in assets folder
+// import {ReactLogo} from "../assets/images/app_logo.jpg";
 
 // Mock product data
-const products = [
-  {
-    id: 1,
-    name: "Hi, I am loading your shop's products",
-    price: 0.0,
-    stock: 10,
-    image: "https://via.placeholder.com/150",
-  },
-  {
-    id: 2,
-    name: "Smart Watch",
-    price: 199.99,
-    stock: 5,
-    image: "https://via.placeholder.com/150",
-  },
-  {
-    id: 3,
-    name: "Bluetooth Speaker",
-    price: 49.99,
-    stock: 20,
-    image: "https://via.placeholder.com/150",
-  },
-  {
-    id: 4,
-    name: "Gaming Keyboard",
-    price: 79.99,
-    stock: 15,
-    image: "https://via.placeholder.com/150",
-  },
-  {
-    id: 5,
-    name: "Wireless Mouse",
-    price: 29.99,
-    stock: 25,
-    image: "https://via.placeholder.com/150",
-  },
-];
+// const products = [
+//   {
+//     id: 1,
+//     name: "Hi, I am loading your shop's products",
+//     price: 0.0,
+//     stock: 10,
+//     image: "https://via.placeholder.com/150",
+//   },
+// {
+//   id: 2,
+//   name: "Smart Watch",
+//   price: 199.99,
+//   stock: 5,
+//   image: "https://via.placeholder.com/150",
+// },
+// {
+//   id: 3,
+//   name: "Bluetooth Speaker",
+//   price: 49.99,
+//   stock: 20,
+//   image: "https://via.placeholder.com/150",
+// },
+// {
+//   id: 4,
+//   name: "Gaming Keyboard",
+//   price: 79.99,
+//   stock: 15,
+//   image: "https://via.placeholder.com/150",
+// },
+// {
+//   id: 5,
+//   name: "Wireless Mouse",
+//   price: 29.99,
+//   stock: 25,
+//   image: "https://via.placeholder.com/150",
+// },
+// ];
 
 export default function ProductList() {
-  // const [products, setProducts] = useState
+  const holderProductImage = "../assets/images/app_logo.jpg";
+  const database = useSQLiteContext();
+  let defaultProduct: Product = createDefaultProduct();
   const [searchQuery, setSearchQuery] = useState("");
+  const [products, setProducts] = useState<Product[]>([
+    defaultProduct,
+  ]);
 
   // Filter products based on search query
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const loadProductsFromDatabase = async () => {
+    const storedTodoItems = await loadProductsData(database);
+    if (storedTodoItems?.length) {
+      setProducts(storedTodoItems);
+      console.log("There is an element in the products table");
+      console.log(storedTodoItems);
+    } else {
+      // await saveTodoItems(db, initTodos);
+      // setTodos(initTodos);
+      console.log("There is no element in the products table but logging");
+      // console.log(storedTodoItems?.length);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch data only once when the component mounts
+    loadProductsFromDatabase();
+  }, []);
+
+  const handleProductPress = (productDescription: string) => {
+    Alert.alert(
+      "Product Information",
+      productDescription,
+      [
+        {
+          text: "OK", // Button text
+          onPress: () => console.log("OK Pressed"), // Action when OK is pressed
+        },
+        {
+          text: "Cancel", // Button text
+          onPress: () => console.log("Cancel Pressed"), // Action when Cancel is pressed
+          style: "cancel", // Style for the button (optional)
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleProductLongPress = (product: Product) => {
+    Alert.alert(
+      "Delete Product",
+      `Are you sure you want to delete ${product.name}?`,
+      [
+        {
+          text: "Cancel",
+          onPress: () => console.log("Cancel Pressed"),
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          onPress: async () => {
+            await handleDeleteProduct(product, database);
+            loadProductsFromDatabase();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   return (
     <>
@@ -101,9 +177,17 @@ export default function ProductList() {
             key={product.id}
             style={styles.productCard}
             activeOpacity={0.8}
+            onPress={() => {
+              product.description
+                ? handleProductPress(product.description)
+                : handleProductPress("No description available");
+            }}
+            onLongPress={() => {
+              handleProductLongPress(product);
+            }}
           >
             <Image
-              source={{ uri: product.image }}
+              source={require(holderProductImage)}
               style={styles.productImage}
             />
             <View style={styles.productDetails}>
@@ -113,17 +197,17 @@ export default function ProductList() {
               </Text>
               <View style={styles.stockContainer}>
                 <Feather
-                  name={product.stock > 0 ? "check-circle" : "x-circle"}
+                  name={product.quantity > 0 ? "check-circle" : "x-circle"}
                   size={16}
-                  color={product.stock > 0 ? "#10B981" : "#EF4444"}
+                  color={product.quantity > 0 ? "#10B981" : "#EF4444"}
                 />
                 <Text
                   style={[
                     styles.stockText,
-                    { color: product.stock > 0 ? "#10B981" : "#EF4444" },
+                    { color: product.quantity > 0 ? "#10B981" : "#EF4444" },
                   ]}
                 >
-                  {product.stock > 0 ? "In Stock" : "Out of Stock"}
+                  {product.quantity > 0 ? "In Stock" : "Out of Stock"}
                 </Text>
               </View>
             </View>

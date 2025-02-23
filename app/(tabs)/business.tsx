@@ -220,29 +220,6 @@ const BusinessPage: React.FC = () => {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Feather name="box" size={24} color="#2E3192" />
-              <Text style={styles.sectionTitle}>Top Selling Items</Text>
-            </View>
-
-            {salesData.topSellingItems.map((item, index) => (
-              <View key={item.id} style={styles.itemRow}>
-                <View style={styles.itemRank}>
-                  <Text style={styles.rankText}>{index + 1}</Text>
-                </View>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemId}>{item.id}</Text>
-                </View>
-                <View style={styles.itemStats}>
-                  <Text style={styles.itemQuantity}>{item.quantity} units</Text>
-                  <Text style={styles.itemRevenue}>KES {item.revenue}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
               <Feather name="zap" size={24} color="#2E3192" />
               <Text style={styles.sectionTitle}>Quick Actions</Text>
             </View>
@@ -271,6 +248,29 @@ const BusinessPage: React.FC = () => {
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Feather name="box" size={24} color="#2E3192" />
+              <Text style={styles.sectionTitle}>Top Selling Items</Text>
+            </View>
+
+            {salesData.topSellingItems.map((item, index) => (
+              <View key={item.id} style={styles.itemRow}>
+                <View style={styles.itemRank}>
+                  <Text style={styles.rankText}>{index + 1}</Text>
+                </View>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={styles.itemId}>{item.id}</Text>
+                </View>
+                <View style={styles.itemStats}>
+                  <Text style={styles.itemQuantity}>{item.quantity} units</Text>
+                  <Text style={styles.itemRevenue}>KES {item.revenue}</Text>
+                </View>
+              </View>
             ))}
           </View>
 
@@ -362,6 +362,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
+    justifyContent: "center"
   },
   sectionTitle: {
     fontSize: 18,

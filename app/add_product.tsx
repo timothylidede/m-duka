@@ -46,9 +46,10 @@ import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 export default function AddNewProduct() {
   // const [newProduct, setNewProduct] = useState(Product);
   const [productName, setProductName] = useState("");
+  const [productDescription, setProductDescription] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("pieces"); // Default unit
+  const [productUnit, setProductUnit] = useState("pieces"); // Default productUnit
   // const [loadedProduct, setLoadedProduct] = useState<Product>();
 
   const database = useSQLiteContext();
@@ -67,7 +68,7 @@ export default function AddNewProduct() {
   ];
 
   const addProductToDatabase = async () => {
-    if (!productName || !price || !quantity || !unit) {
+    if (!productName || !price || !quantity || !productUnit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
     }
@@ -91,7 +92,8 @@ export default function AddNewProduct() {
         name: productName,
         price: parseFloat(price),
         quantity: parseInt(quantity),
-        unit: unit,
+        unit: productUnit,
+        description: productDescription,
         isNearlyStockedOut: false,
         isStockedOut: parseInt(quantity) === 0 ? true : false,
         movingFast: 0,
@@ -107,22 +109,23 @@ export default function AddNewProduct() {
 
       //save tHe products using handleSaveProduct
       await handleSaveProduct(product, database);
-      console.log("Product added successfully");
-
-      const storedTodoItems = await loadProductsData(database);
-      console.log("Tried to get a product");
-      console.log(storedTodoItems?.length);
-
-      if (storedTodoItems?.length) {
-        // setTodos(storedTodoItems);
-        console.log("There is an element in the products table");
-        console.log(storedTodoItems);
-      } else {
-        // await saveTodoItems(db, initTodos);
-        // setTodos(initTodos);
-        console.log("There is no element in the products table but logging");
-        // console.log(storedTodoItems?.length);
-      }
+      Alert.alert(
+        `Success, you have added ${product.id} successfully to your shop. `
+      );
+      // console.log("Product added successfully");
+      // const storedTodoItems = await loadProductsData(database);
+      // // console.log("Tried to get a product");
+      // // console.log(storedTodoItems?.length);
+      // if (storedTodoItems?.length) {
+      //   // setTodos(storedTodoItems);
+      //   console.log("There is an element in the products table");
+      //   console.log(storedTodoItems);
+      // } else {
+      //   // await saveTodoItems(db, initTodos);
+      //   // setTodos(initTodos);
+      //   console.log("There is no element in the products table but logging");
+      //   // console.log(storedTodoItems?.length);
+      // }
     } catch (error) {
       console.error(error);
     }
@@ -147,49 +150,67 @@ export default function AddNewProduct() {
 
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.formContainer}>
+          <Text style={styles.formLabel}>Kindly describe your new product</Text>
+
+          <TextInput
+            style={styles.input}
+            value={productDescription}
+            onChangeText={setProductDescription}
+            placeholder="i.e A 2kg packet of maize flour"
+            placeholderTextColor="#94A3B8"
+            autoFocus
+          />
           <Text style={styles.formLabel}>Product Name</Text>
           <TextInput
             style={styles.input}
             value={productName}
             onChangeText={setProductName}
-            placeholder="Enter product name"
+            placeholder="What do you name this product?"
             placeholderTextColor="#94A3B8"
             autoFocus
           />
+          
+          <Text style={styles.formLabel}>
+            What are the units for {productName ? productName : "the product"}
+          </Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={productUnit}
+              onValueChange={(itemValue) => setProductUnit(itemValue)}
+              style={styles.picker}
+              dropdownIconColor="#2E3192"
+            >
+              {units.map((productUnit, index) => (
+                <Picker.Item
+                  key={index}
+                  label={productUnit}
+                  value={productUnit}
+                />
+              ))}
+            </Picker>
+          </View>
 
           <Text style={styles.formLabel}>Price (KES)</Text>
           <TextInput
             style={styles.input}
             value={price}
             onChangeText={setPrice}
-            placeholder="Enter price"
+            placeholder="How much will you be selling it?"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
           />
 
-          <Text style={styles.formLabel}>Quantity</Text>
+          <Text style={styles.formLabel}>
+            How many {productUnit ? productUnit : " units "} are you adding?
+          </Text>
           <TextInput
             style={styles.input}
             value={quantity}
             onChangeText={setQuantity}
-            placeholder="Enter quantity"
+            placeholder="Enter the number of units"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
           />
-
-          <Text style={styles.formLabel}>Unit</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={unit}
-              onValueChange={(itemValue) => setUnit(itemValue)}
-              style={styles.picker}
-              dropdownIconColor="#2E3192"
-            >
-              {units.map((unit, index) => (
-                <Picker.Item key={index} label={unit} value={unit} />
-              ))}
-            </Picker>
-          </View>
 
           <TouchableOpacity
             style={styles.submitButton}

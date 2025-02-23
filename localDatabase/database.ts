@@ -1,9 +1,12 @@
 
 import { SQLiteDatabase, SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import { Product } from "./types";
+import {Alert } from "react-native";
 
-const productsTableName = "productsTable";
-const shopInformationTable = "shopInformationTable";
+// const productsTableName = "productsTable";
+// const shopInformationTable = "shopInformationTable";
+const productsTableName = "productsTable0x0";
+const shopInformationTable = "shopInformationTable0x0";
 // const database = useSQLiteContext();
 
 export const createDbIfNeeded = async (db: SQLiteDatabase) => {
@@ -18,6 +21,7 @@ export const createDbIfNeeded = async (db: SQLiteDatabase) => {
         unit TEXT NOT NULL,
         price REAL NOT NULL,
         quantity INTEGER NOT NULL,
+        description TEXT,
         isNearlyStockedOut BOOLEAN,
         isStockedOut BOOLEAN,
         movingFast REAL,
@@ -66,16 +70,16 @@ export const loadProductsData = async (database: SQLiteDatabase): Promise<Produc
 
 export const handleSaveProduct = async (product:Product, database:SQLiteDatabase) => {
   try {
-      let Products: Product[] = [product];
+    let Products: Product[] = [product];
     const insertQuery = `
       INSERT INTO ${productsTableName} (
-        id, name, price, unit, quantity, 
+        id, name, price, unit, quantity, description,
         isNearlyStockedOut, isStockedOut,
         movingFast, dailySales, weeklySales, 
         monthlySales, yearlySales,
         dailyRevenue, weeklyRevenue, 
         monthlyRevenue, yearlyRevenue
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     // Prepare the values array
@@ -85,17 +89,18 @@ export const handleSaveProduct = async (product:Product, database:SQLiteDatabase
       product.price,
       product.unit,
       product.quantity,
-      product.isNearlyStockedOut || null, // Handle optional fields
-      product.isStockedOut || null,
-      product.movingFast || null,
-      product.dailySales || null,
-      product.weeklySales || null,
-      product.monthlySales || null,
-      product.yearlySales || null,
-      product.dailyRevenue || null,
-      product.weeklyRevenue || null,
-      product.monthlyRevenue || null,
-      product.yearlyRevenue || null,
+      product.description,
+      product.isNearlyStockedOut, // Handle optional fields
+      product.isStockedOut,
+      product.movingFast,
+      product.dailySales,
+      product.weeklySales,
+      product.monthlySales,
+      product.yearlySales,
+      product.dailyRevenue,
+      product.weeklyRevenue,
+      product.monthlyRevenue,
+      product.yearlyRevenue,
     ];
 
     // Execute the query
@@ -107,5 +112,17 @@ export const handleSaveProduct = async (product:Product, database:SQLiteDatabase
     // Alert.alert("Error saving item:", error.toString());
   }
 };
+
+export const handleDeleteProduct = async (product: Product, database: SQLiteDatabase) => {
+  try {
+    const deleteQuery = `DELETE FROM ${productsTableName} WHERE id = ?`;
+    const response = await database.runAsync(deleteQuery, [product.id]);
+    // console.log("Item deleted successfully:", response?.changes!);
+    Alert.alert(`We are sorry to see you delete a product. `,`The product ${product.id} has been deleted successfully with ${product.yearlyRevenue?product.yearlyRevenue:0} yearly revenue and ${product.yearlySales?product.yearlySales:0} yearly sales`);
+  } catch (error) {
+    console.error("Error deleting item:", error);
+    // Alert.alert("Error deleting item:", error.toString());
+  }
+}
 
 
