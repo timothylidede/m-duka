@@ -6,7 +6,7 @@ import { useContext } from 'react';
 interface InventoryItem {
   productId: string;
   productName: string;
-  unitPrice: number;
+  unitPrice: number; // Replaced buyingPrice and removed sellingPrice
   stockAmount: number;
   unit: string;
   lastUpdated: Date;
@@ -20,7 +20,7 @@ interface InventoryData {
 
 interface AddInventoryOptions {
   productName: string;
-  unitPrice: number;
+  unitPrice: number; // Replaced buyingPrice and removed sellingPrice
   stockAmount: number;
   unit: string;
 }
@@ -69,7 +69,7 @@ export const useInventoryService = (): InventoryService => {
         const inventoryItem: InventoryItem = {
           productId,
           productName: options.productName,
-          unitPrice: options.unitPrice,
+          unitPrice: options.unitPrice, // Updated to unitPrice
           stockAmount: options.stockAmount,
           unit: options.unit,
           lastUpdated: new Date(),
@@ -149,7 +149,7 @@ export const useInventoryService = (): InventoryService => {
               lastUpdated: convertTimestampToDate(data.lastUpdated),
             } as InventoryItem;
             items.push(item);
-            totalValue += item.unitPrice * item.stockAmount;
+            totalValue += item.unitPrice * item.stockAmount; // Updated to unitPrice
           }
         });
 

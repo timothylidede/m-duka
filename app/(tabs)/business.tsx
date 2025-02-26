@@ -16,6 +16,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useState, useEffect } from 'react';
+import { useSalesService } from '../../services/sales'; 
 
 // Interfaces remain the same
 interface SalesMetrics {
@@ -55,6 +57,50 @@ interface QuickAction {
 const BusinessPage: React.FC = () => {
   const router = useRouter();
   const screenWidth = Dimensions.get("window").width;
+
+  const [allTimeRevenue, setAllTimeRevenue] = useState(0);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const salesService = useSalesService();
+
+  useEffect(() => {
+    const fetchAllTimeSales = async () => {
+      try {
+        const data = await salesService.getAllTimeSalesData();
+        setAllTimeRevenue(data.totalRevenue);
+        setTotalTransactions(data.totalTransactions);
+      } catch (error) {
+        console.error('Error fetching all-time sales:', error);
+      }
+    };
+    fetchAllTimeSales();
+  }, []);
+
+  const targets = [10000, 50000, 100000, 250000, 500000, 1000000];
+
+  const getLevelInfo = (revenue: number, targets: number[]) => {
+    let currentLevel = 0;
+    let nextTarget = targets[0];
+    let progress = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      if (revenue < targets[i]) {
+        nextTarget = targets[i];
+        progress = i === 0 
+          ? (revenue / targets[0]) * 100 
+          : ((revenue - targets[i - 1]) / (targets[i] - targets[i - 1])) * 100;
+        break;
+      }
+      currentLevel = i + 1;
+    }
+
+    if (currentLevel === targets.length) {
+      progress = 100; // Max level achieved
+    }
+
+    return { currentLevel, nextTarget, progress };
+  };
+
+  const levelInfo = getLevelInfo(allTimeRevenue, targets);
 
   const routeAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -136,6 +182,14 @@ const BusinessPage: React.FC = () => {
     </View>
   );
 
+  const currentHour = new Date().getHours();
+  let greeting = "Good morning";
+  if (currentHour >= 12 && currentHour < 17) {
+    greeting = "Good afternoon";
+  } else if (currentHour >= 17) {
+    greeting = "Good evening";
+  }
+
   return (
     <>
       <Stack.Screen
@@ -164,7 +218,7 @@ const BusinessPage: React.FC = () => {
               style={styles.headerGradient}
             >
               <View style={styles.dashboardHeader}>
-                <Text style={styles.greeting}>Good afternoon!</Text>
+                <Text style={styles.greeting}>{greeting}</Text>
                 <Text style={styles.dateText}>
                   {new Date().toLocaleDateString('en-US', {
                     weekday: 'short',
@@ -179,15 +233,17 @@ const BusinessPage: React.FC = () => {
                   <View style={styles.revenueTextContainer}>
                     <Text style={styles.revenueLabel}>All-Time Revenue</Text>
                     <Text style={styles.revenueAmount}>
-                      KES {salesData.metrics.monthlySales.toLocaleString()}
+                      KES {allTimeRevenue.toLocaleString()}
                     </Text>
                     
                     <View style={styles.progressContainer}>
                       <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${salesData.metrics.targetAchieved}%` }]} />
+                        <View style={[styles.progressFill, { width: `${levelInfo.progress}%` }]} />
                       </View>
                       <Text style={styles.progressText}>
-                        {salesData.metrics.targetAchieved}% of monthly target
+                        {levelInfo.currentLevel < targets.length
+                          ? `${levelInfo.progress.toFixed(1)}% towards Level ${levelInfo.currentLevel + 1}`
+                          : "Max level achieved"}
                       </Text>
                     </View>
                   </View>

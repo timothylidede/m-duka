@@ -1,5 +1,5 @@
 import { Stack, router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,20 +7,46 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-  ScrollView,
+  FlatList,
   StatusBar,
+  Keyboard,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
-import { useInventoryService } from "../services/inventory";
+import { useInventoryService, InventoryItem } from "../services/inventory";
+
+// Debounce utility function
+const debounce = (func: (...args: any[]) => void, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
+// Sanitize product name function
+const sanitizeProductName = (name: string): string => {
+  // Remove numbers and special symbols, allow only letters and spaces
+  let sanitized = name.replace(/[^a-zA-Z\s]/g, "").trim();
+  // Limit to 50 characters
+  sanitized = sanitized.slice(0, 50);
+  // Capitalize first letter
+  if (sanitized.length > 0) {
+    sanitized = sanitized.charAt(0).toUpperCase() + sanitized.slice(1).toLowerCase();
+  }
+  return sanitized;
+};
 
 export default function AddNewProduct() {
   const [productName, setProductName] = useState("");
-  const [price, setPrice] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("pieces");
+  const [matchingProducts, setMatchingProducts] = useState<InventoryItem[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
 
+  const quantityInputRef = useRef<TextInput>(null);
   const inventoryService = useInventoryService();
 
   const units = [
@@ -35,13 +61,65 @@ export default function AddNewProduct() {
     "bags",
   ];
 
+  // Debounced fetch function
+  const fetchMatchingProducts = debounce(async (name: string) => {
+    if (name.length > 1) {
+      try {
+        const inventory = await inventoryService.getAllInventory();
+        const filtered = inventory.items.filter(item =>
+          item.productName.toLowerCase().includes(name.toLowerCase())
+        );
+        setMatchingProducts(filtered);
+        setShowDropdown(filtered.length > 0);
+      } catch (error) {
+        console.error("Error fetching matching products:", error);
+      }
+    } else {
+      setMatchingProducts([]);
+      setShowDropdown(false);
+    }
+  }, 300);
+
+  useEffect(() => {
+    fetchMatchingProducts(productName);
+  }, [productName]);
+
+  const handleProductNameChange = (text: string) => {
+    const sanitized = sanitizeProductName(text);
+    setProductName(sanitized);
+  };
+
+  const selectProduct = (product: InventoryItem) => {
+    const sanitized = sanitizeProductName(product.productName); // Sanitize when selecting
+    setProductName(sanitized);
+    setUnitPrice(product.unitPrice ? product.unitPrice.toString() : "");
+    setUnit(product.unit);
+    setShowDropdown(false);
+    if (quantityInputRef.current) {
+      quantityInputRef.current.focus();
+    }
+  };
+
+  const resetForm = () => {
+    setProductName("");
+    setUnitPrice("");
+    setQuantity("");
+    setUnit("pieces");
+  };
+
   const addProductToInventory = async () => {
-    if (!productName || !price || !quantity || !unit) {
+    const sanitizedProductName = sanitizeProductName(productName); // Ensure sanitized before submission
+    if (!sanitizedProductName || !unitPrice || !quantity || !unit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
     }
 
-    if (isNaN(Number(price)) || Number(price) <= 0) {
+    if (sanitizedProductName.length < 2) {
+      Alert.alert("Invalid Product Name", "Product name must be at least 2 characters long.");
+      return;
+    }
+
+    if (isNaN(Number(unitPrice)) || Number(unitPrice) <= 0) {
       Alert.alert("Invalid Price", "Please enter a valid price greater than 0.");
       return;
     }
@@ -53,8 +131,8 @@ export default function AddNewProduct() {
 
     try {
       await inventoryService.addInventoryItem({
-        productName,
-        unitPrice: Number(price),
+        productName: sanitizedProductName,
+        unitPrice: Number(unitPrice),
         stockAmount: Number(quantity),
         unit,
       });
@@ -62,13 +140,115 @@ export default function AddNewProduct() {
       Alert.alert(
         "Success",
         "Product added successfully!",
-        [{ text: "OK", onPress: () => router.back() }]
+        [
+          { text: "Add Another", onPress: resetForm, style: "default" },
+          { text: "Done", onPress: () => router.back(), style: "cancel" },
+        ]
       );
     } catch (error) {
       Alert.alert("Error", "Failed to add product. Please try again.");
       console.error(error);
     }
   };
+
+  const renderForm = () => (
+    <View style={styles.formContainer}>
+      <View style={styles.inputGroup}>
+        <Text style={styles.formLabel}>Product Name</Text>
+        <View>
+          <TextInput
+            style={styles.input}
+            value={productName}
+            onChangeText={handleProductNameChange} // Use custom handler
+            placeholder="Enter product name"
+            placeholderTextColor="#94A3B8"
+            maxLength={50} // Enforce max length in UI
+          />
+          {showDropdown && (
+            <View style={styles.dropdownContainer}>
+              <FlatList
+                data={matchingProducts}
+                keyExtractor={(item) => item.productId}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => selectProduct(item)}
+                  >
+                    <Text style={styles.dropdownItemText}>{item.productName}</Text>
+                  </TouchableOpacity>
+                )}
+                style={styles.dropdown}
+              />
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.formLabel}>Unit Price (KES)</Text>
+        <View style={styles.priceInput}>
+          <Text style={styles.currencySymbol}>KES</Text>
+          <TextInput
+            style={[styles.input, styles.priceTextInput]}
+            value={unitPrice}
+            onChangeText={setUnitPrice}
+            placeholder="0.00"
+            placeholderTextColor="#94A3B8"
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.formLabel}>Quantity</Text>
+          <TextInput
+            ref={quantityInputRef}
+            style={styles.input}
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder="0"
+            placeholderTextColor="#94A3B8"
+            keyboardType="numeric"
+          />
+        </View>
+
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.formLabel}>Unit</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={unit}
+              onValueChange={setUnit}
+              style={styles.picker}
+              dropdownIconColor="#2E3192"
+            >
+              {units.map((unitOption, index) => (
+                <Picker.Item
+                  key={index}
+                  label={unitOption}
+                  value={unitOption}
+                  color="#1E293B"
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.submitButton} onPress={addProductToInventory}>
+        <LinearGradient
+          colors={["#2E3192", "#1BFFFF"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.buttonGradient}
+        >
+          <Feather name="plus-circle" size={24} color="white" />
+          <Text style={styles.submitButtonText}>Add Product</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <>
@@ -86,92 +266,17 @@ export default function AddNewProduct() {
         >
           <Feather name="arrow-left" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Inventory</Text>
+        <Text style={styles.headerTitle}>Add Product</Text>
       </LinearGradient>
 
-      <ScrollView 
+      <FlatList
+        data={[{}]}
+        renderItem={() => renderForm()}
+        keyExtractor={() => "form"}
         contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.formLabel}>Product Name</Text>
-            <TextInput
-              style={styles.input}
-              value={productName}
-              onChangeText={setProductName}
-              placeholder="Enter product name"
-              placeholderTextColor="#94A3B8"
-              autoFocus
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.formLabel}>Price (KES)</Text>
-            <View style={styles.priceInput}>
-              <Text style={styles.currencySymbol}>KES</Text>
-              <TextInput
-                style={[styles.input, styles.priceTextInput]}
-                value={price}
-                onChangeText={setPrice}
-                placeholder="0.00"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.formLabel}>Quantity</Text>
-              <TextInput
-                style={styles.input}
-                value={quantity}
-                onChangeText={setQuantity}
-                placeholder="0"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.formLabel}>Unit</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={unit}
-                  onValueChange={setUnit}
-                  style={styles.picker}
-                  dropdownIconColor="#2E3192"
-                >
-                  {units.map((unit, index) => (
-                    <Picker.Item 
-                      key={index} 
-                      label={unit} 
-                      value={unit}
-                      color="#1E293B"
-                    />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={addProductToInventory}
-          >
-            <LinearGradient
-              colors={["#2E3192", "#1BFFFF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.buttonGradient}
-            >
-              <Feather name="plus-circle" size={24} color="white" />
-              <Text style={styles.submitButtonText}>Add Product</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      />
     </>
   );
 }
@@ -181,22 +286,22 @@ const styles = StyleSheet.create({
     height: 100,
     paddingTop: 50,
     paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     flex: 1,
-    textAlign: 'center',
-    marginRight: 24, // To offset the back button width and keep title centered
+    textAlign: "center",
+    marginRight: 24,
   },
   backButton: {
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   container: {
     flexGrow: 1,
@@ -232,12 +337,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 20,
   },
   priceInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
     borderRadius: 16,
@@ -258,7 +363,7 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     borderRadius: 16,
     backgroundColor: "#F8FAFC",
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   picker: {
     width: "100%",
@@ -285,5 +390,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginLeft: 12,
+  },
+  dropdownContainer: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  dropdown: {
+    maxHeight: 180,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dropdownItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: "#1E293B",
+    fontWeight: "500",
   },
 });

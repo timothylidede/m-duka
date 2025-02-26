@@ -60,6 +60,7 @@ interface SalesService {
   getWeeklySalesData: (daysBack?: number) => Promise<SalesData>;
   getMonthlySalesData: (daysBack?: number) => Promise<SalesData>;
   deleteTransaction: (transactionId: string) => Promise<boolean>;
+  getAllTimeSalesData: () => Promise<{ totalRevenue: number; totalTransactions: number }>;
   getTransactions: (options?: TransactionListOptions) => Promise<TransactionListResult>;
   updateTransactionStatus: (transactionId: string, newStatus: 'completed' | 'pending' | 'failed') => Promise<boolean>;
 }
@@ -85,6 +86,7 @@ export const useSalesService = (): SalesService => {
       }),
       updateTransactionStatus: async () => false,
       deleteTransaction: async () => false,
+      getAllTimeSalesData: async () => ({totalRevenue: 0, totalTransactions: 0}),
     };
   }
 
@@ -436,26 +438,25 @@ export const useSalesService = (): SalesService => {
         };
       }
     
-      // Filter by status
-      let filteredTransactions = allTransactions;
-      if (options?.status && options.status !== 'all') {
-        filteredTransactions = allTransactions.filter(t => t.status === options.status);
-      }
+      allTransactions.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  
+    let filteredTransactions = allTransactions;
+    if (options?.status && options.status !== 'all') {
+      filteredTransactions = allTransactions.filter(t => t.status === options.status);
+    }
     
-      // Pagination
-      const totalCount = filteredTransactions.length;
-      const totalPages = Math.ceil(totalCount / pageSize);
-      const startIndex = page * pageSize;
-      const paginatedTransactions = filteredTransactions
-        .slice(startIndex, startIndex + pageSize)
-        .map(transaction => ({
-          id: transaction.id,
-          status: transaction.status || 'pending',
-          totalPrice: transaction.totalPrice || 0,
-          lineItems: transaction.lineItems || [],
-          paymentMethod: transaction.paymentMethod || 'cash',
-          timestamp: transaction.timestamp || new Date(),
-        }));
+    const totalCount = filteredTransactions.length;
+    const startIndex = page * pageSize;
+    const paginatedTransactions = filteredTransactions
+      .slice(startIndex, startIndex + pageSize)
+      .map(transaction => ({
+        id: transaction.id,
+        status: transaction.status || 'pending',
+        totalPrice: transaction.totalPrice || 0,
+        lineItems: transaction.lineItems || [],
+        paymentMethod: transaction.paymentMethod || 'cash',
+        timestamp: transaction.timestamp || new Date(),
+      }));
     
       return {
         transactions: paginatedTransactions,
@@ -506,7 +507,24 @@ export const useSalesService = (): SalesService => {
         return false;
       }
     },
-    
+
+    async getAllTimeSalesData(): Promise<{ totalRevenue: number; totalTransactions: number }> {
+      try {
+        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
+        const snapshot = await getDocs(salesCollection);
+        let totalRevenue = 0;
+        let totalTransactions = 0;
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          totalRevenue += data.totalRevenue || 0;
+          totalTransactions += data.salesCount || 0;
+        });
+        return { totalRevenue, totalTransactions };
+      } catch (error) {
+        console.error('Error fetching all-time sales data:', error);
+        throw error;
+      }
+    },
 
     async updateTransactionStatus(transactionId: string, newStatus: 'completed' | 'pending' | 'failed'): Promise<boolean> {
       try {
