@@ -59,6 +59,7 @@ interface SalesService {
   getTodaysSalesData: () => Promise<SalesData>;
   getWeeklySalesData: (daysBack?: number) => Promise<SalesData>;
   getMonthlySalesData: (daysBack?: number) => Promise<SalesData>;
+  deleteTransaction: (transactionId: string) => Promise<boolean>;
   getTransactions: (options?: TransactionListOptions) => Promise<TransactionListResult>;
   updateTransactionStatus: (transactionId: string, newStatus: 'completed' | 'pending' | 'failed') => Promise<boolean>;
 }
@@ -83,6 +84,7 @@ export const useSalesService = (): SalesService => {
         averageTransactionValue: 0,
       }),
       updateTransactionStatus: async () => false,
+      deleteTransaction: async () => false,
     };
   }
 
@@ -398,44 +400,30 @@ export const useSalesService = (): SalesService => {
     async getTransactions(options?: TransactionListOptions): Promise<TransactionListResult> {
       console.log('Starting getTransactions with shopId:', shopId, 'options:', options);
     
-      let q = query(collection(firestore, `shops/${shopId}/sales`));
+      const page = options?.offset || 0; // Page number (0-based)
+      const pageSize = options?.limit || 10; // Items per page
     
+      let q = query(collection(firestore, `shops/${shopId}/sales`));
       if (options?.startDate || options?.endDate) {
         const startStr = options.startDate?.toISOString().split('T')[0];
         const endStr = options.endDate?.toISOString().split('T')[0];
-    
-        if (startStr) {
-          q = query(q, where('__name__', '>=', startStr));
-          console.log('Added start date filter:', startStr);
-        }
-        if (endStr) {
-          q = query(q, where('__name__', '<=', endStr));
-          console.log('Added end date filter:', endStr);
-        }
+        if (startStr) q = query(q, where('__name__', '>=', startStr));
+        if (endStr) q = query(q, where('__name__', '<=', endStr));
       }
     
       const querySnapshot = await getDocs(q);
     
-      console.log('Found sales documents:', querySnapshot.docs.length);
-    
       let allTransactions: SaleMetadata[] = [];
       querySnapshot.forEach(docSnap => {
-        console.log('Processing sales document:', docSnap.id, 'data:', docSnap.data());
         const data = docSnap.data();
         const transactionsArray = data.transactions || [];
-    
-        console.log('Transactions array length for document', docSnap.id, ':', transactionsArray.length);
-    
-        transactionsArray.forEach((transaction: any, index: number) => {
-          console.log('Converting transaction at index', index, ':', transaction);
+        transactionsArray.forEach((transaction: any) => {
           const saleMetadata = convertToSaleMetadata(transaction);
-          console.log('Converted SaleMetadata:', saleMetadata);
           allTransactions.push(saleMetadata);
         });
       });
     
       if (allTransactions.length === 0) {
-        console.log('No transactions found, returning defaults');
         return {
           transactions: [],
           salesCount: 0,
@@ -448,7 +436,18 @@ export const useSalesService = (): SalesService => {
         };
       }
     
-      const paginatedTransactions = allTransactions.slice(options?.offset || 0, (options?.offset || 0) + (options?.limit || 10))
+      // Filter by status
+      let filteredTransactions = allTransactions;
+      if (options?.status && options.status !== 'all') {
+        filteredTransactions = allTransactions.filter(t => t.status === options.status);
+      }
+    
+      // Pagination
+      const totalCount = filteredTransactions.length;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      const startIndex = page * pageSize;
+      const paginatedTransactions = filteredTransactions
+        .slice(startIndex, startIndex + pageSize)
         .map(transaction => ({
           id: transaction.id,
           status: transaction.status || 'pending',
@@ -458,18 +457,54 @@ export const useSalesService = (): SalesService => {
           timestamp: transaction.timestamp || new Date(),
         }));
     
-      console.log('Paginated transactions:', paginatedTransactions);
-    
       return {
         transactions: paginatedTransactions,
-        salesCount: allTransactions.length,
-        totalRevenue: allTransactions.reduce((sum, transaction) => sum + transaction.totalPrice, 0),
+        salesCount: totalCount,
+        totalRevenue: filteredTransactions.reduce((sum, t) => sum + t.totalPrice, 0),
         completedCount: allTransactions.filter(t => t.status === 'completed').length,
         pendingCount: allTransactions.filter(t => t.status === 'pending').length,
         failedCount: allTransactions.filter(t => t.status === 'failed').length,
         completionRate: allTransactions.length ? (allTransactions.filter(t => t.status === 'completed').length / allTransactions.length) * 100 : 0,
-        averageTransactionValue: allTransactions.length ? allTransactions.reduce((sum, t) => sum + t.totalPrice, 0) / allTransactions.length : 0,
+        averageTransactionValue: filteredTransactions.length ? filteredTransactions.reduce((sum, t) => sum + t.totalPrice, 0) / filteredTransactions.length : 0,
       };
+    },
+
+    async deleteTransaction(transactionId: string): Promise<boolean> {
+      try {
+        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
+        const snapshot = await getDocs(salesCollection);
+    
+        let docToUpdateId: string | null = null;
+        let transactions: any[] = [];
+    
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!data.transactions) return;
+    
+          const idx = data.transactions.findIndex((t: any) => t.id === transactionId);
+          if (idx !== -1) {
+            docToUpdateId = docSnap.id;
+            transactions = [...data.transactions];
+            transactions.splice(idx, 1); // Remove the transaction
+          }
+        });
+    
+        if (!docToUpdateId) {
+          console.warn('Transaction not found');
+          return false;
+        }
+    
+        const dateDocRef = doc(firestore, `shops/${shopId}/sales/${docToUpdateId}`);
+        await updateDoc(dateDocRef, {
+          transactions,
+          salesCount: transactions.length,
+          totalRevenue: transactions.reduce((sum: number, t: any) => sum + (t.totalPrice || 0), 0),
+        });
+        return true;
+      } catch (error) {
+        console.error('Error deleting transaction:', error);
+        return false;
+      }
     },
     
 

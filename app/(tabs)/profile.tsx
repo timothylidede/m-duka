@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
-  Pressable,
   StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -30,6 +29,7 @@ interface StoreProfile {
   location: string;
   managerName: string;
   contactNumber: string;
+  email?: string;
   lastStockUpdate: string;
   inventoryStats: InventoryStats;
 }
@@ -38,6 +38,7 @@ interface QuickAction {
   actionName: string;
   iconName: string;
   nextPagePath: RelativePathString;
+  highlight?: boolean;
 }
 
 const ProfilePage: React.FC = () => {
@@ -54,6 +55,7 @@ const ProfilePage: React.FC = () => {
     location: "Carwash Street, Nairobi",
     managerName: "John Muthaiga",
     contactNumber: "+254743891547",
+    email: "j.muthaiga@quickmart.co.ke",
     lastStockUpdate: "2025-02-05 09:30 AM",
     inventoryStats: {
       totalItems: 1247,
@@ -64,16 +66,54 @@ const ProfilePage: React.FC = () => {
   };
 
   const QuickActions: QuickAction[] = [
-    { actionName: 'Add a New Product', iconName: 'plus', nextPagePath: '../add_product' },
-    { actionName: 'Supplier Management', iconName: 'file-text', nextPagePath: '../supplierManagement' },
-    { actionName: 'Stock Restock Alerts', iconName: 'bar-chart-2', nextPagePath: '../add_product' },
-    { actionName: 'Demand Forecast', iconName: 'box', nextPagePath: '../add_product' },
+    {
+      actionName: "Add a New Product",
+      iconName: "plus-circle",
+      nextPagePath: "../add_product",
+      highlight: true,
+    },
+    {
+      actionName: "Supplier Management",
+      iconName: "truck",
+      nextPagePath: "../supplierManagement",
+    },
+    {
+      actionName: "Stock Restock Alerts",
+      iconName: "bell",
+      nextPagePath: "../restockAlerts",
+    },
+    {
+      actionName: "Inventory Analysis",
+      iconName: "pie-chart",
+      nextPagePath: "../inventoryAnalysis",
+    },
+    {
+      actionName: "Demand Forecast",
+      iconName: "trending-up",
+      nextPagePath: "../demandForecast",
+    },
   ];
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem("lastOpenedTime");
-      router.replace("/login");
+      Alert.alert(
+        "Confirm Logout",
+        "Are you sure you want to log out?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Logout",
+            onPress: async () => {
+              await AsyncStorage.removeItem("lastOpenedTime");
+              router.replace("/login");
+            },
+            style: "destructive",
+          },
+        ]
+      );
     } catch (error) {
       Alert.alert("Error", "Failed to log out. Please try again.");
     }
@@ -83,7 +123,7 @@ const ProfilePage: React.FC = () => {
     <>
       <Stack.Screen
         options={{
-          title: "Inventory",
+          title: "Store Profile",
           headerStyle: {
             backgroundColor: "#2E3192",
           },
@@ -97,168 +137,240 @@ const ProfilePage: React.FC = () => {
       <StatusBar barStyle="light-content" />
 
       <SafeAreaView style={styles.container}>
-        <ScrollView>
+        <ScrollView showsVerticalScrollIndicator={false}>
           <LinearGradient
             colors={["#2E3192", "#1BFFFF"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.header}
           >
-            <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>Inventory</Text>
-            </View>
-            
             <View style={styles.storeInfo}>
-              <Feather
-                name="shopping-bag"
-                size={40}
-                color="white"
-                style={styles.storeIcon}
-              />
+              <View style={styles.storeIconContainer}>
+                <Feather name="shopping-bag" size={32} color="white" />
+              </View>
               <Text style={styles.storeName}>{storeProfile.storeName}</Text>
               <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
-              
+
               <View style={styles.buttonContainer}>
                 <TouchableOpacity
-                  onPress={handleLogout}
-                  style={styles.logoutButton}
+                  onPress={() => routeInventoryQuickAction("../listShopProductsPage")}
+                  style={styles.businessButton}
                 >
-                  <Feather name="log-out" size={20} color="white" />
-                  <Text style={styles.logoutButtonText}>Logout</Text>
+                  <Feather name="package" size={18} color="#2E3192" />
+                  <Text style={styles.businessButtonText}>Manage Shop Products</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity
-                  onPress={() => routeInventoryQuickAction('../add_product')}
-                  style={styles.addProductButton}
-                >
-                  <Feather name="plus" size={20} color="#2E3192" />
-                  <Text style={styles.addProductButtonText}>Add a New Product</Text>
+
+                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                  <Feather name="log-out" size={18} color="white" />
+                  <Text style={styles.logoutButtonText}>Logout</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </LinearGradient>
 
           <View style={styles.content}>
+            {/* Inventory Actions Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Feather name="info" size={24} color="#2E3192" />
-                <Text style={styles.sectionTitle}>Store Details</Text>
+                <Feather name="zap" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Inventory Actions</Text>
               </View>
+
+              <View style={styles.quickActionsGrid}>
+                {QuickActions.map((action, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.quickActionButton,
+                      action.highlight && styles.highlightedAction,
+                    ]}
+                    onPress={() => routeInventoryQuickAction(action.nextPagePath)}
+                  >
+                    <View
+                      style={[
+                        styles.quickActionIcon,
+                        action.highlight && styles.highlightedActionIcon,
+                      ]}
+                    >
+                      <Feather
+                        name={action.iconName as any}
+                        size={24}
+                        color={action.highlight ? "white" : "#2E3192"}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.quickActionText,
+                        action.highlight && styles.highlightedActionText,
+                      ]}
+                    >
+                      {action.actionName}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Store Profile Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="user" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Store Profile</Text>
+              </View>
+
               <View style={styles.detailRow}>
                 <View style={styles.detailIcon}>
                   <Feather name="map-pin" size={20} color="#64748B" />
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Location</Text>
-                  <Text style={styles.detailValue}>
-                    {storeProfile.location}
-                  </Text>
+                  <Text style={styles.detailValue}>{storeProfile.location}</Text>
                 </View>
               </View>
+
               <View style={styles.detailRow}>
                 <View style={styles.detailIcon}>
                   <Feather name="user" size={20} color="#64748B" />
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Manager</Text>
-                  <Text style={styles.detailValue}>
-                    {storeProfile.managerName}
-                  </Text>
+                  <Text style={styles.detailValue}>{storeProfile.managerName}</Text>
                 </View>
               </View>
+
               <View style={styles.detailRow}>
                 <View style={styles.detailIcon}>
                   <Feather name="phone" size={20} color="#64748B" />
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Contact</Text>
-                  <Text style={styles.detailValue}>
-                    {storeProfile.contactNumber}
-                  </Text>
+                  <Text style={styles.detailValue}>{storeProfile.contactNumber}</Text>
                 </View>
               </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailIcon}>
+                  <Feather name="mail" size={20} color="#64748B" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Email</Text>
+                  <Text style={styles.detailValue}>{storeProfile.email || ''}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.editProfileButton}
+                onPress={() => routeInventoryQuickAction("../editProfile")}
+              >
+                <Feather name="edit-2" size={16} color="#2E3192" />
+                <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+              </TouchableOpacity>
             </View>
 
+            {/* Inventory Overview Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Feather name="box" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>Inventory Overview</Text>
               </View>
-              <View style={styles.statsGrid}>
-                <View style={styles.statsCard}>
-                  <Pressable
-                    onPress={() => Alert.alert('Button Pressed', 'You pressed the view!')}
-                    style={({ pressed }) => [
-                      styles.pressableView,
-                      { backgroundColor: pressed ? '#ddd' : '#fff' },
-                    ]}
-                  >
-                    <Feather name="package" size={24} color="#2E3192" />
-                    <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
-                    <Text style={styles.statsLabel}>Total Items</Text>
-                  </Pressable>
-                </View>
 
-                <View style={[styles.statsCard, styles.alertCard]}>
+              <View style={styles.statsGrid}>
+                <TouchableOpacity
+                  style={styles.statsCard}
+                  onPress={() => routeInventoryQuickAction("../inventoryList")}
+                >
+                  <Feather name="package" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
+                  <Text style={styles.statsLabel}>Total Items</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.statsCard, styles.alertCard]}
+                  onPress={() => routeInventoryQuickAction("../lowStockItems")}
+                >
                   <Feather name="alert-circle" size={24} color="#DC2626" />
                   <Text style={[styles.statsValue, styles.alertValue]}>
                     {storeProfile.inventoryStats.lowStock}
                   </Text>
                   <Text style={styles.statsLabel}>Low Stock</Text>
-                </View>
+                </TouchableOpacity>
 
-                <View style={[styles.statsCard, styles.criticalCard]}>
+                <TouchableOpacity
+                  style={[styles.statsCard, styles.criticalCard]}
+                  onPress={() => routeInventoryQuickAction("../outOfStockItems")}
+                >
                   <Feather name="x-circle" size={24} color="#DC2626" />
                   <Text style={[styles.statsValue, styles.alertValue]}>
                     {storeProfile.inventoryStats.outOfStock}
                   </Text>
                   <Text style={styles.statsLabel}>Out of Stock</Text>
-                </View>
+                </TouchableOpacity>
 
-                <View style={styles.statsCard}>
+                <TouchableOpacity
+                  style={styles.statsCard}
+                  onPress={() => routeInventoryQuickAction("../inventoryValue")}
+                >
                   <Feather name="dollar-sign" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
-                    KES{" "}
-                    {storeProfile.inventoryStats.totalValue.toLocaleString()}
+                    KES {storeProfile.inventoryStats.totalValue.toLocaleString()}
                   </Text>
                   <Text style={styles.statsLabel}>Total Value</Text>
-                </View>
+                </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                style={styles.inventoryReportButton}
+                onPress={() => routeInventoryQuickAction("../inventoryReport")}
+              >
+                <Feather name="file-text" size={18} color="white" />
+                <Text style={styles.inventoryReportButtonText}>Generate Inventory Report</Text>
+              </TouchableOpacity>
             </View>
 
+            {/* Attention Required Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Feather name="zap" size={24} color="#2E3192" />
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
+                <Feather name="alert-triangle" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Attention Required</Text>
               </View>
 
-              {QuickActions.slice(1).map((action, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.actionButton}
-                  onPress={() => routeInventoryQuickAction(action.nextPagePath)}
-                >
-                  <LinearGradient
-                    colors={["#2E3192", "#1BFFFF"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.actionGradient}
+              <View style={styles.alertsContainer}>
+                {storeProfile.inventoryStats.outOfStock > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertItem}
+                    onPress={() => routeInventoryQuickAction("../outOfStockItems")}
                   >
-                    <Feather
-                      name={action.iconName as any}
-                      size={24}
-                      color="white"
-                    />
-                    <Text style={styles.actionButtonText}>
-                      {action.actionName}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
+                    <View style={[styles.alertIndicator, styles.criticalIndicator]} />
+                    <View style={styles.alertContent}>
+                      <Text style={styles.alertTitle}>Critical: Out of Stock Items</Text>
+                      <Text style={styles.alertDescription}>
+                        {storeProfile.inventoryStats.outOfStock} items need immediate restock
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                )}
+
+                {storeProfile.inventoryStats.lowStock > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertItem}
+                    onPress={() => routeInventoryQuickAction("../lowStockItems")}
+                  >
+                    <View style={[styles.alertIndicator, styles.warningIndicator]} />
+                    <View style={styles.alertContent}>
+                      <Text style={styles.alertTitle}>Warning: Low Stock Items</Text>
+                      <Text style={styles.alertDescription}>
+                        {storeProfile.inventoryStats.lowStock} items running low in inventory
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             <Text style={styles.lastUpdate}>
-              Last updated: {storeProfile.lastStockUpdate}
+              Last inventory update: {storeProfile.lastStockUpdate}
             </Text>
           </View>
         </ScrollView>
@@ -274,34 +386,25 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    borderRadius: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 4,
-    marginTop: 20,
-    marginLeft: 9,
-    marginRight: 9,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  headerTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
   },
   storeInfo: {
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 20,
   },
-  storeIcon: {
+  storeIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
   },
   storeName: {
@@ -318,56 +421,56 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 10,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DC2626',
+  businessButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
     paddingHorizontal: 16,
-    paddingVertical: 12, // Matches addProductButton height
+    paddingVertical: 10,
     borderRadius: 25,
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  businessButtonText: {
+    color: "#2E3192",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    gap: 8,
+    shadowColor: "#000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   logoutButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
-    fontWeight: '600',
-  },
-  addProductButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  addProductButtonText: {
-    color: '#2E3192',
-    fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   content: {
-    padding: 20,
+    padding: 16,
   },
   section: {
     backgroundColor: "#fff",
     borderRadius: 24,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -411,27 +514,43 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 16,
-    color: '#1E293B',
-    fontWeight: '500',
+    color: "#1E293B",
+    fontWeight: "500",
+  },
+  editProfileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F1F5F9",
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  editProfileButtonText: {
+    color: "#2E3192",
+    fontSize: 14,
+    fontWeight: "600",
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   statsCard: {
     width: "47%",
     backgroundColor: "#F8FAFC",
     padding: 16,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    marginBottom: 12,
   },
   alertCard: {
     backgroundColor: "#FEF2F2",
@@ -454,39 +573,107 @@ const styles = StyleSheet.create({
     color: "#64748B",
     textAlign: "center",
   },
-  actionButton: {
-    marginBottom: 12,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionGradient: {
+  inventoryReportButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
+    backgroundColor: "#2E3192",
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 10,
   },
-  actionButtonText: {
-    color: "#fff",
+  inventoryReportButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  quickActionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  quickActionButton: {
+    width: "47%",
+    backgroundColor: "#F8FAFC",
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  highlightedAction: {
+    backgroundColor: "#2E3192",
+  },
+  quickActionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(46, 49, 146, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  highlightedActionIcon: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E293B",
+    textAlign: "center",
+  },
+  highlightedActionText: {
+    color: "white",
+  },
+  alertsContainer: {
+    gap: 12,
+  },
+  alertItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  alertIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  criticalIndicator: {
+    backgroundColor: "#DC2626",
+  },
+  warningIndicator: {
+    backgroundColor: "#F59E0B",
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginLeft: 12,
+    color: "#1E293B",
+    marginBottom: 4,
+  },
+  alertDescription: {
+    fontSize: 14,
+    color: "#64748B",
   },
   lastUpdate: {
     textAlign: "center",
     color: "#64748B",
     fontSize: 12,
     marginBottom: 60,
-  },
-  pressableView: {
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
+    marginTop: 8,
   },
 });
 

@@ -1,3 +1,4 @@
+// m-duka/app/_layout.tsx
 import React, { useEffect, useState, useCallback } from "react";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -8,12 +9,40 @@ import AnimatedSplashScreen from "./splash";
 import { View } from "react-native";
 import { SQLiteProvider } from "expo-sqlite";
 import { createDbIfNeeded } from "@/localDatabase/database";
-// Import AuthProvider from your context folder
-import { AuthProvider } from "../context/AuthContext";
+import { AuthProvider, AuthContext } from "../context/AuthContext";
 
 const ONE_HOUR = 60 * 60 * 1000;
 
 SplashScreen.preventAutoHideAsync();
+
+// SetupWebhook Component
+const SetupWebhook = () => {
+  const { shopData } = React.useContext(AuthContext);
+
+  useEffect(() => {
+    const registerWebhook = async () => {
+      if (!shopData?.contact) {
+        console.error("No shopId available");
+        return;
+      }
+      try {
+        const response = await fetch("https://vendai.digital/registerUrls", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopId: shopData.contact }),
+        });
+        const result = await response.json();
+        console.log("Webhook Registration:", result);
+      } catch (error) {
+        console.error("Error registering webhook:", error);
+      }
+    };
+
+    registerWebhook();
+  }, [shopData]);
+
+  return null; // No UI needed
+};
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -71,18 +100,22 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-    <SQLiteProvider databaseName="myShopDatabase.db" onInit={createDbIfNeeded}>
-    <Stack screenOptions={{ headerShown: false }}>
-      {!isLoggedIn ? (
-        <>
-          <Stack.Screen name="login" />
-          <Stack.Screen name="signup" />
-        </>
-      ) : (
-        <Stack.Screen name="(tabs)" />
-      )}
-    </Stack>
-    </SQLiteProvider>
-  </AuthProvider>
+      <SQLiteProvider databaseName="myShopDatabase.db" onInit={createDbIfNeeded}>
+        <Stack screenOptions={{ headerShown: false }}>
+          {!isLoggedIn ? (
+            <>
+              <Stack.Screen name="login" />
+              <Stack.Screen name="signup" />
+            </>
+          ) : (
+            <>
+              <Stack.Screen name="(tabs)" />
+              {/* Add SetupWebhook only when logged in */}
+              <SetupWebhook />
+            </>
+          )}
+        </Stack>
+      </SQLiteProvider>
+    </AuthProvider>
   );
 }

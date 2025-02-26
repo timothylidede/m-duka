@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useSalesService, TransactionListResult } from '../services/sales';
+import { useSalesService, TransactionListResult, SaleMetadata } from '../services/sales';
 import TransactionItem from '../components/transactionsComponent';
 
 type StatusFilter = 'all' | 'completed' | 'pending' | 'failed';
@@ -44,20 +44,16 @@ export default function TransactionsPage() {
     try {
       const data = await salesService.getTransactions({
         status: filter,
-        limit: 100,
+        limit: itemsPerPage, // 10 items per page
+        offset: (page - 1), // 0-based page index
       });
-
+  
       if (data && Array.isArray(data.transactions)) {
-        const totalPagesCalc = Math.ceil(data.transactions.length / itemsPerPage);
+        // Use salesCount for total pages, not just fetched transactions
+        const totalPagesCalc = Math.ceil(data.salesCount / itemsPerPage);
         setTotalPages(totalPagesCalc > 0 ? totalPagesCalc : 1);
-
-        const startIndex = (page - 1) * itemsPerPage;
-        const paginatedTransactions = data.transactions.slice(startIndex, startIndex + itemsPerPage);
-
-        setTransactionData({
-          ...data,
-          transactions: paginatedTransactions,
-        });
+  
+        setTransactionData(data); // Use paginated data directly
       } else {
         setTransactionData({
           transactions: [],
@@ -107,6 +103,17 @@ export default function TransactionsPage() {
       }
     } catch (error) {
       console.error('Failed to update status:', error);
+    }
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    try {
+      const success = await salesService.deleteTransaction(id);
+      if (success) {
+        loadTransactions(activeFilter, currentPage); // Refresh list
+      }
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
     }
   };
 
@@ -230,6 +237,7 @@ export default function TransactionsPage() {
                 transaction={normalizedTransaction}
                 index={index}
                 onStatusUpdate={handleStatusUpdate}
+                onDelete={handleDeleteTransaction}
               />
             );
           })

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -9,13 +9,17 @@ const TransactionItem = ({
   transaction,
   index,
   onStatusUpdate,
+  onDelete,
 }: {
   transaction: SaleMetadata;
   index: number;
   onStatusUpdate?: (id: string, newStatus: 'completed' | 'pending' | 'failed') => void;
+  onDelete?: (id: string) => void;
 }) => {
-  // Add debug logging that's more specific
   console.log('Rendering TransactionItem with data:', JSON.stringify(transaction));
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedAmount, setEditedAmount] = useState(transaction.totalPrice.toString());
 
   const statusColors = {
     completed: '#10B981',
@@ -29,270 +33,175 @@ const TransactionItem = ({
     failed: 'Failed',
   };
 
+  // Determine status based on productId
+  const derivedStatus = transaction.lineItems?.[0]?.productId && transaction.lineItems[0].productId !== 'No product ID'
+    ? 'completed'
+    : 'pending';
+
+  const displayStatus = transaction.status || derivedStatus;
+
   const handleStatusToggle = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onStatusUpdate) {
       const nextStatus =
-        transaction.status === 'pending'
+        displayStatus === 'pending'
           ? 'completed'
-          : transaction.status === 'completed'
+          : displayStatus === 'completed'
           ? 'failed'
           : 'pending';
       onStatusUpdate(transaction.id, nextStatus);
     }
   };
 
+  const handleDelete = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (onDelete) {
+      onDelete(transaction.id);
+    }
+  };
+
+  const handleEditToggle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsEditing(!isEditing);
+    if (isEditing) {
+      // Save edited amount
+      const newTotalPrice = parseFloat(editedAmount) || transaction.totalPrice;
+      // Update Firestore or trigger an update function if provided
+      if (onStatusUpdate) {
+        onStatusUpdate(transaction.id, displayStatus); // Trigger refresh with current status
+      }
+    }
+  };
+
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 60).springify()}
-      style={styles.transactionCard}
-    >
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={styles.idContainer}>
-          <View
-            style={[
-              styles.statusIndicator,
-              { backgroundColor: statusColors[transaction.status as keyof typeof statusColors] || '#94A3B8' },
-            ]}
-          >
-            <Text style={styles.statusText}>
-              {statusNames[transaction.status as keyof typeof statusNames] || 'Unknown'}
-            </Text>
-          </View>
-          <Text style={styles.transactionId}>#{transaction.id.slice(-6)}</Text>
-        </View>
-        <View style={styles.dateTimeContainer}>
-          <Feather name="calendar" size={14} color="#64748B" style={styles.iconSpacing} />
-          <Text style={styles.timeText}>
-            {new Date(transaction.timestamp).toLocaleDateString()} •{' '}
-            {new Date(transaction.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-        </View>
+    <Animated.View entering={FadeInDown.delay(index * 60).springify()} style={styles.card}>
+      <View style={styles.header}>
+        <Text style={styles.id}>Transaction #{transaction.id.slice(-6)}</Text>
+        <Text style={[styles.status, { color: statusColors[displayStatus as keyof typeof statusColors] || '#94A3B8' }]}>
+          {statusNames[displayStatus as keyof typeof statusNames] || 'Unknown'}
+        </Text>
       </View>
 
-      {/* Items List */}
-      <View style={styles.itemsContainer}>
-        {Array.isArray(transaction.lineItems) && transaction.lineItems.length > 0 ? (
-          transaction.lineItems.map((item, idx) => (
-            <View key={idx} style={styles.itemRow}>
-              <View style={styles.itemDetails}>
-                <Text style={styles.itemName}>{item.productId || 'Product'}</Text>
-                <View style={styles.itemMetrics}>
-                  <View style={styles.quantityBadge}>
-                    <Text style={styles.quantityText}>×{item.quantity || 0}</Text>
-                  </View>
-                  <Text style={styles.itemPrice}>KES {item.price?.toLocaleString() || 0}/unit</Text>
-                </View>
-              </View>
-              <Text style={styles.itemTotal}>
-                KES {((item.price || 0) * (item.quantity || 0)).toLocaleString()}
-              </Text>
-            </View>
-          ))
+      <View style={styles.detailRow}>
+        <Text style={styles.label}>Amount:</Text>
+        {isEditing ? (
+          <TextInput
+            style={styles.input}
+            value={editedAmount}
+            onChangeText={setEditedAmount}
+            keyboardType="numeric"
+          />
         ) : (
-          <View style={styles.noItemsContainer}>
-            <Text style={styles.noItemsText}>Transaction Amount: KES {transaction.totalPrice?.toLocaleString() || 0}</Text>
-          </View>
+          <Text style={styles.value}>KES {transaction.totalPrice.toLocaleString()}</Text>
         )}
       </View>
 
-      {/* Footer */}
-      <View style={styles.cardFooter}>
-        <View style={styles.footerLeft}>
-          <View style={styles.paymentMethodContainer}>
-            <Feather
-              name={transaction.paymentMethod === 'card' ? 'credit-card' : 'smartphone'}
-              size={16}
-              color="#64748B"
-            />
-            <Text style={styles.paymentMethodText}>
-              {transaction.paymentMethod || 'Cash'}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.footerRight}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>
-            KES {(transaction.totalPrice || 0).toLocaleString()}
-          </Text>
-        </View>
+      <View style={styles.detailRow}>
+        <Text style={styles.label}>Date:</Text>
+        <Text style={styles.value}>
+          {new Date(transaction.timestamp).toLocaleDateString()} {new Date(transaction.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
       </View>
 
-      {/* Status Update Button */}
-      <TouchableOpacity
-        onPress={handleStatusToggle}
-        style={styles.statusToggleButton}
-        activeOpacity={0.7}
-      >
-        <Feather name="edit-2" size={16} color="#FFFFFF" />
-        <Text style={styles.statusToggleText}>Change Status</Text>
-      </TouchableOpacity>
+      <View style={styles.detailRow}>
+        <Text style={styles.label}>Payment:</Text>
+        <Text style={styles.value}>{transaction.paymentMethod || 'Cash'}</Text>
+      </View>
+
+      <View style={styles.detailRow}>
+        <Text style={styles.label}>Items:</Text>
+        <Text style={styles.value}>
+          {transaction.lineItems?.[0]?.productId && transaction.lineItems[0].productId !== 'No product ID'
+            ? `${transaction.lineItems[0].productId} (x${transaction.lineItems[0].quantity})`
+            : 'No items'}
+        </Text>
+      </View>
+
+      <View style={styles.actions}>
+        <TouchableOpacity onPress={handleEditToggle} style={styles.actionButton}>
+          <Feather name={isEditing ? "check" : "edit-2"} size={16} color="#4338CA" />
+          <Text style={styles.actionText}>{isEditing ? 'Save' : 'Edit'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleStatusToggle} style={styles.actionButton}>
+          <Feather name="refresh-cw" size={16} color="#4338CA" />
+          <Text style={styles.actionText}>Change Status</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleDelete} style={styles.actionButton}>
+          <Feather name="trash-2" size={16} color="#EF4444" />
+          <Text style={styles.actionText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  transactionCard: {
+  card: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     marginHorizontal: 16,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
-    overflow: 'hidden', // Change from visible to hidden
   },
-  cardHeader: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    marginBottom: 12,
   },
-  idContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  transactionId: {
-    fontSize: 14,
+  id: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#334155',
-    letterSpacing: 0.2,
   },
-  dateTimeContainer: {
+  status: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  value: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 4,
+    fontSize: 14,
+    color: '#1E293B',
+    width: 100,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 12,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  timeText: {
-    color: '#64748B',
-    fontSize: 13,
-  },
-  iconSpacing: {
-    marginRight: 5,
-  },
-  itemsContainer: {
-    padding: 16,
-  },
-  noItemsContainer: {
-    padding: 10,
-    alignItems: 'center',
+    padding: 8,
     borderRadius: 8,
     backgroundColor: '#F8FAFC',
   },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  itemDetails: {
-    flex: 1,
-    marginRight: 8,
-  },
-  itemName: {
-    fontSize: 15,
-    color: '#1E293B',
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-  itemMetrics: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  quantityBadge: {
-    backgroundColor: '#E0E7FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  quantityText: {
+  actionText: {
+    marginLeft: 4,
+    fontSize: 12,
     color: '#4338CA',
-    fontSize: 12,
     fontWeight: '600',
-  },
-  itemPrice: {
-    color: '#64748B',
-    fontSize: 13,
-  },
-  itemTotal: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#F8FAFC',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  footerLeft: {
-    flex: 1,
-  },
-  paymentMethodContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  paymentMethodText: {
-    marginLeft: 8,
-    color: '#64748B',
-    fontSize: 14,
-    textTransform: 'capitalize',
-  },
-  footerRight: {
-    alignItems: 'flex-end',
-  },
-  totalLabel: {
-    color: '#64748B',
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  statusToggleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    backgroundColor: '#4338CA',
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  statusToggleText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  noItemsText: {
-    color: '#1E293B',
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    padding: 10,
   },
 });
 

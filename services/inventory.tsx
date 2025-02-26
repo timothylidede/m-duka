@@ -1,5 +1,5 @@
 import { firestore } from '../config/firebase';
-import { collection, doc, getDoc, setDoc, updateDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, updateDoc, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
 import { AuthContext } from '../context/AuthContext';
 import { useContext } from 'react';
 
@@ -28,6 +28,7 @@ interface AddInventoryOptions {
 interface InventoryService {
   addInventoryItem: (options: AddInventoryOptions) => Promise<string>;
   updateInventoryItem: (productId: string, updates: Partial<InventoryItem>) => Promise<boolean>;
+  deleteInventoryItem: (productId: string) => Promise<boolean>;
   getInventoryItem: (productId: string) => Promise<InventoryItem | null>;
   getAllInventory: () => Promise<InventoryData>;
 }
@@ -39,6 +40,7 @@ export const useInventoryService = (): InventoryService => {
     return {
       addInventoryItem: async () => "",
       updateInventoryItem: async () => false,
+      deleteInventoryItem: async () => false,
       getInventoryItem: async () => null,
       getAllInventory: async () => ({ totalItems: 0, totalValue: 0, items: [] }),
     };
@@ -101,6 +103,17 @@ export const useInventoryService = (): InventoryService => {
       }
     },
 
+    async deleteInventoryItem(productId: string): Promise<boolean> {
+      try {
+        const itemRef = doc(firestore, `shops/${shopId}/inventory/${productId}`);
+        await deleteDoc(itemRef);
+        return true;
+      } catch (error) {
+        console.error('Error deleting inventory item:', error);
+        return false;
+      }
+    },
+
     async getInventoryItem(productId: string): Promise<InventoryItem | null> {
       try {
         const itemRef = doc(firestore, `shops/${shopId}/inventory/${productId}`);
@@ -130,13 +143,14 @@ export const useInventoryService = (): InventoryService => {
 
         querySnapshot.forEach(doc => {
           const data = doc.data();
-          const item = {
-            ...data,
-            lastUpdated: convertTimestampToDate(data.lastUpdated),
-          } as InventoryItem;
-          
-          items.push(item);
-          totalValue += item.unitPrice * item.stockAmount;
+          if (data.productName) {
+            const item = {
+              ...data,
+              lastUpdated: convertTimestampToDate(data.lastUpdated),
+            } as InventoryItem;
+            items.push(item);
+            totalValue += item.unitPrice * item.stockAmount;
+          }
         });
 
         return {

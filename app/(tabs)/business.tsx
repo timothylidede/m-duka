@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { RelativePathString } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -8,14 +8,16 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Platform,
   StatusBar,
+  Dimensions,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
+// Interfaces remain the same
 interface SalesMetrics {
   dailySales: number;
   weeklySales: number;
@@ -23,6 +25,8 @@ interface SalesMetrics {
   targetAchieved: number;
   averageOrderValue: number;
   totalTransactions: number;
+  profitMargin: number;
+  yearToDateSales: number;
 }
 
 interface SalesSummary {
@@ -31,6 +35,12 @@ interface SalesSummary {
     name: string;
     quantity: number;
     revenue: number;
+  }>;
+  recentTransactions: Array<{
+    id: string;
+    time: string;
+    items: number;
+    amount: number;
   }>;
   metrics: SalesMetrics;
   lastUpdate: string;
@@ -42,21 +52,13 @@ interface QuickAction {
   nextPagePath: RelativePathString;
 }
 
-interface MetricCard {
-  label: string;
-  value: string | number;
-  icon: string;
-}
-
 const BusinessPage: React.FC = () => {
-  const [dateRange, setDateRange] = useState("Today");
-
-  // routes a pae to a next page
-  // Check definition of the type quickaction
   const router = useRouter();
-  const routeProfilePageQuickAction = (nextPagePath: RelativePathString) => {
+  const screenWidth = Dimensions.get("window").width;
+
+  const routeAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(nextPagePath); // Update the path to match your file structure
+    router.push(nextPagePath);
   };
 
   const salesData: SalesSummary = {
@@ -64,6 +66,14 @@ const BusinessPage: React.FC = () => {
       { id: "SKU001", name: "Bread", quantity: 45, revenue: 2250.0 },
       { id: "SKU002", name: "Sugar", quantity: 32, revenue: 1600.0 },
       { id: "SKU003", name: "Mandazi", quantity: 28, revenue: 1400.0 },
+      { id: "SKU004", name: "Milk", quantity: 25, revenue: 1250.0 },
+      { id: "SKU005", name: "Rice", quantity: 20, revenue: 1000.0 },
+    ],
+    recentTransactions: [
+      { id: "TX1234", time: "15:45", items: 3, amount: 450.0 },
+      { id: "TX1233", time: "14:32", items: 1, amount: 150.0 },
+      { id: "TX1232", time: "13:15", items: 5, amount: 780.0 },
+      { id: "TX1231", time: "12:08", items: 2, amount: 300.0 },
     ],
     metrics: {
       dailySales: 5850.0,
@@ -72,16 +82,13 @@ const BusinessPage: React.FC = () => {
       targetAchieved: 85,
       averageOrderValue: 78.5,
       totalTransactions: 142,
+      profitMargin: 22.5,
+      yearToDateSales: 1247800.0,
     },
-    lastUpdate: "2025-02-09 15:30:00",
+    lastUpdate: "2025-02-26 15:30:00",
   };
 
   const QuickActions: QuickAction[] = [
-    {
-      actionName: "Manage Shop Products",
-      iconName: "user",
-      nextPagePath: "../listShopProductsPage",
-    },
     {
       actionName: "Generate Daily Report",
       iconName: "file-text",
@@ -93,60 +100,40 @@ const BusinessPage: React.FC = () => {
       nextPagePath: "../monthlyReportPage",
     },
     {
-      actionName: "Manage Credit",
-      iconName: "box",
-      nextPagePath: "../underConstruction",
+      actionName: "Sales Analytics",
+      iconName: "trending-up",
+      nextPagePath: "../salesAnalytics",
+    },
+    {
+      actionName: "Financial Summary",
+      iconName: "dollar-sign",
+      nextPagePath: "../financialSummary",
     },
     {
       actionName: "KRA Tax Compliance",
-      iconName: "shopping-bag",
-      nextPagePath: "../underConstruction",
-    },
-    // { actionName: 'Manage Promotions', iconName: 'gift' },
-    // { actionName: 'Manage Staff', iconName: 'users' },
-    // { actionName: 'Add New Item', iconName: 'plus' },
-  ];
-
-  const MetricCards: MetricCard[] = [
-    {
-      label: "Total Sales",
-      value: `KES ${salesData.metrics.dailySales.toLocaleString()}`,
-      icon: "dollar-sign",
+      iconName: "shield",
+      nextPagePath: "../kraTaxCompliance",
     },
     {
-      label: "Transactions",
-      value: salesData.metrics.totalTransactions,
-      icon: "shopping-cart",
-    },
-    {
-      label: "Avg Order",
-      value: `KES ${salesData.metrics.averageOrderValue}`,
-      icon: "trending-up",
-    },
-    {
-      label: "Target",
-      value: `${salesData.metrics.targetAchieved}%`,
-      icon: "target",
+      actionName: "Manage Credit Sales",
+      iconName: "credit-card",
+      nextPagePath: "../creditManagement",
     },
   ];
 
-  const MetricCard: React.FC<{
-    label: string;
-    value: string | number;
-    icon: string;
-  }> = ({ label, value, icon }) => (
-    <LinearGradient
-      colors={["#2E3192", "#1BFFFF"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.metricCard}
-    >
-      <View style={styles.metricIconContainer}>
-        <Feather name={icon as any} size={24} color="white" />
+  // Enhanced MetricCard with more appealing design
+  const MetricCard = ({ label, value, icon, bgColor }: { label: string; value: string; icon: string; bgColor: string }) => (
+    <View style={[styles.metricCard, { backgroundColor: bgColor }]}>
+      <View style={styles.metricContent}>
+        <View style={styles.metricIconContainer}>
+          <Feather name={icon as any} size={24} color="white" />
+        </View>
+        <View style={styles.metricTextContainer}>
+          <Text style={styles.metricValue}>{value}</Text>
+          <Text style={styles.metricLabel}>{label}</Text>
+        </View>
       </View>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </LinearGradient>
+    </View>
   );
 
   return (
@@ -168,59 +155,144 @@ const BusinessPage: React.FC = () => {
 
       <SafeAreaView style={styles.container}>
         <ScrollView>
-          <View style={styles.dateSelector}>
-            {["Today", "Week", "Month"].map((period) => (
-              <TouchableOpacity
-                key={period}
-                style={[
-                  styles.dateButton,
-                  dateRange === period && styles.activeDateButton,
-                ]}
-                onPress={() => setDateRange(period)}
-              >
-                <Text
-                  style={[
-                    styles.dateButtonText,
-                    dateRange === period && styles.activeDateButtonText,
-                  ]}
-                >
-                  {period}
+          {/* Enhanced Dashboard Header Section */}
+          <View style={styles.dashboardContainer}>
+            <LinearGradient
+              colors={["#2E3192", "#1BFFFF"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerGradient}
+            >
+              <View style={styles.dashboardHeader}>
+                <Text style={styles.greeting}>Good afternoon!</Text>
+                <Text style={styles.dateText}>
+                  {new Date().toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short'
+                  })}
                 </Text>
-              </TouchableOpacity>
-            ))}
+              </View>
+
+              <View style={styles.revenueCard}>
+                <View style={styles.revenueCardContent}>
+                  <View style={styles.revenueTextContainer}>
+                    <Text style={styles.revenueLabel}>All-Time Revenue</Text>
+                    <Text style={styles.revenueAmount}>
+                      KES {salesData.metrics.monthlySales.toLocaleString()}
+                    </Text>
+                    
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${salesData.metrics.targetAchieved}%` }]} />
+                      </View>
+                      <Text style={styles.progressText}>
+                        {salesData.metrics.targetAchieved}% of monthly target
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.revenueIconContainer}>
+                    <View style={styles.revenueIcon}>
+                      <Feather name="trending-up" size={28} color="white" />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* Enhanced Metrics Section */}
+            <View style={styles.metricCardsContainer}>
+              <MetricCard
+                label="Transactions"
+                value={salesData.metrics.totalTransactions.toString()}
+                icon="shopping-cart"
+                bgColor="#4C60F5"
+              />
+              <MetricCard
+                label="Avg Order"
+                value={`KES ${salesData.metrics.averageOrderValue}`}
+                icon="shopping-bag"
+                bgColor="#33BBCF"
+              />
+              <MetricCard
+                label="Daily Sales"
+                value={`KES ${salesData.metrics.dailySales.toLocaleString()}`}
+                icon="calendar"
+                bgColor="#5E35B1"
+              />
+              <MetricCard
+                label="Profit Margin"
+                value={`${salesData.metrics.profitMargin}%`}
+                icon="percent"
+                bgColor="#00C853"
+              />
+            </View>
+
+            {/* Quick Stats */}
+            <View style={styles.quickStatsContainer}>
+              <View style={styles.quickStatCard}>
+                <View style={styles.quickStatIconContainer}>
+                  <Feather name="check-circle" size={16} color="#00C853" />
+                </View>
+                <Text style={styles.quickStatValue}>KES {salesData.metrics.weeklySales.toLocaleString()}</Text>
+                <Text style={styles.quickStatLabel}>Weekly Sales</Text>
+              </View>
+              
+              <View style={styles.quickStatDivider} />
+              
+              <View style={styles.quickStatCard}>
+                <View style={styles.quickStatIconContainer}>
+                  <Feather name="users" size={16} color="#FF6D00" />
+                </View>
+                <Text style={styles.quickStatValue}>{salesData.metrics.totalTransactions} orders</Text>
+                <Text style={styles.quickStatLabel}>Monthly Count</Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.metricsGrid}>
-            {MetricCards.map((metric, index) => (
-              <MetricCard key={index} {...metric} />
-            ))}
-
-            {/* Replaced the commented code below with the one above */}
-            {/* <MetricCard
-              label="Total Sales"
-              value={`KES ${salesData.metrics.dailySales.toLocaleString()}`}
-              icon="dollar-sign"
-            />
-            <MetricCard
-              label="Transactions"
-              value={salesData.metrics.totalTransactions}
-              icon="shopping-cart"
-            />
-            <MetricCard
-              label="Avg Order"
-              value={`KES ${salesData.metrics.averageOrderValue}`}
-              icon="trending-up"
-            />
-            <MetricCard
-              label="Target"
-              value={`${salesData.metrics.targetAchieved}%`}
-              icon="target"
-            /> */}
-          </View>
-
+          {/* Rest of the content remains the same */}
+          {/* Recent Transactions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Feather name="box" size={24} color="#2E3192" />
+              <Feather name="clock" size={24} color="#2E3192" />
+              <Text style={styles.sectionTitle}>Recent Transactions</Text>
+            </View>
+
+            {salesData.recentTransactions.map((transaction) => (
+              <View key={transaction.id} style={styles.transactionRow}>
+                <View style={styles.transactionLeft}>
+                  <View style={styles.transactionIcon}>
+                    <Feather name="shopping-cart" size={16} color="#2E3192" />
+                  </View>
+                  <View>
+                    <Text style={styles.transactionId}>{transaction.id}</Text>
+                    <Text style={styles.transactionTime}>{transaction.time}</Text>
+                  </View>
+                </View>
+                <View style={styles.transactionRight}>
+                  <Text style={styles.transactionItems}>
+                    {transaction.items} {transaction.items === 1 ? "item" : "items"}
+                  </Text>
+                  <Text style={styles.transactionAmount}>
+                    KES {transaction.amount}
+                  </Text>
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => routeAction("../allTransactions")}
+            >
+              <Text style={styles.viewAllButtonText}>View All Transactions</Text>
+              <Feather name="chevron-right" size={16} color="#2E3192" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Top Selling Items */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Feather name="award" size={24} color="#2E3192" />
               <Text style={styles.sectionTitle}>Top Selling Items</Text>
             </View>
 
@@ -241,37 +313,38 @@ const BusinessPage: React.FC = () => {
             ))}
           </View>
 
+          {/* Quick Actions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Feather name="zap" size={24} color="#2E3192" />
               <Text style={styles.sectionTitle}>Quick Actions</Text>
             </View>
 
-            {QuickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.actionButton}
-                onPress={() => {
-                  routeProfilePageQuickAction(action.nextPagePath);
-                }}
-              >
-                <LinearGradient
-                  colors={["#2E3192", "#1BFFFF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.actionGradient}
+            <View style={styles.actionGrid}>
+              {QuickActions.map((action, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.actionButton}
+                  onPress={() => routeAction(action.nextPagePath)}
                 >
-                  <Feather
-                    name={action.iconName as keyof typeof Feather.glyphMap}
-                    size={24}
-                    color="white"
-                  />
+                  <LinearGradient
+                    colors={["#2E3192", "#1BFFFF"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionGradient}
+                  >
+                    <Feather
+                      name={action.iconName as keyof typeof Feather.glyphMap}
+                      size={24}
+                      color="white"
+                    />
+                  </LinearGradient>
                   <Text style={styles.actionButtonText}>
                     {action.actionName}
                   </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           <Text style={styles.lastUpdate}>
@@ -288,68 +361,183 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F8FAFC",
   },
-  dateSelector: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    margin: 20,
-    borderRadius: 16,
-    padding: 4,
+  dashboardContainer: {
+    marginBottom: 12,
+  },
+  headerGradient: {
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  dateButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderRadius: 12,
+  dashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
   },
-  activeDateButton: {
-    backgroundColor: "#2E3192",
+  greeting: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
   },
-  dateButtonText: {
-    color: "#64748B",
+  dateText: {
     fontSize: 14,
-    fontWeight: "600",
+    color: 'rgba(255, 255, 255, 0.9)',
   },
-  activeDateButtonText: {
-    color: "#fff",
+  revenueCard: {
+    marginHorizontal: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    padding: 20,
+    backdropFilter: 'blur(10px)',
   },
-  metricsGrid: {
+  revenueCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  revenueTextContainer: {
+    flex: 1,
+  },
+  revenueLabel: {
+    fontSize: 16,
+    color: "white",
+    opacity: 0.9,
+  },
+  revenueAmount: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "white",
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  revenueIconContainer: {
+    paddingLeft: 20,
+  },
+  revenueIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressContainer: {
+    marginTop: 8,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 4,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "white",
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: "white",
+    opacity: 0.9,
+  },
+  metricCardsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    padding: 12,
-    gap: 12,
+    paddingHorizontal: 16,
+    marginTop: -30,
+    zIndex: 1,
   },
   metricCard: {
-    width: "47%",
-    padding: 16,
+    width: '47%',
+    marginHorizontal: '1.5%',
+    marginBottom: 12,
     borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  metricContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
   },
   metricIconContainer: {
-    marginBottom: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  metricTextContainer: {
+    flex: 1,
   },
   metricValue: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 4,
   },
   metricLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#fff",
-    opacity: 0.9,
+    opacity: 0.8,
+  },
+  quickStatsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickStatCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  quickStatDivider: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
+  },
+  quickStatIconContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quickStatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: '#64748B',
   },
   section: {
     backgroundColor: "#fff",
-    margin: 20,
+    margin: 16,
     borderRadius: 24,
     padding: 20,
     shadowColor: "#000",
@@ -368,6 +556,63 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 12,
     color: "#1E293B",
+  },
+  transactionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  transactionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  transactionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  transactionRight: {
+    alignItems: "flex-end",
+  },
+  transactionId: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E293B",
+  },
+  transactionTime: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  transactionItems: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  transactionAmount: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#2E3192",
+    marginTop: 2,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    padding: 8,
+  },
+  viewAllButtonText: {
+    color: "#2E3192",
+    fontSize: 14,
+    fontWeight: "500",
+    marginRight: 4,
   },
   itemRow: {
     flexDirection: "row",
@@ -415,27 +660,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#2E3192",
   },
+  actionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
   actionButton: {
-    marginBottom: 12,
-    borderRadius: 16,
-    overflow: "hidden",
+    width: "30%",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  actionGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  actionGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 12,
+    color: "#1E293B",
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
   },
   lastUpdate: {
     textAlign: "center",
