@@ -85,3 +85,17 @@ export interface Product {
       WeeklySales: 0,
     };
   }
+
+  // define an interface for a sales event
+  export interface SalesEvent {
+    id: string;
+    productID: string;
+    quantity: number;
+    revenue: number;
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+
+  }

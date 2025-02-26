@@ -35,7 +35,7 @@ import * as Haptics from "expo-haptics";
 //   createProductsTable,
 //   getProducts,
 // } from "@/localDatabase/database";
-import { handleSaveProduct, loadProductsData } from "@/localDatabase/database";
+import { handleSaveProduct, loadProductsData } from "@/localDatabase/products";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 
 import { Picker } from "@react-native-picker/picker";

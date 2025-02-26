@@ -1,12 +1,13 @@
 
 import { SQLiteDatabase, SQLiteProvider, useSQLiteContext } from "expo-sqlite";
-import { Product } from "./types";
+import { Product, SalesEvent } from "./types";
 import {Alert } from "react-native";
 
 // const productsTableName = "productsTable";
 // const shopInformationTable = "shopInformationTable";
-const productsTableName = "productsTable0x0";
-const shopInformationTable = "shopInformationTable0x0";
+export const productsTableName = "productsTable0x0";
+export const shopInformationTable = "shopInformationTable0x0";
+export const salesHistoryTable = "saleshistoryTable0x0";
 // const database = useSQLiteContext();
 
 export const createDbIfNeeded = async (db: SQLiteDatabase) => {
@@ -34,7 +35,7 @@ export const createDbIfNeeded = async (db: SQLiteDatabase) => {
         monthlyRevenue REAL,
         yearlyRevenue REAL);`);
 
-    console.log("Database 1 created", response);
+    // console.log("Database 1 created", response);
 
     const responseinfo = await db.execAsync(
    `CREATE TABLE IF NOT EXISTS ${shopInformationTable} (
@@ -51,78 +52,25 @@ export const createDbIfNeeded = async (db: SQLiteDatabase) => {
         YearlySales INTEGER,
         WeeklySales INTEGER);`);
 
-  console.log("Database 2 TABLE created", responseinfo);
-  console.log("Database created iwufhoqeriuqpgheorighqe SILRUFHWRPFIOUHWRPWHFWORIUF WFIUFHWIEU");
+  // console.log("Database 2 TABLE created", responseinfo);
+  // console.log("Database created iwufhoqeriuqpgheorighqe SILRUFHWRPFIOUHWRPWHFWORIUF WFIUFHWIEU");
+
+  const responseSales = await db.execAsync(
+    `CREATE TABLE IF NOT EXISTS ${salesHistoryTable} (
+      saleId INTEGER PRIMARY KEY AUTOINCREMENT,
+      productId TEXT PRIMARY KEY,
+      quantity INTEGER NOT NULL,
+      revenue INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      day INTEGER NOT NULL,
+      hour INTEGER NOT NULL,
+      minute INTEGER NOT NULL);`);
+
   } catch (error) {
     console.error("Error creating database:", error);
   }
 };
 
-
-
-export const loadProductsData = async (database: SQLiteDatabase): Promise<Product[] | null> => {
-  const result = await database.getAllAsync<Product>(`SELECT * FROM ${productsTableName}`);
-  return result;
-  // setData(result);
-};
-
-
-
-export const handleSaveProduct = async (product:Product, database:SQLiteDatabase) => {
-  try {
-    let Products: Product[] = [product];
-    const insertQuery = `
-      INSERT INTO ${productsTableName} (
-        id, name, price, unit, quantity, description,
-        isNearlyStockedOut, isStockedOut,
-        movingFast, dailySales, weeklySales, 
-        monthlySales, yearlySales,
-        dailyRevenue, weeklyRevenue, 
-        monthlyRevenue, yearlyRevenue
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    // Prepare the values array
-    const values = [
-      product.id,
-      product.name,
-      product.price,
-      product.unit,
-      product.quantity,
-      product.description,
-      product.isNearlyStockedOut, // Handle optional fields
-      product.isStockedOut,
-      product.movingFast,
-      product.dailySales,
-      product.weeklySales,
-      product.monthlySales,
-      product.yearlySales,
-      product.dailyRevenue,
-      product.weeklyRevenue,
-      product.monthlyRevenue,
-      product.yearlyRevenue,
-    ];
-
-    // Execute the query
-    const response = await database.runAsync(insertQuery, values);
-    console.log("Item saved successfully:", response?.changes!);
-    // router.back();
-  } catch (error) {
-    console.error("Error saving item:", error);
-    // Alert.alert("Error saving item:", error.toString());
-  }
-};
-
-export const handleDeleteProduct = async (product: Product, database: SQLiteDatabase) => {
-  try {
-    const deleteQuery = `DELETE FROM ${productsTableName} WHERE id = ?`;
-    const response = await database.runAsync(deleteQuery, [product.id]);
-    // console.log("Item deleted successfully:", response?.changes!);
-    Alert.alert(`We are sorry to see you delete a product. `,`The product ${product.id} has been deleted successfully with ${product.yearlyRevenue?product.yearlyRevenue:0} yearly revenue and ${product.yearlySales?product.yearlySales:0} yearly sales`);
-  } catch (error) {
-    console.error("Error deleting item:", error);
-    // Alert.alert("Error deleting item:", error.toString());
-  }
-}
 
 

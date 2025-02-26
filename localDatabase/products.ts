@@ -1,82 +1,66 @@
+import { SQLiteDatabase } from 'expo-sqlite';
+import { Product } from './types';
+import { productsTableName } from './database';
+import { Alert } from 'react-native';
 
+export const loadProductsData = async (database: SQLiteDatabase): Promise<Product[] | null> => {
+  const result = await database.getAllAsync<Product>(`SELECT * FROM ${productsTableName}`);
+  return result;
+  // setData(result);
+};
 
-
-// import { SQLiteDatabase } from 'react-native-sqlite-storage';
-// import {Product} from './types';
-
-// export const addproduct = async (db: SQLiteDatabase, product: Product) => {
-//     const insertQuery = `
-//      INSERT INTO shopProducts (firstName, name, phoneNumber)
-//      VALUES (?, ?, ?)
-//    `
-//     const values = [
-//       product.firstName,
-//       product.name,
-//       product.phoneNumber,
-//     ]
-//     try {
-//       return db.executeSql(insertQuery, values)
-//     } catch (error) {
-//       console.error(error)
-//       throw Error("Failed to add product")
-//     }
-//   }
-
-  import { SQLiteDatabase } from 'react-native-sqlite-storage';
-import {Product} from './types';
-
-export const addproduct = async (db: SQLiteDatabase, product: Product) => {
+export const handleSaveProduct = async (product:Product, database:SQLiteDatabase) => {
+  try {
     const insertQuery = `
-      INSERT INTO shopProducts (
-        id, name, unit, price, quantity, 
+      INSERT INTO ${productsTableName} (
+        id, name, price, unit, quantity, description,
         isNearlyStockedOut, isStockedOut,
         movingFast, dailySales, weeklySales, 
         monthlySales, yearlySales,
         dailyRevenue, weeklyRevenue, 
         monthlyRevenue, yearlyRevenue
-      ) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
-    
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    // Prepare the values array
     const values = [
-        product.id,
-        product.name,
-        product.unit,
-        product.price,
-        product.quantity,
-        product.isNearlyStockedOut,
-        product.isStockedOut,
-        product.movingFast,
-        product.dailySales,
-        product.weeklySales,
-        product.monthlySales,
-        product.yearlySales,
-        product.dailyRevenue,
-        product.weeklyRevenue,
-        product.monthlyRevenue,
-        product.yearlyRevenue,
-    ]
+      product.id,
+      product.name,
+      product.price,
+      product.unit,
+      product.quantity,
+      product.description,
+      product.isNearlyStockedOut, // Handle optional fields
+      product.isStockedOut,
+      product.movingFast,
+      product.dailySales,
+      product.weeklySales,
+      product.monthlySales,
+      product.yearlySales,
+      product.dailyRevenue,
+      product.weeklyRevenue,
+      product.monthlyRevenue,
+      product.yearlyRevenue,
+    ];
 
-    try {
-      await db.executeSql(insertQuery, values)
-    } catch (error) {
-      console.error(error)
-      throw Error("Failed to add product")
-    }
+    // Execute the query
+    const response = await database.runAsync(insertQuery, values);
+    console.log("Item saved successfully:", response?.changes!);
+    // router.back();
+  } catch (error) {
+    console.error("Error saving item:", error);
+    // Alert.alert("Error saving item:", error.toString());
   }
+};
 
-
-  export const getProducts = async (db: SQLiteDatabase): Promise<Product[]> => {
-    try {
-      const Products: Product[] = []
-      const results = await db.executeSql("SELECT * FROM Products")
-      results?.forEach((result) => {
-        for (let index = 0; index < result.rows.length; index++) {
-          Products.push(result.rows.item(index))
-        }
-      })
-      return Products
-    } catch (error) {
-      console.error(error)
-      throw Error("Failed to get Products from database")
-    }
+export const handleDeleteProduct = async (product: Product, database: SQLiteDatabase) => {
+  try {
+    const deleteQuery = `DELETE FROM ${productsTableName} WHERE id = ?`;
+    const response = await database.runAsync(deleteQuery, [product.id]);
+    // console.log("Item deleted successfully:", response?.changes!);
+    Alert.alert(`We are sorry to see you delete a product. `,`The product ${product.id} has been deleted successfully with ${product.yearlyRevenue?product.yearlyRevenue:0} yearly revenue and ${product.yearlySales?product.yearlySales:0} yearly sales`);
+  } catch (error) {
+    console.error("Error deleting item:", error);
+    // Alert.alert("Error deleting item:", error.toString());
   }
+}
