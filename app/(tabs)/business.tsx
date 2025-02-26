@@ -606,6 +606,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
+    justifyContent: "center"
   },
   sectionTitle: {
     fontSize: 18,

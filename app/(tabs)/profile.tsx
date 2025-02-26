@@ -73,6 +73,11 @@ const ProfilePage: React.FC = () => {
       highlight: true,
     },
     {
+      actionName: "Add a new Good",
+      iconName: "users",
+      nextPagePath: "../add_product",
+    },
+    {
       actionName: "Supplier Management",
       iconName: "truck",
       nextPagePath: "../supplierManagement",

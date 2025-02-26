@@ -92,6 +92,8 @@ export default function Index() {
     averageSale: 0,
   });
 
+  
+
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;

@@ -1,24 +1,55 @@
 import { Stack } from "expo-router";
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, StatusBar } from "react-native";
+import { useState, useEffect } from "react";
+import { getTodaysSalesEvents } from "@/localDatabase/salesEvent";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  Dimensions,
+} from "react-native";
 import { LineChart, PieChart } from "react-native-chart-kit";
+import { useSQLiteContext } from "expo-sqlite";
 import { Feather } from "@expo/vector-icons";
 
-// Mock data for daily report
-const dailyReport = {
-  totalSales: 1250.75,
-  totalTransactions: 24,
-  averageSale: 52.11,
-  salesByHour: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600],
-  salesByCategory: [
-    { name: "Electronics", sales: 400, color: "#FF6384" },
-    { name: "Clothing", sales: 300, color: "#36A2EB" },
-    { name: "Accessories", sales: 200, color: "#FFCE56" },
-    { name: "Home Goods", sales: 150, color: "#4BC0C0" },
-  ],
-};
-
 export default function DailyReport() {
+  const screenWidth = Dimensions.get("window").width;
+  const database = useSQLiteContext();
+  const [numbers, setNumbers] = useState<number[]>([10, 20, 30]);
+  const dailyReport = {
+    totalSales: 1250.75,
+    totalTransactions: 24,
+    averageSale: 52.11,
+    salesByHour: numbers,
+    salesByCategory: [
+      { name: "Electronics", sales: 400, color: "#FF6384" },
+      { name: "Clothing", sales: 300, color: "#36A2EB" },
+      { name: "Accessories", sales: 200, color: "#FFCE56" },
+      { name: "Home Goods", sales: 150, color: "#4BC0C0" },
+    ],
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getTodaysSalesEvents(database);
+        // set(data);
+      } catch (err) {
+        // setError('Failed to fetch sales data');
+        console.log("Failed to fetch sales data");
+      } finally {
+        // setLoading(false);
+        console.log("Finally block");
+      }
+    };
+
+    fetchData();
+  }, []); 
+
+
+
   return (
     <>
       <Stack.Screen

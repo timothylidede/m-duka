@@ -1,9 +1,13 @@
 
 import { SQLiteDatabase, SQLiteProvider, useSQLiteContext } from "expo-sqlite";
-import { Product } from "./types";
+import { Product, SalesEvent } from "./types";
+import {Alert } from "react-native";
 
-const productsTableName = "productsTable";
-const shopInformationTable = "shopInformationTable";
+// const productsTableName = "productsTable";
+// const shopInformationTable = "shopInformationTable";
+export const productsTableName = "productsTable0x0";
+export const shopInformationTable = "shopInformationTable0x0";
+export const salesHistoryTable = "saleshistoryTable0x0";
 // const database = useSQLiteContext();
 
 export const createDbIfNeeded = async (db: SQLiteDatabase) => {
@@ -18,6 +22,7 @@ export const createDbIfNeeded = async (db: SQLiteDatabase) => {
         unit TEXT NOT NULL,
         price REAL NOT NULL,
         quantity INTEGER NOT NULL,
+        description TEXT,
         isNearlyStockedOut BOOLEAN,
         isStockedOut BOOLEAN,
         movingFast REAL,
@@ -30,7 +35,7 @@ export const createDbIfNeeded = async (db: SQLiteDatabase) => {
         monthlyRevenue REAL,
         yearlyRevenue REAL);`);
 
-    console.log("Database 1 created", response);
+    // console.log("Database 1 created", response);
 
     const responseinfo = await db.execAsync(
    `CREATE TABLE IF NOT EXISTS ${shopInformationTable} (
@@ -47,65 +52,25 @@ export const createDbIfNeeded = async (db: SQLiteDatabase) => {
         YearlySales INTEGER,
         WeeklySales INTEGER);`);
 
-  console.log("Database 2 TABLE created", responseinfo);
-  console.log("Database created iwufhoqeriuqpgheorighqe SILRUFHWRPFIOUHWRPWHFWORIUF WFIUFHWIEU");
+  // console.log("Database 2 TABLE created", responseinfo);
+  // console.log("Database created iwufhoqeriuqpgheorighqe SILRUFHWRPFIOUHWRPWHFWORIUF WFIUFHWIEU");
+
+  const responseSales = await db.execAsync(
+    `CREATE TABLE IF NOT EXISTS ${salesHistoryTable} (
+      saleId INTEGER PRIMARY KEY AUTOINCREMENT,
+      productId TEXT PRIMARY KEY,
+      quantity INTEGER NOT NULL,
+      revenue INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      day INTEGER NOT NULL,
+      hour INTEGER NOT NULL,
+      minute INTEGER NOT NULL);`);
+
   } catch (error) {
     console.error("Error creating database:", error);
   }
 };
 
-
-
-export const loadProductsData = async (database: SQLiteDatabase): Promise<Product[] | null> => {
-  const result = await database.getAllAsync<Product>(`SELECT * FROM ${productsTableName}`);
-  return result;
-  // setData(result);
-};
-
-
-
-export const handleSaveProduct = async (product:Product, database:SQLiteDatabase) => {
-  try {
-      let Products: Product[] = [product];
-    const insertQuery = `
-      INSERT INTO ${productsTableName} (
-        id, name, price, unit, quantity, 
-        isNearlyStockedOut, isStockedOut,
-        movingFast, dailySales, weeklySales, 
-        monthlySales, yearlySales,
-        dailyRevenue, weeklyRevenue, 
-        monthlyRevenue, yearlyRevenue
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    // Prepare the values array
-    const values = [
-      product.id,
-      product.name,
-      product.price,
-      product.unit,
-      product.quantity,
-      product.isNearlyStockedOut || null, // Handle optional fields
-      product.isStockedOut || null,
-      product.movingFast || null,
-      product.dailySales || null,
-      product.weeklySales || null,
-      product.monthlySales || null,
-      product.yearlySales || null,
-      product.dailyRevenue || null,
-      product.weeklyRevenue || null,
-      product.monthlyRevenue || null,
-      product.yearlyRevenue || null,
-    ];
-
-    // Execute the query
-    const response = await database.runAsync(insertQuery, values);
-    console.log("Item saved successfully:", response?.changes!);
-    // router.back();
-  } catch (error) {
-    console.error("Error saving item:", error);
-    // Alert.alert("Error saving item:", error.toString());
-  }
-};
 
 

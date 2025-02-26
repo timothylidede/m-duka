@@ -13,6 +13,16 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+// import {
+//   getDBConnection,
+//   saveProducts,
+//   createProductsTable,
+//   getProducts,
+// } from "@/localDatabase/database";
+import { handleSaveProduct, loadProductsData } from "@/localDatabase/products";
+import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
+
 import { Picker } from "@react-native-picker/picker";
 import { useInventoryService, InventoryItem } from "../services/inventory";
 
