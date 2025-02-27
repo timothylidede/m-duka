@@ -29,7 +29,7 @@ import { AuthContext } from "../../context/AuthContext";
 import LineChartComponent from "@/components/lineChartComponent";
 import DebuggingAlert from "@/components/debugging";
 import { logMessage } from "@/components/debugging";
-import { Audio } from 'expo-av';
+import { Audio } from "expo-av";
 import { SQLiteDatabase, useSQLiteContext } from "expo-sqlite";
 
 // Define SalesData type
@@ -87,15 +87,13 @@ export default function Index() {
     salesCount: 0,
     averageSale: 0,
   });
-  
+
   // Track previous sales data for animations
   const [prevSalesData, setPrevSalesData] = useState({
     totalRevenue: 0,
     salesCount: 0,
     averageSale: 0,
   });
-
-  
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -134,7 +132,7 @@ export default function Index() {
       console.error("Error playing cash register sound:", error);
     }
   };
-  
+
   // Play a success sound
   const playSuccessSound = async () => {
     try {
@@ -163,27 +161,31 @@ export default function Index() {
     style: any;
     prefix?: string;
   }
-  
-  const AnimatedNumber: React.FC<AnimatedNumberProps> = ({ value, style, prefix = "" }) => {
+
+  const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
+    value,
+    style,
+    prefix = "",
+  }) => {
     const animatedValue = useRef(new Animated.Value(0)).current;
     const [displayValue, setDisplayValue] = useState(0);
-  
+
     useEffect(() => {
       Animated.timing(animatedValue, {
         toValue: value,
         duration: 1000,
         useNativeDriver: false,
       }).start();
-  
+
       const listener = animatedValue.addListener(({ value }) => {
         setDisplayValue(Math.floor(value));
       });
-  
+
       return () => {
         animatedValue.removeListener(listener);
       };
     }, [value, animatedValue]);
-  
+
     return (
       <Text style={style}>
         {prefix}
@@ -216,7 +218,7 @@ export default function Index() {
 
       // Store previous data for animations if this is an update
       if (isUpdate) {
-        setPrevSalesData({...salesData});
+        setPrevSalesData({ ...salesData });
       }
 
       const newData = {
@@ -224,14 +226,14 @@ export default function Index() {
         salesCount: data.salesCount || 0,
         averageSale: data.salesCount ? data.totalRevenue / data.salesCount : 0,
       };
-      
+
       setSalesData(newData);
-      
+
       // Animate the change if this is an update
       if (isUpdate) {
         revenueChangeAnim.setValue(0);
         countChangeAnim.setValue(0);
-        
+
         Animated.parallel([
           Animated.timing(revenueChangeAnim, {
             toValue: 1,
@@ -312,7 +314,7 @@ export default function Index() {
       toValue: 1,
       useNativeDriver: true,
     }).start();
-    
+
     scrollViewRef.current?.scrollToEnd({ animated: true });
   };
 
@@ -321,27 +323,22 @@ export default function Index() {
       Alert.alert("Invalid Input", "Please enter a valid sale amount.");
       return;
     }
-  
+
     setIsLoading(true);
-  
-    // Store the sale amount in a temporary state variable
     const amount = parseFloat(saleAmount);
     setSaleAmountValue(amount);
-  
+
     try {
-      // Process sale
       await salesService.addNewSale(amount);
-  
-      // Animate form exit
+
       Animated.timing(formSlideAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }).start(() => {
         setIsFormVisible(false);
-        setIsLoading(false); // Reset loading state here after form animation completes
-  
-        // Show success indicator
+        setIsLoading(false);
+
         setTransactionComplete(true);
         successFadeAnim.setValue(0);
         Animated.timing(successFadeAnim, {
@@ -349,18 +346,17 @@ export default function Index() {
           duration: 300,
           useNativeDriver: true,
         }).start();
-  
-        // Play success animation and sound
-        if (successAnimationRef.current) {
-          successAnimationRef.current.play();
+
+        // Play success sound safely
+        try {
+          playSuccessSound();
+        } catch (soundError) {
+          console.error("Error playing success sound:", soundError);
         }
-        playSuccessSound();
+
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  
-        // Update data with animation
         fetchSalesData(timeRange, true);
-  
-        // Reset and hide success after animation completes
+
         setTimeout(() => {
           Animated.timing(successFadeAnim, {
             toValue: 0,
@@ -368,18 +364,90 @@ export default function Index() {
             useNativeDriver: true,
           }).start(() => {
             setTransactionComplete(false);
-            setSaleAmountValue(null); // Reset the temporary sale amount value
+            setSaleAmountValue(null);
           });
         }, 2500);
       });
-  
-      // Reset the sale amount input
+
       setSaleAmount("");
     } catch (error) {
+      console.error("Error in handleDoneClick:", error);
       Alert.alert("Error", "Failed to process sale. Please try again.");
-      setIsLoading(false); // Make sure to reset loading state here too in case of error
+      setIsLoading(false);
     }
   };
+  // const handleDoneClick = async () => {
+  //   if (!saleAmount || isNaN(Number(saleAmount))) {
+  //     Alert.alert("Invalid Input", "Please enter a valid sale amount.");
+  //     logMessage("Invalid Input");
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+  //   logMessage("Before add sale ");
+
+  //   // Store the sale amount in a temporary state variable
+  //   const amount: number = parseFloat(saleAmount);
+  //   setSaleAmountValue(amount);
+  //   logMessage("Just before try block ");
+  //   try {
+  //     // Process sale
+  //     logMessage("Before add sale function");
+  //     await salesService.addNewSale(amount);
+  //     logMessage("After add sale function");
+
+  //     // Animate form exit
+  //     Animated.timing(formSlideAnim, {
+  //       toValue: 0,
+  //       duration: 300,
+  //       useNativeDriver: true,
+  //     }).start(() => {
+  //       setIsFormVisible(false);
+  //       setIsLoading(false); // Reset loading state here after form animation completes
+
+  //       // Show success indicator
+  //       setTransactionComplete(true);
+  //       successFadeAnim.setValue(0);
+  //       Animated.timing(successFadeAnim, {
+  //         toValue: 1,
+  //         duration: 300,
+  //         useNativeDriver: true,
+  //       }).start();
+  //       logMessage("After success fade animation");
+
+  //       // Play success animation and sound
+  //       if (successAnimationRef.current) {
+  //         successAnimationRef.current.play();
+  //       }
+  //       logMessage("After play animation ");
+  //       playSuccessSound();
+  //       // Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  //       logMessage("After play success sound ");
+
+  //       // Update data with animation
+  //       fetchSalesData(timeRange, true);
+  //       logMessage("After fetch sales data ");
+
+  //       // Reset and hide success after animation completes
+  //       setTimeout(() => {
+  //         Animated.timing(successFadeAnim, {
+  //           toValue: 0,
+  //           duration: 500,
+  //           useNativeDriver: true,
+  //         }).start(() => {
+  //           setTransactionComplete(false);
+  //           setSaleAmountValue(null); // Reset the temporary sale amount value
+  //         });
+  //       }, 2500);
+  //     });
+  //     logMessage("After fetch sales data ");
+  //     // Reset the sale amount input
+  //     setSaleAmount("");
+  //   } catch (error) {
+  //     Alert.alert("Error", "Failed to process sale. Please try again.");
+  //     setIsLoading(false); // Make sure to reset loading state here too in case of error
+  //   }
+  // };
 
   if (!authContext?.isInitialized) {
     return (
@@ -467,81 +535,100 @@ export default function Index() {
                           : "This Month's"}{" "}
                         Revenue:
                       </Text>
-                      
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+
+                      <View
+                        style={{ flexDirection: "row", alignItems: "flex-end" }}
+                      >
                         <Text style={[styles.currency]}>KES </Text>
-                        
+
                         {/* Animated revenue value */}
                         <Animated.View
-                          style={[
-                            { transform: [{ scale: scaleAnim }] }
-                          ]}
+                          style={[{ transform: [{ scale: scaleAnim }] }]}
                         >
                           <AnimatedNumber
                             value={salesData.totalRevenue}
                             style={styles.balanceAmount}
                           />
                         </Animated.View>
-                        
+
                         {/* Change indicator for revenue */}
-                        {prevSalesData.totalRevenue > 0 && 
-                         salesData.totalRevenue > prevSalesData.totalRevenue && (
-                          <Animated.View
-                            style={[
-                              styles.changeIndicator,
-                              {
-                                opacity: revenueChangeAnim,
-                                transform: [
-                                  {
-                                    translateY: revenueChangeAnim.interpolate({
-                                      inputRange: [0, 1],
-                                      outputRange: [0, -10],
-                                    }),
-                                  },
-                                ],
-                              },
-                            ]}
-                          >
-                            <Feather name="arrow-up" size={12} color="#4ade80" />
-                            <Text style={styles.changeText}>
-                              +{(salesData.totalRevenue - prevSalesData.totalRevenue).toFixed(2)}
-                            </Text>
-                          </Animated.View>
-                        )}
+                        {prevSalesData.totalRevenue > 0 &&
+                          salesData.totalRevenue >
+                            prevSalesData.totalRevenue && (
+                            <Animated.View
+                              style={[
+                                styles.changeIndicator,
+                                {
+                                  opacity: revenueChangeAnim,
+                                  transform: [
+                                    {
+                                      translateY: revenueChangeAnim.interpolate(
+                                        {
+                                          inputRange: [0, 1],
+                                          outputRange: [0, -10],
+                                        }
+                                      ),
+                                    },
+                                  ],
+                                },
+                              ]}
+                            >
+                              <Feather
+                                name="arrow-up"
+                                size={12}
+                                color="#4ade80"
+                              />
+                              <Text style={styles.changeText}>
+                                +
+                                {(
+                                  salesData.totalRevenue -
+                                  prevSalesData.totalRevenue
+                                ).toFixed(2)}
+                              </Text>
+                            </Animated.View>
+                          )}
                       </View>
                     </View>
 
                     <View style={styles.cardFooter}>
                       <View style={styles.statsContainer}>
                         <Text style={styles.statsLabel}>Total Sales</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View
+                          style={{ flexDirection: "row", alignItems: "center" }}
+                        >
                           <AnimatedNumber
                             value={salesData.salesCount}
                             style={styles.statsValue}
                           />
-                          
+
                           {/* Change indicator for count */}
-                          {prevSalesData.salesCount > 0 && 
-                           salesData.salesCount > prevSalesData.salesCount && (
-                            <Animated.View
-                              style={[
-                                styles.countChangeIndicator,
-                                {
-                                  opacity: countChangeAnim,
-                                },
-                              ]}
-                            >
-                              <Feather name="arrow-up" size={8} color="#4ade80" />
-                              <Text style={styles.countChangeText}>
-                                +{salesData.salesCount - prevSalesData.salesCount}
-                              </Text>
-                            </Animated.View>
-                          )}
+                          {prevSalesData.salesCount > 0 &&
+                            salesData.salesCount > prevSalesData.salesCount && (
+                              <Animated.View
+                                style={[
+                                  styles.countChangeIndicator,
+                                  {
+                                    opacity: countChangeAnim,
+                                  },
+                                ]}
+                              >
+                                <Feather
+                                  name="arrow-up"
+                                  size={8}
+                                  color="#4ade80"
+                                />
+                                <Text style={styles.countChangeText}>
+                                  +
+                                  {salesData.salesCount -
+                                    prevSalesData.salesCount}
+                                </Text>
+                              </Animated.View>
+                            )}
                         </View>
                       </View>
-                      
+
                       <View style={styles.divider} />
-                      
+
                       <View style={styles.statsContainer}>
                         <Text style={styles.statsLabel}>Avg. Sale</Text>
                         <Text style={styles.statsValue}>
@@ -562,11 +649,8 @@ export default function Index() {
 
               {/* Floating success notification */}
               {transactionComplete && saleAmountValue !== null && (
-                <Animated.View 
-                  style={[
-                    styles.successToast,
-                    { opacity: successFadeAnim }
-                  ]}
+                <Animated.View
+                  style={[styles.successToast, { opacity: successFadeAnim }]}
                 >
                   <LottieView
                     ref={successAnimationRef}
@@ -872,15 +956,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     zIndex: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     color: "#2E3192",
@@ -923,16 +1007,16 @@ const styles = StyleSheet.create({
   },
   // New styles for enhanced UX
   successToast: {
-    position: 'absolute',
+    position: "absolute",
     top: 20,
     left: 20,
     right: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
@@ -946,14 +1030,14 @@ const styles = StyleSheet.create({
   },
   successToastText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#2E3192',
+    fontWeight: "600",
+    color: "#2E3192",
     flex: 1,
   },
   changeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(74, 222, 128, 0.2)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(74, 222, 128, 0.2)",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
@@ -961,24 +1045,24 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   changeText: {
-    color: '#4ade80',
+    color: "#4ade80",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 4,
   },
   countChangeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(74, 222, 128, 0.2)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(74, 222, 128, 0.2)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
     marginLeft: 6,
   },
   countChangeText: {
-    color: '#4ade80',
+    color: "#4ade80",
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 2,
   },
 });
