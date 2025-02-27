@@ -27,7 +27,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSalesService } from "../../services/sales";
 import { AuthContext } from "../../context/AuthContext";
 import LineChartComponent from "@/components/lineChartComponent";
+import DebuggingAlert from "@/components/debugging";
+import { logMessage } from "@/components/debugging";
 import { Audio } from 'expo-av';
+import { SQLiteDatabase, useSQLiteContext } from "expo-sqlite";
 
 // Define SalesData type
 interface SalesData {
@@ -111,6 +114,8 @@ export default function Index() {
 
   // Sales service
   const salesService = useSalesService();
+  //datbase
+  const database = useSQLiteContext();
 
   const scrollViewRef = useRef<ScrollView>(null);
   const successAnimationRef = useRef<LottieView>(null);

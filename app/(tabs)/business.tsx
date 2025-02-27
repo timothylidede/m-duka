@@ -166,17 +166,17 @@ const BusinessPage: React.FC = () => {
     {
       actionName: "Financial Summary",
       iconName: "dollar-sign",
-      nextPagePath: "../financialSummary",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "KRA Tax Compliance",
       iconName: "shield",
-      nextPagePath: "../kraTaxCompliance",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Manage Credit Sales",
       iconName: "credit-card",
-      nextPagePath: "../creditManagement",
+      nextPagePath: "../underConstruction",
     },
   ];
 
@@ -255,11 +255,18 @@ const BusinessPage: React.FC = () => {
                     </Text>
                     <View style={styles.progressContainer}>
                       <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${levelInfo.progress}%` }]} />
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${levelInfo.progress}%` },
+                          ]}
+                        />
                       </View>
                       <Text style={styles.progressText}>
                         {levelInfo.currentLevel < targets.length
-                          ? `${levelInfo.progress.toFixed(1)}% towards Level ${levelInfo.currentLevel + 1}`
+                          ? `${levelInfo.progress.toFixed(1)}% towards Level ${
+                              levelInfo.currentLevel + 1
+                            }`
                           : "Max level achieved"}
                       </Text>
                     </View>
@@ -356,7 +363,9 @@ const BusinessPage: React.FC = () => {
               style={styles.viewAllButton}
               onPress={() => routeAction("../allTransactions")}
             >
-              <Text style={styles.viewAllButtonText}>View All Transactions</Text>
+              <Text style={styles.viewAllButtonText}>
+                View All Transactions
+              </Text>
               <Feather name="chevron-right" size={16} color="#2E3192" />
             </TouchableOpacity>
           </View>
