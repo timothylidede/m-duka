@@ -14,15 +14,6 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-// import {
-//   getDBConnection,
-//   saveProducts,
-//   createProductsTable,
-//   getProducts,
-// } from "@/localDatabase/database";
-import { handleSaveProduct, loadProductsData } from "@/localDatabase/products";
-import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
-
 import { Picker } from "@react-native-picker/picker";
 import { useInventoryService, InventoryItem } from "../services/inventory";
 
@@ -37,15 +28,33 @@ const debounce = (func: (...args: any[]) => void, wait: number) => {
 
 // Sanitize product name function
 const sanitizeProductName = (name: string): string => {
-  // Remove numbers and special symbols, allow only letters and spaces
-  let sanitized = name.replace(/[^a-zA-Z\s]/g, "").trim();
-  // Limit to 50 characters
-  sanitized = sanitized.slice(0, 50);
-  // Capitalize first letter
+  let sanitized = name.replace(/[^a-zA-Z\s]/g, "").trim(); // Only letters and spaces
+  sanitized = sanitized.slice(0, 50); // Limit to 50 characters
   if (sanitized.length > 0) {
-    sanitized = sanitized.charAt(0).toUpperCase() + sanitized.slice(1).toLowerCase();
+    sanitized = sanitized.charAt(0).toUpperCase() + sanitized.slice(1).toLowerCase(); // Capitalize first letter
   }
   return sanitized;
+};
+
+// Sanitize price function
+const sanitizePrice = (price: string): string => {
+  // Allow only numbers and one decimal point, remove leading zeros unless followed by decimal
+  let sanitized = price.replace(/[^0-9.]/g, "").replace(/^0+(?=\d)/, "").slice(0, 10); // Limit to 10 characters
+  const parts = sanitized.split(".");
+  if (parts.length > 2) {
+    sanitized = parts[0] + "." + parts.slice(1).join(""); // Keep only first decimal point
+  }
+  if (parts[1]) {
+    parts[1] = parts[1].slice(0, 2); // Limit to 2 decimal places
+    sanitized = parts[0] + "." + parts[1];
+  }
+  return sanitized;
+};
+
+// Sanitize quantity function
+const sanitizeQuantity = (quantity: string): string => {
+  // Allow only positive integers, no decimals or special characters
+  return quantity.replace(/[^0-9]/g, "").slice(0, 10); // Limit to 10 digits
 };
 
 export default function AddNewProduct() {
@@ -99,10 +108,20 @@ export default function AddNewProduct() {
     setProductName(sanitized);
   };
 
+  const handleUnitPriceChange = (text: string) => {
+    const sanitized = sanitizePrice(text);
+    setUnitPrice(sanitized);
+  };
+
+  const handleQuantityChange = (text: string) => {
+    const sanitized = sanitizeQuantity(text);
+    setQuantity(sanitized);
+  };
+
   const selectProduct = (product: InventoryItem) => {
-    const sanitized = sanitizeProductName(product.productName); // Sanitize when selecting
-    setProductName(sanitized);
-    setUnitPrice(product.unitPrice ? product.unitPrice.toString() : "");
+    const sanitizedName = sanitizeProductName(product.productName);
+    setProductName(sanitizedName);
+    setUnitPrice(product.unitPrice ? sanitizePrice(product.unitPrice.toString()) : "");
     setUnit(product.unit);
     setShowDropdown(false);
     if (quantityInputRef.current) {
@@ -118,8 +137,11 @@ export default function AddNewProduct() {
   };
 
   const addProductToInventory = async () => {
-    const sanitizedProductName = sanitizeProductName(productName); // Ensure sanitized before submission
-    if (!sanitizedProductName || !unitPrice || !quantity || !unit) {
+    const sanitizedProductName = sanitizeProductName(productName);
+    const sanitizedUnitPrice = sanitizePrice(unitPrice);
+    const sanitizedQuantity = sanitizeQuantity(quantity);
+
+    if (!sanitizedProductName || !sanitizedUnitPrice || !sanitizedQuantity || !unit) {
       Alert.alert("Invalid Input", "Please fill all the fields.");
       return;
     }
@@ -129,21 +151,23 @@ export default function AddNewProduct() {
       return;
     }
 
-    if (isNaN(Number(unitPrice)) || Number(unitPrice) <= 0) {
+    const priceNum = Number(sanitizedUnitPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
       Alert.alert("Invalid Price", "Please enter a valid price greater than 0.");
       return;
     }
 
-    if (isNaN(Number(quantity)) || Number(quantity) < 0) {
-      Alert.alert("Invalid Quantity", "Please enter a valid quantity.");
+    const quantityNum = Number(sanitizedQuantity);
+    if (isNaN(quantityNum) || quantityNum <= 0) { // Updated to prevent 0 quantity
+      Alert.alert("Invalid Quantity", "Quantity must be greater than 0.");
       return;
     }
 
     try {
       await inventoryService.addInventoryItem({
         productName: sanitizedProductName,
-        unitPrice: Number(unitPrice),
-        stockAmount: Number(quantity),
+        unitPrice: priceNum,
+        stockAmount: quantityNum,
         unit,
       });
 
@@ -155,9 +179,11 @@ export default function AddNewProduct() {
           { text: "Done", onPress: () => router.back(), style: "cancel" },
         ]
       );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       Alert.alert("Error", "Failed to add product. Please try again.");
       console.error(error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
@@ -169,10 +195,10 @@ export default function AddNewProduct() {
           <TextInput
             style={styles.input}
             value={productName}
-            onChangeText={handleProductNameChange} // Use custom handler
+            onChangeText={handleProductNameChange}
             placeholder="Enter product name"
             placeholderTextColor="#94A3B8"
-            maxLength={50} // Enforce max length in UI
+            maxLength={50}
           />
           {showDropdown && (
             <View style={styles.dropdownContainer}>
@@ -202,10 +228,11 @@ export default function AddNewProduct() {
           <TextInput
             style={[styles.input, styles.priceTextInput]}
             value={unitPrice}
-            onChangeText={setUnitPrice}
+            onChangeText={handleUnitPriceChange}
             placeholder="0.00"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
+            maxLength={10}
           />
         </View>
       </View>
@@ -217,10 +244,11 @@ export default function AddNewProduct() {
             ref={quantityInputRef}
             style={styles.input}
             value={quantity}
-            onChangeText={setQuantity}
+            onChangeText={handleQuantityChange}
             placeholder="0"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
+            maxLength={10}
           />
         </View>
 

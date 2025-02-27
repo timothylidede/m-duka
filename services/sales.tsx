@@ -63,6 +63,7 @@ interface SalesService {
   getAllTimeSalesData: () => Promise<{ totalRevenue: number; totalTransactions: number }>;
   getTransactions: (options?: TransactionListOptions) => Promise<TransactionListResult>;
   updateTransactionStatus: (transactionId: string, newStatus: 'completed' | 'pending' | 'failed') => Promise<boolean>;
+  updateTransaction: (transactionId: string, updates: Partial<SaleMetadata>) => Promise<boolean>;
 }
 
 export const useSalesService = (): SalesService => {
@@ -87,6 +88,7 @@ export const useSalesService = (): SalesService => {
       updateTransactionStatus: async () => false,
       deleteTransaction: async () => false,
       getAllTimeSalesData: async () => ({totalRevenue: 0, totalTransactions: 0}),
+      updateTransaction: async () => false, 
     };
   }
 
@@ -468,6 +470,56 @@ export const useSalesService = (): SalesService => {
         completionRate: allTransactions.length ? (allTransactions.filter(t => t.status === 'completed').length / allTransactions.length) * 100 : 0,
         averageTransactionValue: filteredTransactions.length ? filteredTransactions.reduce((sum, t) => sum + t.totalPrice, 0) / filteredTransactions.length : 0,
       };
+    },
+
+    async updateTransaction(transactionId: string, updates: Partial<SaleMetadata>): Promise<boolean> {
+      try {
+        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
+        const snapshot = await getDocs(salesCollection);
+    
+        let docToUpdateId: string | null = null;
+        let transactions: any[] = [];
+        let transactionIndex: number = -1;
+    
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!data.transactions) return;
+    
+          const idx = data.transactions.findIndex((t: any) => t.id === transactionId);
+          if (idx !== -1) {
+            docToUpdateId = docSnap.id;
+            transactions = [...data.transactions];
+            transactionIndex = idx;
+          }
+        });
+    
+        if (!docToUpdateId || transactionIndex === -1) {
+          console.warn('Transaction not found');
+          return false;
+        }
+    
+        // Merge updates while preserving the original timestamp
+        transactions[transactionIndex] = {
+          ...transactions[transactionIndex],
+          ...updates,
+          timestamp: transactions[transactionIndex].timestamp, // Ensure timestamp is unchanged
+        };
+    
+        // Recalculate totalRevenue based on updated transactions
+        const newTotalRevenue = transactions.reduce((sum: number, t: any) => sum + (t.totalPrice || 0), 0);
+    
+        const dateDocRef = doc(firestore, `shops/${shopId}/sales/${docToUpdateId}`);
+        await updateDoc(dateDocRef, {
+          transactions,
+          totalRevenue: newTotalRevenue,
+          salesCount: transactions.length,
+        });
+    
+        return true;
+      } catch (error) {
+        console.error('Error updating transaction:', error);
+        return false;
+      }
     },
 
     async deleteTransaction(transactionId: string): Promise<boolean> {

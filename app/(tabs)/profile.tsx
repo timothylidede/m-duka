@@ -1,5 +1,5 @@
 import { RelativePathString, Stack } from "expo-router";
-import React from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
   StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { AuthContext } from "../../context/AuthContext";
+import { useSalesService } from "../../services/sales";
+import { useInventoryService } from "../../services/inventory";
 
 interface InventoryStats {
   totalItems: number;
@@ -25,9 +27,7 @@ interface InventoryStats {
 
 interface StoreProfile {
   storeName: string;
-  storeId: string;
   location: string;
-  managerName: string;
   contactNumber: string;
   email?: string;
   lastStockUpdate: string;
@@ -43,27 +43,63 @@ interface QuickAction {
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
+  const { shopData, logout } = useContext(AuthContext);
+  const salesService = useSalesService();
+  const inventoryService = useInventoryService();
 
   const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(nextPagePath);
   };
 
-  const storeProfile: StoreProfile = {
-    storeName: "Main Street Quick Mart",
-    storeId: "MSE-001",
-    location: "Carwash Street, Nairobi",
-    managerName: "John Muthaiga",
-    contactNumber: "+254743891547",
-    email: "j.muthaiga@quickmart.co.ke",
-    lastStockUpdate: "2025-02-05 09:30 AM",
+  // Default store profile with dynamic overrides from AuthContext and services
+  const [storeProfile, setStoreProfile] = useState<StoreProfile>({
+    storeName: shopData?.name || "Main Street Quick Mart",
+    location: shopData?.county || "Carwash Street, Nairobi",
+    contactNumber: shopData?.contact || "+254743891547",
+    email: shopData?.emailAddress || "j.muthaiga@quickmart.co.ke",
+    lastStockUpdate: "2025-02-05 09:30 AM", // Static for now
     inventoryStats: {
-      totalItems: 1247,
-      lowStock: 23,
-      outOfStock: 5,
-      totalValue: 156750.0,
+      totalItems: 0,
+      lowStock: 0,
+      outOfStock: 0,
+      totalValue: 0,
     },
-  };
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch inventory data
+        const inventoryData = await inventoryService.getAllInventory();
+        
+        // Calculate inventory stats
+        const totalItems = inventoryData.totalItems;
+        const totalValue = inventoryData.totalValue;
+        const lowStock = inventoryData.items.filter(item => item.stockAmount > 0 && item.stockAmount <= 5).length; // Example threshold: <= 5 is low stock
+        const outOfStock = inventoryData.items.filter(item => item.stockAmount === 0).length;
+
+        // Update store profile with dynamic data
+        setStoreProfile((prev) => ({
+          ...prev,
+          storeName: shopData?.name || prev.storeName,
+          location: shopData?.county || prev.location,
+          contactNumber: shopData?.contact || prev.contactNumber,
+          email: shopData?.emailAddress || prev.email,
+          inventoryStats: {
+            totalItems,
+            lowStock,
+            outOfStock,
+            totalValue,
+          },
+        }));
+      } catch (error) {
+        console.error("Error fetching inventory data:", error);
+      }
+    };
+
+    fetchData();
+  }, [shopData, inventoryService]);
 
   const QuickActions: QuickAction[] = [
     {
@@ -71,11 +107,6 @@ const ProfilePage: React.FC = () => {
       iconName: "plus-circle",
       nextPagePath: "../add_product",
       highlight: true,
-    },
-    {
-      actionName: "Add a new Good",
-      iconName: "users",
-      nextPagePath: "../add_product",
     },
     {
       actionName: "Supplier Management",
@@ -112,7 +143,7 @@ const ProfilePage: React.FC = () => {
           {
             text: "Logout",
             onPress: async () => {
-              await AsyncStorage.removeItem("lastOpenedTime");
+              await logout();
               router.replace("/login");
             },
             style: "destructive",
@@ -154,7 +185,6 @@ const ProfilePage: React.FC = () => {
                 <Feather name="shopping-bag" size={32} color="white" />
               </View>
               <Text style={styles.storeName}>{storeProfile.storeName}</Text>
-              <Text style={styles.storeId}>ID: {storeProfile.storeId}</Text>
 
               <View style={styles.buttonContainer}>
                 <TouchableOpacity
@@ -235,16 +265,6 @@ const ProfilePage: React.FC = () => {
 
               <View style={styles.detailRow}>
                 <View style={styles.detailIcon}>
-                  <Feather name="user" size={20} color="#64748B" />
-                </View>
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Manager</Text>
-                  <Text style={styles.detailValue}>{storeProfile.managerName}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailRow}>
-                <View style={styles.detailIcon}>
                   <Feather name="phone" size={20} color="#64748B" />
                 </View>
                 <View style={styles.detailContent}>
@@ -262,14 +282,6 @@ const ProfilePage: React.FC = () => {
                   <Text style={styles.detailValue}>{storeProfile.email || ''}</Text>
                 </View>
               </View>
-
-              <TouchableOpacity
-                style={styles.editProfileButton}
-                onPress={() => routeInventoryQuickAction("../editProfile")}
-              >
-                <Feather name="edit-2" size={16} color="#2E3192" />
-                <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-              </TouchableOpacity>
             </View>
 
             {/* Inventory Overview Section */}
@@ -280,56 +292,37 @@ const ProfilePage: React.FC = () => {
               </View>
 
               <View style={styles.statsGrid}>
-                <TouchableOpacity
-                  style={styles.statsCard}
-                  onPress={() => routeInventoryQuickAction("../inventoryList")}
-                >
+                <View style={styles.statsCard}>
                   <Feather name="package" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>{storeProfile.inventoryStats.totalItems}</Text>
                   <Text style={styles.statsLabel}>Total Items</Text>
-                </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                  style={[styles.statsCard, styles.alertCard]}
-                  onPress={() => routeInventoryQuickAction("../lowStockItems")}
-                >
+                <View style={[styles.statsCard, styles.alertCard]}>
                   <Feather name="alert-circle" size={24} color="#DC2626" />
                   <Text style={[styles.statsValue, styles.alertValue]}>
                     {storeProfile.inventoryStats.lowStock}
                   </Text>
                   <Text style={styles.statsLabel}>Low Stock</Text>
-                </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                  style={[styles.statsCard, styles.criticalCard]}
-                  onPress={() => routeInventoryQuickAction("../outOfStockItems")}
-                >
+                <View style={[styles.statsCard, styles.criticalCard]}>
                   <Feather name="x-circle" size={24} color="#DC2626" />
                   <Text style={[styles.statsValue, styles.alertValue]}>
                     {storeProfile.inventoryStats.outOfStock}
                   </Text>
                   <Text style={styles.statsLabel}>Out of Stock</Text>
-                </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                  style={styles.statsCard}
-                  onPress={() => routeInventoryQuickAction("../inventoryValue")}
-                >
+                <View style={styles.statsCard}>
                   <Feather name="dollar-sign" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
                     KES {storeProfile.inventoryStats.totalValue.toLocaleString()}
                   </Text>
                   <Text style={styles.statsLabel}>Total Value</Text>
-                </TouchableOpacity>
+                </View>
               </View>
-
-              <TouchableOpacity
-                style={styles.inventoryReportButton}
-                onPress={() => routeInventoryQuickAction("../inventoryReport")}
-              >
-                <Feather name="file-text" size={18} color="white" />
-                <Text style={styles.inventoryReportButtonText}>Generate Inventory Report</Text>
-              </TouchableOpacity>
+              {/* Removed Generate Inventory Report Button */}
             </View>
 
             {/* Attention Required Section */}
@@ -341,10 +334,7 @@ const ProfilePage: React.FC = () => {
 
               <View style={styles.alertsContainer}>
                 {storeProfile.inventoryStats.outOfStock > 0 && (
-                  <TouchableOpacity
-                    style={styles.alertItem}
-                    onPress={() => routeInventoryQuickAction("../outOfStockItems")}
-                  >
+                  <View style={styles.alertItem}>
                     <View style={[styles.alertIndicator, styles.criticalIndicator]} />
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>Critical: Out of Stock Items</Text>
@@ -352,15 +342,11 @@ const ProfilePage: React.FC = () => {
                         {storeProfile.inventoryStats.outOfStock} items need immediate restock
                       </Text>
                     </View>
-                    <Feather name="chevron-right" size={20} color="#64748B" />
-                  </TouchableOpacity>
+                  </View>
                 )}
 
                 {storeProfile.inventoryStats.lowStock > 0 && (
-                  <TouchableOpacity
-                    style={styles.alertItem}
-                    onPress={() => routeInventoryQuickAction("../lowStockItems")}
-                  >
+                  <View style={styles.alertItem}>
                     <View style={[styles.alertIndicator, styles.warningIndicator]} />
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>Warning: Low Stock Items</Text>
@@ -368,8 +354,7 @@ const ProfilePage: React.FC = () => {
                         {storeProfile.inventoryStats.lowStock} items running low in inventory
                       </Text>
                     </View>
-                    <Feather name="chevron-right" size={20} color="#64748B" />
-                  </TouchableOpacity>
+                  </View>
                 )}
               </View>
             </View>
@@ -417,13 +402,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#fff",
     textAlign: "center",
-  },
-  storeId: {
-    fontSize: 14,
-    color: "#fff",
-    opacity: 0.9,
-    marginTop: 4,
-    marginBottom: 20,
   },
   buttonContainer: {
     flexDirection: "row",
@@ -522,21 +500,6 @@ const styles = StyleSheet.create({
     color: "#1E293B",
     fontWeight: "500",
   },
-  editProfileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F1F5F9",
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginTop: 16,
-    gap: 8,
-  },
-  editProfileButtonText: {
-    color: "#2E3192",
-    fontSize: 14,
-    fontWeight: "600",
-  },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -577,21 +540,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#64748B",
     textAlign: "center",
-  },
-  inventoryReportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2E3192",
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-    gap: 10,
-  },
-  inventoryReportButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
   },
   quickActionsGrid: {
     flexDirection: "row",

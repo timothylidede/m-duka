@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { RelativePathString } from "expo-router";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,69 +10,108 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
-  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useState, useEffect } from 'react';
-import { useSalesService } from '../../services/sales'; 
+import { useSalesService, SaleMetadata } from "../../services/sales";
+import { useInventoryService } from "../../services/inventory";
 
-// Interfaces remain the same
-interface SalesMetrics {
-  dailySales: number;
-  weeklySales: number;
-  monthlySales: number;
-  targetAchieved: number;
-  averageOrderValue: number;
-  totalTransactions: number;
-  profitMargin: number;
-  yearToDateSales: number;
-}
-
-interface SalesSummary {
-  topSellingItems: Array<{
-    id: string;
-    name: string;
-    quantity: number;
-    revenue: number;
-  }>;
-  recentTransactions: Array<{
-    id: string;
-    time: string;
-    items: number;
-    amount: number;
-  }>;
-  metrics: SalesMetrics;
-  lastUpdate: string;
-}
-
+// Interfaces (simplified for this context)
 interface QuickAction {
   actionName: string;
   iconName: string;
   nextPagePath: RelativePathString;
 }
 
+interface TopSellingItem {
+  id: string;
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
 const BusinessPage: React.FC = () => {
   const router = useRouter();
   const screenWidth = Dimensions.get("window").width;
+  const salesService = useSalesService();
+  const inventoryService = useInventoryService();
 
+  // State for dynamic data
   const [allTimeRevenue, setAllTimeRevenue] = useState(0);
   const [totalTransactions, setTotalTransactions] = useState(0);
-  const salesService = useSalesService();
+  const [todayRevenue, setTodayRevenue] = useState(0);
+  const [weekRevenue, setWeekRevenue] = useState(0);
+  const [monthRevenue, setMonthRevenue] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<SaleMetadata[]>([]);
+  const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
 
   useEffect(() => {
-    const fetchAllTimeSales = async () => {
+    const fetchSalesAndInventoryData = async () => {
       try {
-        const data = await salesService.getAllTimeSalesData();
-        setAllTimeRevenue(data.totalRevenue);
-        setTotalTransactions(data.totalTransactions);
+        // Fetch basic sales metrics
+        const allTimeData = await salesService.getAllTimeSalesData();
+        setAllTimeRevenue(allTimeData.totalRevenue);
+        setTotalTransactions(allTimeData.totalTransactions);
+
+        const todayData = await salesService.getTodaysSalesData();
+        setTodayRevenue(todayData.totalRevenue);
+
+        const weekData = await salesService.getWeeklySalesData();
+        setWeekRevenue(weekData.totalRevenue);
+
+        const monthData = await salesService.getMonthlySalesData();
+        setMonthRevenue(monthData.totalRevenue);
+
+        const transactionResult = await salesService.getTransactions({ limit: 5 });
+        setRecentTransactions(transactionResult.transactions);
+
+        // Fetch all transactions for top-selling items
+        const allTransactionsResult = await salesService.getTransactions();
+        const inventoryData = await inventoryService.getAllInventory();
+
+        // Aggregate sales data
+        const salesAggregation: { [key: string]: { quantity: number; revenue: number } } = {};
+
+        allTransactionsResult.transactions.forEach((transaction) => {
+          if (transaction.lineItems) {
+            transaction.lineItems.forEach((item) => {
+              if (item.productId && item.productId !== "No product ID") {
+                if (!salesAggregation[item.productId]) {
+                  salesAggregation[item.productId] = { quantity: 0, revenue: 0 };
+                }
+                salesAggregation[item.productId].quantity += item.quantity;
+                salesAggregation[item.productId].revenue += item.price * item.quantity;
+              }
+            });
+          }
+        });
+
+        // Map to inventory data and rank
+        const topItems: TopSellingItem[] = Object.keys(salesAggregation)
+          .map((productId) => {
+            const inventoryItem = inventoryData.items.find(
+              (item) => item.productId === productId
+            );
+            return {
+              id: productId,
+              name: inventoryItem ? inventoryItem.productName : productId,
+              quantity: salesAggregation[productId].quantity,
+              revenue: salesAggregation[productId].revenue,
+            };
+          })
+          .sort((a, b) => b.quantity - a.quantity) // Rank by quantity sold
+          .slice(0, 5); // Top 5 items
+
+        setTopSellingItems(topItems);
       } catch (error) {
-        console.error('Error fetching all-time sales:', error);
+        console.error("Error fetching sales or inventory data:", error);
+        setTopSellingItems([]); // Fallback to empty list on error
       }
     };
-    fetchAllTimeSales();
+
+    fetchSalesAndInventoryData();
   }, []);
 
   const targets = [10000, 50000, 100000, 250000, 500000, 1000000];
@@ -85,9 +124,10 @@ const BusinessPage: React.FC = () => {
     for (let i = 0; i < targets.length; i++) {
       if (revenue < targets[i]) {
         nextTarget = targets[i];
-        progress = i === 0 
-          ? (revenue / targets[0]) * 100 
-          : ((revenue - targets[i - 1]) / (targets[i] - targets[i - 1])) * 100;
+        progress =
+          i === 0
+            ? (revenue / targets[0]) * 100
+            : ((revenue - targets[i - 1]) / (targets[i] - targets[i - 1])) * 100;
         break;
       }
       currentLevel = i + 1;
@@ -105,33 +145,6 @@ const BusinessPage: React.FC = () => {
   const routeAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(nextPagePath);
-  };
-
-  const salesData: SalesSummary = {
-    topSellingItems: [
-      { id: "SKU001", name: "Bread", quantity: 45, revenue: 2250.0 },
-      { id: "SKU002", name: "Sugar", quantity: 32, revenue: 1600.0 },
-      { id: "SKU003", name: "Mandazi", quantity: 28, revenue: 1400.0 },
-      { id: "SKU004", name: "Milk", quantity: 25, revenue: 1250.0 },
-      { id: "SKU005", name: "Rice", quantity: 20, revenue: 1000.0 },
-    ],
-    recentTransactions: [
-      { id: "TX1234", time: "15:45", items: 3, amount: 450.0 },
-      { id: "TX1233", time: "14:32", items: 1, amount: 150.0 },
-      { id: "TX1232", time: "13:15", items: 5, amount: 780.0 },
-      { id: "TX1231", time: "12:08", items: 2, amount: 300.0 },
-    ],
-    metrics: {
-      dailySales: 5850.0,
-      weeklySales: 32450.0,
-      monthlySales: 124680.0,
-      targetAchieved: 85,
-      averageOrderValue: 78.5,
-      totalTransactions: 142,
-      profitMargin: 22.5,
-      yearToDateSales: 1247800.0,
-    },
-    lastUpdate: "2025-02-26 15:30:00",
   };
 
   const QuickActions: QuickAction[] = [
@@ -167,8 +180,17 @@ const BusinessPage: React.FC = () => {
     },
   ];
 
-  // Enhanced MetricCard with more appealing design
-  const MetricCard = ({ label, value, icon, bgColor }: { label: string; value: string; icon: string; bgColor: string }) => (
+  const MetricCard = ({
+    label,
+    value,
+    icon,
+    bgColor,
+  }: {
+    label: string;
+    value: string;
+    icon: string;
+    bgColor: string;
+  }) => (
     <View style={[styles.metricCard, { backgroundColor: bgColor }]}>
       <View style={styles.metricContent}>
         <View style={styles.metricIconContainer}>
@@ -195,13 +217,9 @@ const BusinessPage: React.FC = () => {
       <Stack.Screen
         options={{
           title: "Manage Business",
-          headerStyle: {
-            backgroundColor: "#2E3192",
-          },
+          headerStyle: { backgroundColor: "#2E3192" },
           headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "600",
-          },
+          headerTitleStyle: { fontWeight: "600" },
           headerShadowVisible: false,
         }}
       />
@@ -220,10 +238,10 @@ const BusinessPage: React.FC = () => {
               <View style={styles.dashboardHeader}>
                 <Text style={styles.greeting}>{greeting}</Text>
                 <Text style={styles.dateText}>
-                  {new Date().toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short'
+                  {new Date().toLocaleDateString("en-US", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
                   })}
                 </Text>
               </View>
@@ -231,11 +249,10 @@ const BusinessPage: React.FC = () => {
               <View style={styles.revenueCard}>
                 <View style={styles.revenueCardContent}>
                   <View style={styles.revenueTextContainer}>
-                    <Text style={styles.revenueLabel}>All-Time Revenue</Text>
+                    <Text style={styles.revenueLabel}>Revenue Level {levelInfo.currentLevel}</Text>
                     <Text style={styles.revenueAmount}>
                       KES {allTimeRevenue.toLocaleString()}
                     </Text>
-                    
                     <View style={styles.progressContainer}>
                       <View style={styles.progressBar}>
                         <View style={[styles.progressFill, { width: `${levelInfo.progress}%` }]} />
@@ -256,30 +273,30 @@ const BusinessPage: React.FC = () => {
               </View>
             </LinearGradient>
 
-            {/* Enhanced Metrics Section */}
+            {/* Updated Metrics Section */}
             <View style={styles.metricCardsContainer}>
               <MetricCard
-                label="Transactions"
-                value={salesData.metrics.totalTransactions.toString()}
+                label="Total Transactions"
+                value={totalTransactions.toString()}
                 icon="shopping-cart"
                 bgColor="#4C60F5"
               />
               <MetricCard
-                label="Avg Order"
-                value={`KES ${salesData.metrics.averageOrderValue}`}
-                icon="shopping-bag"
+                label="Today's Revenue"
+                value={`KES ${todayRevenue.toLocaleString()}`}
+                icon="calendar"
                 bgColor="#33BBCF"
               />
               <MetricCard
-                label="Daily Sales"
-                value={`KES ${salesData.metrics.dailySales.toLocaleString()}`}
-                icon="calendar"
+                label="This Week's Revenue"
+                value={`KES ${weekRevenue.toLocaleString()}`}
+                icon="trending-up"
                 bgColor="#5E35B1"
               />
               <MetricCard
-                label="Profit Margin"
-                value={`${salesData.metrics.profitMargin}%`}
-                icon="percent"
+                label="This Month's Revenue"
+                value={`KES ${monthRevenue.toLocaleString()}`}
+                icon="bar-chart-2"
                 bgColor="#00C853"
               />
             </View>
@@ -288,25 +305,22 @@ const BusinessPage: React.FC = () => {
             <View style={styles.quickStatsContainer}>
               <View style={styles.quickStatCard}>
                 <View style={styles.quickStatIconContainer}>
-                  <Feather name="check-circle" size={16} color="#00C853" />
+                  <Feather name="clock" size={16} color="#00C853" />
                 </View>
-                <Text style={styles.quickStatValue}>KES {salesData.metrics.weeklySales.toLocaleString()}</Text>
-                <Text style={styles.quickStatLabel}>Weekly Sales</Text>
+                <Text style={styles.quickStatValue}>KES {todayRevenue.toLocaleString()}</Text>
+                <Text style={styles.quickStatLabel}>Today’s Revenue</Text>
               </View>
-              
               <View style={styles.quickStatDivider} />
-              
               <View style={styles.quickStatCard}>
                 <View style={styles.quickStatIconContainer}>
                   <Feather name="users" size={16} color="#FF6D00" />
                 </View>
-                <Text style={styles.quickStatValue}>{salesData.metrics.totalTransactions} orders</Text>
-                <Text style={styles.quickStatLabel}>Monthly Count</Text>
+                <Text style={styles.quickStatValue}>{totalTransactions} txns</Text>
+                <Text style={styles.quickStatLabel}>All-Time Count</Text>
               </View>
             </View>
           </View>
 
-          {/* Rest of the content remains the same */}
           {/* Recent Transactions */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -314,7 +328,7 @@ const BusinessPage: React.FC = () => {
               <Text style={styles.sectionTitle}>Recent Transactions</Text>
             </View>
 
-            {salesData.recentTransactions.map((transaction) => (
+            {recentTransactions.map((transaction) => (
               <View key={transaction.id} style={styles.transactionRow}>
                 <View style={styles.transactionLeft}>
                   <View style={styles.transactionIcon}>
@@ -322,15 +336,17 @@ const BusinessPage: React.FC = () => {
                   </View>
                   <View>
                     <Text style={styles.transactionId}>{transaction.id}</Text>
-                    <Text style={styles.transactionTime}>{transaction.time}</Text>
+                    <Text style={styles.transactionTime}>
+                      {transaction.timestamp.toLocaleTimeString()}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.transactionRight}>
                   <Text style={styles.transactionItems}>
-                    {transaction.items} {transaction.items === 1 ? "item" : "items"}
+                    {transaction.lineItems?.length || 0} items
                   </Text>
                   <Text style={styles.transactionAmount}>
-                    KES {transaction.amount}
+                    KES {transaction.totalPrice.toLocaleString()}
                   </Text>
                 </View>
               </View>
@@ -345,28 +361,34 @@ const BusinessPage: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Top Selling Items */}
+          {/* Top Selling Items (Dynamic Calculation) */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Feather name="award" size={24} color="#2E3192" />
               <Text style={styles.sectionTitle}>Top Selling Items</Text>
             </View>
 
-            {salesData.topSellingItems.map((item, index) => (
-              <View key={item.id} style={styles.itemRow}>
-                <View style={styles.itemRank}>
-                  <Text style={styles.rankText}>{index + 1}</Text>
+            {topSellingItems.length > 0 ? (
+              topSellingItems.map((item, index) => (
+                <View key={item.id} style={styles.itemRow}>
+                  <View style={styles.itemRank}>
+                    <Text style={styles.rankText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemId}>{item.id}</Text>
+                  </View>
+                  <View style={styles.itemStats}>
+                    <Text style={styles.itemQuantity}>{item.quantity} units</Text>
+                    <Text style={styles.itemRevenue}>KES {item.revenue.toLocaleString()}</Text>
+                  </View>
                 </View>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemId}>{item.id}</Text>
-                </View>
-                <View style={styles.itemStats}>
-                  <Text style={styles.itemQuantity}>{item.quantity} units</Text>
-                  <Text style={styles.itemRevenue}>KES {item.revenue}</Text>
-                </View>
+              ))
+            ) : (
+              <View style={styles.itemRow}>
+                <Text style={styles.itemName}>No data available</Text>
               </View>
-            ))}
+            )}
           </View>
 
           {/* Quick Actions */}
@@ -395,16 +417,14 @@ const BusinessPage: React.FC = () => {
                       color="white"
                     />
                   </LinearGradient>
-                  <Text style={styles.actionButtonText}>
-                    {action.actionName}
-                  </Text>
+                  <Text style={styles.actionButtonText}>{action.actionName}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
           <Text style={styles.lastUpdate}>
-            Last updated: {salesData.lastUpdate}
+            Last updated: {new Date().toLocaleString()}
           </Text>
         </ScrollView>
       </SafeAreaView>
@@ -412,6 +432,7 @@ const BusinessPage: React.FC = () => {
   );
 };
 
+// Styles remain unchanged
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -432,32 +453,32 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   dashboardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingBottom: 20,
   },
   greeting: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
   },
   dateText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
   },
   revenueCard: {
     marginHorizontal: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 16,
     padding: 20,
-    backdropFilter: 'blur(10px)',
+    backdropFilter: "blur(10px)",
   },
   revenueCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   revenueTextContainer: {
     flex: 1,
@@ -481,9 +502,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   progressContainer: {
     marginTop: 8,
@@ -513,8 +534,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   metricCard: {
-    width: '47%',
-    marginHorizontal: '1.5%',
+    width: "47%",
+    marginHorizontal: "1.5%",
     marginBottom: 12,
     borderRadius: 16,
     shadowColor: "#000",
@@ -524,17 +545,17 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   metricContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
   },
   metricIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   metricTextContainer: {
@@ -551,11 +572,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   quickStatsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginHorizontal: 16,
     marginTop: 8,
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -565,31 +586,31 @@ const styles = StyleSheet.create({
   },
   quickStatCard: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   quickStatDivider: {
     width: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: "#E2E8F0",
     marginHorizontal: 12,
   },
   quickStatIconContainer: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   quickStatValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontWeight: "600",
+    color: "#1E293B",
     marginBottom: 4,
   },
   quickStatLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
   },
   section: {
     backgroundColor: "#fff",
@@ -606,7 +627,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
-    justifyContent: "center"
+    justifyContent: "center",
   },
   sectionTitle: {
     fontSize: 18,
