@@ -16,8 +16,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useState, useEffect } from 'react';
-import { useSalesService } from '../../services/sales'; 
+import { useState, useEffect } from "react";
+import { useSalesService } from "../../services/sales";
 
 // Interfaces remain the same
 interface SalesMetrics {
@@ -69,7 +69,7 @@ const BusinessPage: React.FC = () => {
         setAllTimeRevenue(data.totalRevenue);
         setTotalTransactions(data.totalTransactions);
       } catch (error) {
-        console.error('Error fetching all-time sales:', error);
+        console.error("Error fetching all-time sales:", error);
       }
     };
     fetchAllTimeSales();
@@ -85,9 +85,11 @@ const BusinessPage: React.FC = () => {
     for (let i = 0; i < targets.length; i++) {
       if (revenue < targets[i]) {
         nextTarget = targets[i];
-        progress = i === 0 
-          ? (revenue / targets[0]) * 100 
-          : ((revenue - targets[i - 1]) / (targets[i] - targets[i - 1])) * 100;
+        progress =
+          i === 0
+            ? (revenue / targets[0]) * 100
+            : ((revenue - targets[i - 1]) / (targets[i] - targets[i - 1])) *
+              100;
         break;
       }
       currentLevel = i + 1;
@@ -153,22 +155,32 @@ const BusinessPage: React.FC = () => {
     {
       actionName: "Financial Summary",
       iconName: "dollar-sign",
-      nextPagePath: "../financialSummary",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "KRA Tax Compliance",
       iconName: "shield",
-      nextPagePath: "../kraTaxCompliance",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Manage Credit Sales",
       iconName: "credit-card",
-      nextPagePath: "../creditManagement",
+      nextPagePath: "../underConstruction",
     },
   ];
 
   // Enhanced MetricCard with more appealing design
-  const MetricCard = ({ label, value, icon, bgColor }: { label: string; value: string; icon: string; bgColor: string }) => (
+  const MetricCard = ({
+    label,
+    value,
+    icon,
+    bgColor,
+  }: {
+    label: string;
+    value: string;
+    icon: string;
+    bgColor: string;
+  }) => (
     <View style={[styles.metricCard, { backgroundColor: bgColor }]}>
       <View style={styles.metricContent}>
         <View style={styles.metricIconContainer}>
@@ -220,10 +232,10 @@ const BusinessPage: React.FC = () => {
               <View style={styles.dashboardHeader}>
                 <Text style={styles.greeting}>{greeting}</Text>
                 <Text style={styles.dateText}>
-                  {new Date().toLocaleDateString('en-US', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short'
+                  {new Date().toLocaleDateString("en-US", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
                   })}
                 </Text>
               </View>
@@ -235,14 +247,21 @@ const BusinessPage: React.FC = () => {
                     <Text style={styles.revenueAmount}>
                       KES {allTimeRevenue.toLocaleString()}
                     </Text>
-                    
+
                     <View style={styles.progressContainer}>
                       <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${levelInfo.progress}%` }]} />
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${levelInfo.progress}%` },
+                          ]}
+                        />
                       </View>
                       <Text style={styles.progressText}>
                         {levelInfo.currentLevel < targets.length
-                          ? `${levelInfo.progress.toFixed(1)}% towards Level ${levelInfo.currentLevel + 1}`
+                          ? `${levelInfo.progress.toFixed(1)}% towards Level ${
+                              levelInfo.currentLevel + 1
+                            }`
                           : "Max level achieved"}
                       </Text>
                     </View>
@@ -290,17 +309,21 @@ const BusinessPage: React.FC = () => {
                 <View style={styles.quickStatIconContainer}>
                   <Feather name="check-circle" size={16} color="#00C853" />
                 </View>
-                <Text style={styles.quickStatValue}>KES {salesData.metrics.weeklySales.toLocaleString()}</Text>
+                <Text style={styles.quickStatValue}>
+                  KES {salesData.metrics.weeklySales.toLocaleString()}
+                </Text>
                 <Text style={styles.quickStatLabel}>Weekly Sales</Text>
               </View>
-              
+
               <View style={styles.quickStatDivider} />
-              
+
               <View style={styles.quickStatCard}>
                 <View style={styles.quickStatIconContainer}>
                   <Feather name="users" size={16} color="#FF6D00" />
                 </View>
-                <Text style={styles.quickStatValue}>{salesData.metrics.totalTransactions} orders</Text>
+                <Text style={styles.quickStatValue}>
+                  {salesData.metrics.totalTransactions} orders
+                </Text>
                 <Text style={styles.quickStatLabel}>Monthly Count</Text>
               </View>
             </View>
@@ -322,12 +345,15 @@ const BusinessPage: React.FC = () => {
                   </View>
                   <View>
                     <Text style={styles.transactionId}>{transaction.id}</Text>
-                    <Text style={styles.transactionTime}>{transaction.time}</Text>
+                    <Text style={styles.transactionTime}>
+                      {transaction.time}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.transactionRight}>
                   <Text style={styles.transactionItems}>
-                    {transaction.items} {transaction.items === 1 ? "item" : "items"}
+                    {transaction.items}{" "}
+                    {transaction.items === 1 ? "item" : "items"}
                   </Text>
                   <Text style={styles.transactionAmount}>
                     KES {transaction.amount}
@@ -340,7 +366,9 @@ const BusinessPage: React.FC = () => {
               style={styles.viewAllButton}
               onPress={() => routeAction("../allTransactions")}
             >
-              <Text style={styles.viewAllButtonText}>View All Transactions</Text>
+              <Text style={styles.viewAllButtonText}>
+                View All Transactions
+              </Text>
               <Feather name="chevron-right" size={16} color="#2E3192" />
             </TouchableOpacity>
           </View>
@@ -432,32 +460,32 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   dashboardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingBottom: 20,
   },
   greeting: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
   },
   dateText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
   },
   revenueCard: {
     marginHorizontal: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 16,
     padding: 20,
-    backdropFilter: 'blur(10px)',
+    backdropFilter: "blur(10px)",
   },
   revenueCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   revenueTextContainer: {
     flex: 1,
@@ -481,9 +509,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   progressContainer: {
     marginTop: 8,
@@ -513,8 +541,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   metricCard: {
-    width: '47%',
-    marginHorizontal: '1.5%',
+    width: "47%",
+    marginHorizontal: "1.5%",
     marginBottom: 12,
     borderRadius: 16,
     shadowColor: "#000",
@@ -524,17 +552,17 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   metricContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
   },
   metricIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   metricTextContainer: {
@@ -551,11 +579,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   quickStatsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginHorizontal: 16,
     marginTop: 8,
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -565,31 +593,31 @@ const styles = StyleSheet.create({
   },
   quickStatCard: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   quickStatDivider: {
     width: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: "#E2E8F0",
     marginHorizontal: 12,
   },
   quickStatIconContainer: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   quickStatValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontWeight: "600",
+    color: "#1E293B",
     marginBottom: 4,
   },
   quickStatLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
   },
   section: {
     backgroundColor: "#fff",
@@ -606,7 +634,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
-    justifyContent: "center"
+    justifyContent: "center",
   },
   sectionTitle: {
     fontSize: 18,
