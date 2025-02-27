@@ -190,6 +190,9 @@ export const useSalesService = (): SalesService => {
         logMessage("dateStr created in function add NewSAle");
         const dateDocRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
         logMessage("That second variable has been created");
+        logMessage("shopID is " + shopId);
+        logMessage("dateDocRef is " + dateDocRef);
+        logMessage("DATEsTR is " + dateStr);
         const dateDoc = await getDoc(dateDocRef);
         logMessage("dateDocRef created  in function add NewSAle");
         if (dateDoc.exists()) {
