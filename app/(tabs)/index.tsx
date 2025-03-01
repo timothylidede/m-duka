@@ -173,10 +173,14 @@ const SalesTrackerPage: React.FC = () => {
     <>
       <Stack.Screen
         options={{
-          title: 'Sales Tracker',
-          headerStyle: { backgroundColor: '#2E3192' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: '600' },
+          title: `Welcome, ${shopData?.name || '!'}`,
+          headerStyle: {
+            backgroundColor: "#2E3192",
+          },
+          headerTintColor: "#fff",
+          headerTitleStyle: {
+            fontWeight: "600",
+          },
           headerShadowVisible: false,
         }}
       />
@@ -191,11 +195,11 @@ const SalesTrackerPage: React.FC = () => {
             style={styles.header}
           >
             <View style={styles.headerContent}>
-              <View style={styles.iconContainer}>
+              {/* <View style={styles.iconContainer}>
                 <Feather name="dollar-sign" size={32} color="white" />
               </View>
-              <Text style={styles.headerTitle}>Sales Dashboard</Text>
-
+              <Text style={styles.headerTitle}>Sales Dashboard</Text> */}
+              
               <View style={styles.timeFrameSelector}>
                 <TouchableOpacity 
                   style={[styles.timeFrameButton, timeFrame === 'daily' && styles.activeTimeFrame]}
@@ -222,42 +226,8 @@ const SalesTrackerPage: React.FC = () => {
           </LinearGradient>
 
           <View style={styles.content}>
-            {/* Sales Summary Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Feather name="bar-chart-2" size={24} color="#2E3192" />
-                <Text style={styles.sectionTitle}>
-                  {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
-                </Text>
-              </View>
 
-              <View style={styles.statsGrid}>
-                <View style={styles.statsCard}>
-                  <Feather name="dollar-sign" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>
-                    ${salesData[timeFrame].totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
-                  <Text style={styles.statsLabel}>Total Sales</Text>
-                </View>
-
-                <View style={styles.statsCard}>
-                  <Feather name="shopping-cart" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>
-                    {salesData[timeFrame].salesCount}
-                  </Text>
-                  <Text style={styles.statsLabel}>Number of Sales</Text>
-                </View>
-
-                <View style={[styles.statsCard, styles.fullWidthCard]}>
-                  <Feather name="trending-up" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>
-                    ${salesData[timeFrame].average.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Text>
-                  <Text style={styles.statsLabel}>Average Sale Value</Text>
-                </View>
-              </View>
-            </View>
-
+            
             {/* Quick Actions Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -310,7 +280,43 @@ const SalesTrackerPage: React.FC = () => {
               </View>
             </View>
 
-            {/* Top Performers Section (Static for now) */}
+                        {/* Sales Summary Section */}
+                        <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="bar-chart-2" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>
+                  Here is your {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
+                </Text>
+              </View>
+              
+              <View style={styles.statsGrid}>
+                <View style={styles.statsCard}>
+                  <Feather name="dollar-sign" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </Text>
+                  <Text style={styles.statsLabel}>Total Sales</Text>
+                </View>
+                
+                <View style={styles.statsCard}>
+                  <Feather name="shopping-cart" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    {salesData[timeFrame].salesCount}
+                  </Text>
+                  <Text style={styles.statsLabel}>Number of Sales</Text>
+                </View>
+                
+                <View style={[styles.statsCard, styles.fullWidthCard]}>
+                  <Feather name="trending-up" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </Text>
+                  <Text style={styles.statsLabel}>Average Sale Value</Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Top Performers Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Feather name="award" size={24} color="#2E3192" />
