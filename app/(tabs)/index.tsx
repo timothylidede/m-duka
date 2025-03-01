@@ -146,10 +146,10 @@ const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
             style={styles.header}
           >
             <View style={styles.headerContent}>
-              <View style={styles.iconContainer}>
+              {/* <View style={styles.iconContainer}>
                 <Feather name="dollar-sign" size={32} color="white" />
               </View>
-              <Text style={styles.headerTitle}>Sales Dashboard</Text>
+              <Text style={styles.headerTitle}>Sales Dashboard</Text> */}
               
               <View style={styles.timeFrameSelector}>
                 <TouchableOpacity 
