@@ -184,7 +184,7 @@ const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
               <View style={styles.sectionHeader}>
                 <Feather name="bar-chart-2" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>
-                  {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
+                  Your {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
                 </Text>
               </View>
               
