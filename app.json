@@ -1,26 +1,49 @@
 {
   "expo": {
-    "name": "mDuka",
-    "slug": "m-duka",
+    "name": "myShop",
+    "slug": "my-shop",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app_logo.jpg",
     "scheme": "m-duka",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/app_logo.jpg",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.myshop.myshop",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app_logo.jpg",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.myshop.myshop",
+      "versionCode": 1, 
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY" 
+        }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "m-duka"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -30,16 +53,25 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-sqlite",
       [
-        "expo-splash-screen",
+        "expo-notifications",
         {
-          "backgroundColor": "#ffffff"
+          "icon": "./assets/images/notification_icon.png",
+          "color": "#ffffff"
         }
-      ],
-      "expo-sqlite"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "7403c0bf-ecb7-4c99-bdeb-6775f61c1fb5"
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-import { firestore } from "../config/firebase";
+import { firestore, auth } from "../config/firebase";
 import {
   collection,
   query,
@@ -10,6 +10,8 @@ import {
   setDoc,
   where,
   getDocs,
+  increment,
+  arrayUnion,
   Timestamp,
 } from "firebase/firestore";
 import { AuthContext } from "../context/AuthContext";
@@ -171,6 +173,7 @@ export const useSalesService = (): SalesService => {
   return {
     async addNewSale(amount: number): Promise<void> {
       try {
+        // Create the sale object
         const sale: SaleMetadata = {
           id: Date.now().toString(),
           lineItems: [
@@ -185,19 +188,30 @@ export const useSalesService = (): SalesService => {
           status: "pending",
           totalPrice: amount,
         };
-        logMessage("Adding new sale in function add NewSAle");
+        logMessage("Timestamp: " + sale.timestamp);
+        logMessage("Adding new sale in function addNewSale");
+    
+        // Generate date string from timestamp
         const dateStr = sale.timestamp.toISOString().split("T")[0];
-        logMessage("dateStr created in function add NewSAle");
-        const dateDocRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
-        logMessage("That second variable has been created");
-        logMessage("shopID is " + shopId);
-        logMessage("dateDocRef is " + dateDocRef);
-        logMessage("DATEsTR is " + dateStr);
-        const dateDoc = await getDoc(dateDocRef);
-        logMessage("dateDocRef created  in function add NewSAle");
-        if (dateDoc.exists()) {
-          logMessage("dateDoc exists");
-          const currentData = dateDoc.data();
+        logMessage("dateStr created in function addNewSale: " + dateStr);
+    
+        // Reference to the sales subcollection
+        const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
+        logMessage("salesCollectionRef created");
+    
+        // Create a query to find documents where the document ID equals dateStr
+        const q = query(salesCollectionRef, where("__name__", "==", dateStr));
+        logMessage("Query created for dateStr: " + dateStr);
+    
+        // Execute the query
+        const querySnapshot = await getDocs(q);
+        logMessage("Query snapshot retrieved");
+    
+        if (!querySnapshot.empty) {
+          // Document exists
+          logMessage("Document exists for dateStr: " + dateStr);
+          const docSnapshot = querySnapshot.docs[0]; // Get the first (and only) document
+          const currentData = docSnapshot.data();
           const updatedTransactions = [
             ...(currentData.transactions || []),
             {
@@ -205,16 +219,18 @@ export const useSalesService = (): SalesService => {
               timestamp: Timestamp.fromDate(sale.timestamp),
             },
           ];
-          logMessage("preparing to update document created");
-          await updateDoc(dateDocRef, {
+          logMessage("Preparing to update document");
+          await updateDoc(docSnapshot.ref, {
             salesCount: updatedTransactions.length,
             totalRevenue: currentData.totalRevenue + sale.totalPrice,
             transactions: updatedTransactions,
           });
-          logMessage("dateDoc updated");
+          logMessage("Document updated");
         } else {
-          logMessage("dateDoc does not exist");
-          await setDoc(dateDocRef, {
+          // Document does not exist
+          logMessage("Document does not exist for dateStr: " + dateStr);
+          const newDocRef = doc(salesCollectionRef, dateStr);
+          await setDoc(newDocRef, {
             salesCount: 1,
             totalRevenue: sale.totalPrice,
             transactions: [
@@ -224,7 +240,7 @@ export const useSalesService = (): SalesService => {
               },
             ],
           });
-          logMessage("dateDoc created or sth");
+          logMessage("New document created");
         }
       } catch (error) {
         console.error("Error adding new sale:", error);

@@ -330,10 +330,11 @@ export default function Index() {
 
     try {
       await salesService.addNewSale(amount);
+      logMessage("FUnction complete")
 
       Animated.timing(formSlideAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 3300,
         useNativeDriver: true,
       }).start(() => {
         setIsFormVisible(false);
