@@ -52,7 +52,7 @@ const SalesPage: React.FC = () => {
     <ScrollView contentContainerStyle={styles.container}>
       {/* Toggle Button */}
       <View style={styles.toggleContainer}>
-        <ToggleButton.Row onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setState(value )} value={state}>
+        <ToggleButton.Row onValueChange={(value: string) => setState(value as 'daily' | 'weekly' | 'monthly')} value={state}>
           <ToggleButton icon="calendar-day" value="daily" />
           <ToggleButton icon="calendar-week" value="weekly" />
           <ToggleButton icon="calendar-month" value="monthly" />
