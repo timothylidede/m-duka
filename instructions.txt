@@ -22,3 +22,6 @@ npm install lottie-react-native
 
 The command below is for local database operations
 npx expo install expo-sqlite
+
+necessaryforportain index.tsx
+npm install react-native-papers
