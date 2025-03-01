@@ -12,10 +12,12 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import { Stack } from "expo-router";
+
+import * as Haptics from "expo-haptics";
+import { RelativePathString,Stack, useRouter } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+// import * as Haptics from "expo-haptics";
 
 // Define types for our data structures
 interface SalesStats {
@@ -58,6 +60,13 @@ const SalesTrackerPage: React.FC = () => {
     weekly: { total: 8750, count: 87, average: 100.57 },
     monthly: { total: 35400, count: 312, average: 113.46 }
   });
+
+//   const navigation = useNavigation();
+const router = useRouter();
+const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  router.push(nextPagePath);
+};
   
   // Add new sale function
   const handleAddSale = (): void => {
@@ -223,8 +232,8 @@ const SalesTrackerPage: React.FC = () => {
                     Add New Sale
                   </Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.quickActionButton}>
+                {/*the touch opaity navigate to transactions page */}
+                <TouchableOpacity style={styles.quickActionButton} onPress={() => routeInventoryQuickAction("../transactions")}>
                   <View style={styles.quickActionIcon}>
                     <Feather name="list" size={24} color="#2E3192" />
                   </View>
