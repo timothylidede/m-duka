@@ -6,6 +6,7 @@ import {
   getDoc,
   updateDoc,
   orderBy,
+  addDoc,
   limit as limitQuery,
   setDoc,
   where,
@@ -200,16 +201,27 @@ export const useSalesService = (): SalesService => {
         logMessage("Next to run the setDoc");
 
         try {
-          setDoc(dateDocRef, {
-            salesCount: 1,
-            totalRevenue: sale.totalPrice,
-            transactions: [
-              {
-                ...sale,
-                timestamp: Timestamp.fromDate(sale.timestamp),
-              },
-            ],
-          });
+        // addDoc(dateDocRef, {
+        //     salesCount: 1,
+        //     totalRevenue: sale.totalPrice,
+        //     transactions: [
+        //       {
+        //         ...sale,
+        //         timestamp: Timestamp.fromDate(sale.timestamp),
+        //       },
+        //     ],
+        //   });
+        addDoc(collection(firestore, "shops", shopId, "sales", dateStr), 
+        {
+          salesCount: 1,
+          totalRevenue: sale.totalPrice,
+          transactions: [
+            {
+              ...sale,
+              timestamp: Timestamp.fromDate(sale.timestamp),
+            },
+          ],
+        });
         } catch (error) {
           logMessage("This has a problem ngl");
         }
