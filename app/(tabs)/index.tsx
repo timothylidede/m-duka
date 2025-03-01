@@ -1,4 +1,6 @@
 import { Stack } from "expo-router";
+// import { platformIsAndoid, platformIsIphone } from "@/components/platform";
+import { Platform } from "react-native";
 import React, {
   useContext,
   useEffect,
@@ -330,46 +332,69 @@ export default function Index() {
 
     try {
       await salesService.addNewSale(amount);
+      logMessage("Before animation");
 
-      Animated.timing(formSlideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
+      if (Platform.OS === "android") {
+        logMessage("Inside an android so no animation");
+        // try {
+        //   playSuccessSound();
+        // } catch (soundError) {
+        //   console.error("Error playing success sound:", soundError);
+        // }
         setIsFormVisible(false);
+        logMessage("After form visible");
         setIsLoading(false);
+        logMessage("After LoadingSet");
 
         setTransactionComplete(true);
-        successFadeAnim.setValue(0);
-        Animated.timing(successFadeAnim, {
-          toValue: 1,
+        logMessage("After transaction complete");
+      }
+
+      if (Platform.OS === "ios") {
+        logMessage(
+          "Currently inside an iphone so I can run the animation module "
+        );
+        Animated.timing(formSlideAnim, {
+          toValue: 0,
           duration: 300,
           useNativeDriver: true,
-        }).start();
+        }).start(() => {
+          setIsFormVisible(false);
+          setIsLoading(false);
 
-        // Play success sound safely
-        try {
-          playSuccessSound();
-        } catch (soundError) {
-          console.error("Error playing success sound:", soundError);
-        }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        fetchSalesData(timeRange, true);
-
-        setTimeout(() => {
+          setTransactionComplete(true);
+          successFadeAnim.setValue(0);
           Animated.timing(successFadeAnim, {
-            toValue: 0,
-            duration: 500,
+            toValue: 1,
+            duration: 300,
             useNativeDriver: true,
-          }).start(() => {
-            setTransactionComplete(false);
-            setSaleAmountValue(null);
-          });
-        }, 2500);
-      });
+          }).start();
+
+          // Play success sound safely
+          try {
+            playSuccessSound();
+          } catch (soundError) {
+            console.error("Error playing success sound:", soundError);
+          }
+
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          fetchSalesData(timeRange, true);
+
+          setTimeout(() => {
+            Animated.timing(successFadeAnim, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: true,
+            }).start(() => {
+              setTransactionComplete(false);
+              setSaleAmountValue(null);
+            });
+          }, 2500);
+        });
+      }
 
       setSaleAmount("");
+      logMessage("After Sale ammount ");
     } catch (error) {
       console.error("Error in handleDoneClick:", error);
       Alert.alert("Error", "Failed to process sale. Please try again.");

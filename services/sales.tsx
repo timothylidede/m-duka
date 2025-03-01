@@ -185,36 +185,22 @@ export const useSalesService = (): SalesService => {
           status: "pending",
           totalPrice: amount,
         };
+        // There is a runtime logic error in that we are trying to add a new sale to
+        // the sales collection
+        // Solution is to make dateDoc invariant to this wole sequence of computation
+        // or to make it nullable and check for null before using it
         logMessage("Adding new sale in function add NewSAle");
-        const dateStr = sale.timestamp.toISOString().split("T")[0];
+        const dateStr = sale.timestamp.toISOString();
         logMessage("dateStr created in function add NewSAle");
-        const dateDocRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
+        const dateDocRef = doc(firestore, "shops", shopId, "sales", dateStr);
         logMessage("That second variable has been created");
         logMessage("shopID is " + shopId);
-        logMessage("dateDocRef is " + dateDocRef);
+        logMessage("dateDocRef is " + dateDocRef.path);
         logMessage("DATEsTR is " + dateStr);
-        const dateDoc = await getDoc(dateDocRef);
-        logMessage("dateDocRef created  in function add NewSAle");
-        if (dateDoc.exists()) {
-          logMessage("dateDoc exists");
-          const currentData = dateDoc.data();
-          const updatedTransactions = [
-            ...(currentData.transactions || []),
-            {
-              ...sale,
-              timestamp: Timestamp.fromDate(sale.timestamp),
-            },
-          ];
-          logMessage("preparing to update document created");
-          await updateDoc(dateDocRef, {
-            salesCount: updatedTransactions.length,
-            totalRevenue: currentData.totalRevenue + sale.totalPrice,
-            transactions: updatedTransactions,
-          });
-          logMessage("dateDoc updated");
-        } else {
-          logMessage("dateDoc does not exist");
-          await setDoc(dateDocRef, {
+        logMessage("Next to run the setDoc");
+
+        try {
+          setDoc(dateDocRef, {
             salesCount: 1,
             totalRevenue: sale.totalPrice,
             transactions: [
@@ -224,11 +210,47 @@ export const useSalesService = (): SalesService => {
               },
             ],
           });
-          logMessage("dateDoc created or sth");
+        } catch (error) {
+          logMessage("This has a problem ngl");
         }
+        logMessage("the setdoc has been run");
+        // const dateDoc = await getDoc(dateDocRef);
+        // logMessage("dateDocRef created  in function add NewSAle");
+        // if (dateDoc.exists()) {
+        //   logMessage("dateDoc exists");
+        //   const currentData = dateDoc.data();
+        //   const updatedTransactions = [
+        //     ...(currentData.transactions || []),
+        //     {
+        //       ...sale,
+        //       timestamp: Timestamp.fromDate(sale.timestamp),
+        //     },
+        //   ];
+        //   logMessage("preparing to update document created");
+        //   await updateDoc(dateDocRef, {
+        //     salesCount: updatedTransactions.length,
+        //     totalRevenue: currentData.totalRevenue + sale.totalPrice,
+        //     transactions: updatedTransactions,
+        //   });
+        //   logMessage("dateDoc updated");
+        // } else {
+        //   logMessage("dateDoc does not exist");
+        //   await setDoc(dateDocRef, {
+        //     salesCount: 1,
+        //     totalRevenue: sale.totalPrice,
+        //     transactions: [
+        //       {
+        //         ...sale,
+        //         timestamp: Timestamp.fromDate(sale.timestamp),
+        //       },
+        //     ],
+        //   });
+        //   logMessage("dateDoc created or sth");
+        // }
+        logMessage("After the comment ");
       } catch (error) {
         console.error("Error adding new sale:", error);
-        throw error;
+        // throw error;
       }
     },
 
