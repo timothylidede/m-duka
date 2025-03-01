@@ -179,41 +179,7 @@ const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
           </LinearGradient>
           
           <View style={styles.content}>
-            {/* Sales Summary Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Feather name="bar-chart-2" size={24} color="#2E3192" />
-                <Text style={styles.sectionTitle}>
-                  Here is your {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
-                </Text>
-              </View>
-              
-              <View style={styles.statsGrid}>
-                <View style={styles.statsCard}>
-                  <Feather name="dollar-sign" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>
-                    ${salesData[timeFrame].total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </Text>
-                  <Text style={styles.statsLabel}>Total Sales</Text>
-                </View>
-                
-                <View style={styles.statsCard}>
-                  <Feather name="shopping-cart" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>
-                    {salesData[timeFrame].count}
-                  </Text>
-                  <Text style={styles.statsLabel}>Number of Sales</Text>
-                </View>
-                
-                <View style={[styles.statsCard, styles.fullWidthCard]}>
-                  <Feather name="trending-up" size={24} color="#2E3192" />
-                  <Text style={styles.statsValue}>
-                    ${salesData[timeFrame].average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </Text>
-                  <Text style={styles.statsLabel}>Average Sale Value</Text>
-                </View>
-              </View>
-            </View>
+
             
             {/* Quick Actions Section */}
             <View style={styles.section}>
@@ -261,6 +227,42 @@ const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
                     Sales Reports
                   </Text>
                 </TouchableOpacity>
+              </View>
+            </View>
+
+                        {/* Sales Summary Section */}
+                        <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="bar-chart-2" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>
+                  Here is your {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
+                </Text>
+              </View>
+              
+              <View style={styles.statsGrid}>
+                <View style={styles.statsCard}>
+                  <Feather name="dollar-sign" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </Text>
+                  <Text style={styles.statsLabel}>Total Sales</Text>
+                </View>
+                
+                <View style={styles.statsCard}>
+                  <Feather name="shopping-cart" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    {salesData[timeFrame].count}
+                  </Text>
+                  <Text style={styles.statsLabel}>Number of Sales</Text>
+                </View>
+                
+                <View style={[styles.statsCard, styles.fullWidthCard]}>
+                  <Feather name="trending-up" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </Text>
+                  <Text style={styles.statsLabel}>Average Sale Value</Text>
+                </View>
               </View>
             </View>
             
