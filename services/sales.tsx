@@ -6,6 +6,7 @@ import {
   getDoc,
   updateDoc,
   orderBy,
+  addDoc,
   limit as limitQuery,
   setDoc,
   where,
@@ -242,9 +243,44 @@ export const useSalesService = (): SalesService => {
           });
           logMessage("New document created");
         }
+        logMessage("the setdoc has been run");
+        // const dateDoc = await getDoc(dateDocRef);
+        // logMessage("dateDocRef created  in function add NewSAle");
+        // if (dateDoc.exists()) {
+        //   logMessage("dateDoc exists");
+        //   const currentData = dateDoc.data();
+        //   const updatedTransactions = [
+        //     ...(currentData.transactions || []),
+        //     {
+        //       ...sale,
+        //       timestamp: Timestamp.fromDate(sale.timestamp),
+        //     },
+        //   ];
+        //   logMessage("preparing to update document created");
+        //   await updateDoc(dateDocRef, {
+        //     salesCount: updatedTransactions.length,
+        //     totalRevenue: currentData.totalRevenue + sale.totalPrice,
+        //     transactions: updatedTransactions,
+        //   });
+        //   logMessage("dateDoc updated");
+        // } else {
+        //   logMessage("dateDoc does not exist");
+        //   await setDoc(dateDocRef, {
+        //     salesCount: 1,
+        //     totalRevenue: sale.totalPrice,
+        //     transactions: [
+        //       {
+        //         ...sale,
+        //         timestamp: Timestamp.fromDate(sale.timestamp),
+        //       },
+        //     ],
+        //   });
+        //   logMessage("dateDoc created or sth");
+        // }
+        logMessage("After the comment ");
       } catch (error) {
         console.error("Error adding new sale:", error);
-        throw error;
+        // throw error;
       }
     },
 

@@ -1,929 +1,754 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
+import React, { useState, useEffect, useContext } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Modal, 
   TextInput,
-  Animated,
-  Alert,
+  Dimensions,
   StatusBar,
-  ScrollView,
-  ActivityIndicator,
+  SafeAreaView,
+  Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { RelativePathString, Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import LottieView from 'lottie-react-native';
-import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSalesService } from '../../services/sales';
-import { AuthContext } from '../../context/AuthContext';
-import LineChartComponent from '@/components/lineChartComponent';
-import { logMessage } from '@/components/debugging';
-import { Audio } from 'expo-av';
-import { Stack } from 'expo-router';
+import { useSalesService, SalesData } from '../../services/sales'; // Import sales service
+import { AuthContext } from '../../context/AuthContext'; // For shopId
 
-// Import animations
-const loadingAnimation = require('../../assets/animations/loading-animation.json');
-const successAnimation = require('../../assets/animations/success-animation.json');
+const { width } = Dimensions.get('window');
 
-// Define SalesData type
-interface SalesData {
-  totalRevenue: number;
-  salesCount: number;
-}
-
-// TimeRangeButton Component
-interface TimeRangeButtonProps {
-  title: string;
-  isActive: boolean;
-  onPress: () => void;
-}
-
-const TimeRangeButton: React.FC<TimeRangeButtonProps> = ({ title, isActive, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[styles.dateButton, isActive && styles.activeDateButton]}
-  >
-    <Text style={[styles.dateButtonText, isActive && styles.activeDateButtonText]}>
-      {title}
-    </Text>
-  </TouchableOpacity>
-);
-
-// LoadingOverlay Component
-const LoadingOverlay = () => (
-  <View style={styles.loadingOverlay}>
-    <View style={styles.loadingContainer}>
-      <LottieView
-        source={loadingAnimation}
-        autoPlay
-        loop
-        style={styles.lottieAnimation}
-      />
-      <Text style={styles.loadingText}>Processing Sale...</Text>
-    </View>
-  </View>
-);
-
-// RecordNewSaleButton Component
-const RecordNewSaleButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <TouchableOpacity
-    style={styles.addSaleButton}
-    onPress={onPress}
-    activeOpacity={0.9}
-  >
-    <LinearGradient
-      colors={["#2E3192", "#1BFFFF"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.buttonGradient}
-    >
-      <Feather name="plus-circle" size={24} color="white" />
-      <Text style={styles.addSaleText}>Record New Sale</Text>
-    </LinearGradient>
-  </TouchableOpacity>
-);
-
-// SaleForm Component
-const SaleForm: React.FC<{
-  formSlideAnim: Animated.Value;
-  saleAmount: string;
-  setSaleAmount: React.Dispatch<React.SetStateAction<string>>;
-  handleDoneClick: () => void;
-  setIsFormVisible: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({
-  formSlideAnim,
-  saleAmount,
-  setSaleAmount,
-  handleDoneClick,
-  setIsFormVisible,
-}) => {
-  const cancelForm = () => {
-    Animated.timing(formSlideAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      setIsFormVisible(false);
-      setSaleAmount("");
-    });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  return (
-    <Animated.View
-      style={[
-        styles.formContainer,
-        {
-          transform: [
-            {
-              translateY: formSlideAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0],
-              }),
-            },
-          ],
-          opacity: formSlideAnim,
-        },
-      ]}
-    >
-      <Text style={styles.formLabel}>Enter Sale Amount</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={saleAmount}
-        onChangeText={setSaleAmount}
-        placeholder="KES 0.00"
-        placeholderTextColor="#94A3B8"
-        autoFocus
-      />
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.cancelButton]}
-          onPress={cancelForm}
-        >
-          <Text style={[styles.buttonText, styles.cancelText]}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.confirmButton]}
-          onPress={handleDoneClick}
-        >
-          <Text style={styles.buttonText}>Complete Sale</Text>
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
-  );
-};
-
-// Main SaleComponent
-interface SaleComponentProps {
-  isLoading: boolean;
-  isFormVisible: boolean;
-  formSlideAnim: Animated.Value;
-  saleAmount: string;
-  setSaleAmount: React.Dispatch<React.SetStateAction<string>>;
-  handleSalePress: () => void;
-  handleDoneClick: () => void;
-  setIsFormVisible: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-const SaleComponent: React.FC<SaleComponentProps> = ({
-  isLoading,
-  isFormVisible,
-  formSlideAnim,
-  saleAmount,
-  setSaleAmount,
-  handleSalePress,
-  handleDoneClick,
-  setIsFormVisible,
-}) => {
-  return (
-    <>
-      {isLoading ? (
-        <LoadingOverlay />
-      ) : !isFormVisible ? (
-        <RecordNewSaleButton onPress={handleSalePress} />
-      ) : (
-        <SaleForm
-          formSlideAnim={formSlideAnim}
-          saleAmount={saleAmount}
-          setSaleAmount={setSaleAmount}
-          handleDoneClick={handleDoneClick}
-          setIsFormVisible={setIsFormVisible}
-        />
-      )}
-    </>
-  );
-};
-
-export default function Index() {
-  // Authentication state
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  // UI state
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [saleAmount, setSaleAmount] = useState("");
-  const [transactionComplete, setTransactionComplete] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(false);
-  const [timeRange, setTimeRange] = useState<"today" | "week" | "month">("today");
-
-  // Sales data state
-  const [salesData, setSalesData] = useState({
-    totalRevenue: 0,
-    salesCount: 0,
-    averageSale: 0,
+const SalesTrackerPage: React.FC = () => {
+  // State management with proper typing
+  const [timeFrame, setTimeFrame] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [newSale, setNewSale] = useState({
+    amount: '',
+    product: '',
+    customer: '',
+    date: new Date().toISOString().split('T')[0],
+  });
+  
+  // Sales data state fetched from backend
+  const [salesData, setSalesData] = useState<{
+    daily: { totalRevenue: number; salesCount: number; average: number };
+    weekly: { totalRevenue: number; salesCount: number; average: number };
+    monthly: { totalRevenue: number; salesCount: number; average: number };
+  }>({
+    daily: { totalRevenue: 0, salesCount: 0, average: 0 },
+    weekly: { totalRevenue: 0, salesCount: 0, average: 0 },
+    monthly: { totalRevenue: 0, salesCount: 0, average: 0 },
   });
 
-  // Track previous sales data for animations
-  const [prevSalesData, setPrevSalesData] = useState({
-    totalRevenue: 0,
-    salesCount: 0,
-    averageSale: 0,
-  });
+  const router = useRouter();
+  const salesService = useSalesService(); // Initialize sales service
+  const { shopData, isInitialized } = useContext(AuthContext); // Get shopId from AuthContext
 
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const formSlideAnim = useRef(new Animated.Value(0)).current;
-  const successFadeAnim = useRef(new Animated.Value(0)).current;
-  const revenueChangeAnim = useRef(new Animated.Value(0)).current;
-  const countChangeAnim = useRef(new Animated.Value(0)).current;
-
-  // Audio
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-
-  // Context
-  const authContext = useContext(AuthContext);
-  const shopData = authContext ? authContext.shopData : null;
-
-  // Sales service
-  const salesService = useSalesService();
-
-  const scrollViewRef = useRef<ScrollView>(null);
-  const successAnimationRef = useRef<LottieView>(null);
-
-  const [saleAmountValue, setSaleAmountValue] = useState<number | null>(null);
-
-  // Load and play sound function
-  const playCashRegisterSound = async () => {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        require("../(tabs)/assets/cash-register.mp3")
-      );
-      setSound(sound);
-      await sound.playAsync();
-    } catch (error) {
-      console.error("Error playing cash register sound:", error);
-    }
-  };
-
-  // Play a success sound
-  const playSuccessSound = async () => {
-    try {
-      const { sound } = await Audio.Sound.createAsync(
-        require("../(tabs)/assets/cash-register.mp3")
-      );
-      await sound.playAsync();
-      sound.unloadAsync();
-    } catch (error) {
-      console.error("Error playing success sound:", error);
-    }
-  };
-
-  // Cleanup sound when component unmounts
+  // Fetch sales data when component mounts or timeframe changes
   useEffect(() => {
-    return sound
-      ? () => {
-          sound.unloadAsync();
-        }
-      : undefined;
-  }, [sound]);
+    if (!isInitialized || !shopData) return;
 
-  interface AnimatedNumberProps {
-    value: number;
-    style: any;
-    prefix?: string;
-  }
-
-  const AnimatedNumber: React.FC<AnimatedNumberProps> = ({ value, style, prefix = "" }) => {
-    const animatedValue = useRef(new Animated.Value(0)).current;
-    const [displayValue, setDisplayValue] = useState(0);
-
-    useEffect(() => {
-      Animated.timing(animatedValue, {
-        toValue: value,
-        duration: 1000,
-        useNativeDriver: false,
-      }).start();
-
-      const listener = animatedValue.addListener(({ value }) => {
-        setDisplayValue(Math.floor(value));
-      });
-
-      return () => {
-        animatedValue.removeListener(listener);
-      };
-    }, [value, animatedValue]);
-
-    return (
-      <Text style={style}>
-        {prefix}
-        {displayValue.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
-      </Text>
-    );
-  };
-
-  // Fetch sales data based on time range
-  const fetchSalesData = async (range: "today" | "week" | "month" = timeRange, isUpdate = false) => {
-    setIsLoadingData(!isUpdate);
-    try {
-      let data: SalesData;
-      switch (range) {
-        case "week":
-          data = await salesService.getWeeklySalesData();
-          break;
-        case "month":
-          data = await salesService.getMonthlySalesData();
-          break;
-        default:
-          data = await salesService.getTodaysSalesData();
-      }
-
-      if (isUpdate) {
-        setPrevSalesData({ ...salesData });
-      }
-
-      const newData = {
-        totalRevenue: data.totalRevenue || 0,
-        salesCount: data.salesCount || 0,
-        averageSale: data.salesCount ? data.totalRevenue / data.salesCount : 0,
-      };
-
-      setSalesData(newData);
-
-      if (isUpdate) {
-        revenueChangeAnim.setValue(0);
-        countChangeAnim.setValue(0);
-
-        Animated.parallel([
-          Animated.timing(revenueChangeAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(countChangeAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-    } catch (error) {
-      console.error("Error fetching sales data:", error);
-      Alert.alert("Error", "Failed to fetch sales data");
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
-  // Check authentication and fetch initial data
-  useEffect(() => {
-    const checkAuth = async () => {
+    const fetchData = async () => {
       try {
-        const loggedInUser = await AsyncStorage.getItem("loggedInUser");
-        const lastOpenedTime = await AsyncStorage.getItem("lastOpenedTime");
-        const now = Date.now();
-        const ONE_HOUR = 60 * 60 * 1000;
+        const [dailyData, weeklyData, monthlyData] = await Promise.all([
+          salesService.getTodaysSalesData(),
+          salesService.getWeeklySalesData(),
+          salesService.getMonthlySalesData(),
+        ]);
 
-        if (
-          !loggedInUser ||
-          !lastOpenedTime ||
-          now - parseInt(lastOpenedTime, 10) > ONE_HOUR
-        ) {
-          router.replace("/login");
-        } else {
-          setIsLoggedIn(true);
-          fetchSalesData();
-        }
+        setSalesData({
+          daily: {
+            totalRevenue: dailyData.totalRevenue,
+            salesCount: dailyData.salesCount,
+            average: dailyData.salesCount ? dailyData.totalRevenue / dailyData.salesCount : 0,
+          },
+          weekly: {
+            totalRevenue: weeklyData.totalRevenue,
+            salesCount: weeklyData.salesCount,
+            average: weeklyData.salesCount ? weeklyData.totalRevenue / weeklyData.salesCount : 0,
+          },
+          monthly: {
+            totalRevenue: monthlyData.totalRevenue,
+            salesCount: monthlyData.salesCount,
+            average: monthlyData.salesCount ? monthlyData.totalRevenue / monthlyData.salesCount : 0,
+          },
+        });
       } catch (error) {
-        console.error("Error checking auth:", error);
-        router.replace("/login");
-      } finally {
-        setAuthChecked(true);
+        console.error('Error fetching sales data:', error);
+        Alert.alert('Error', 'Failed to load sales data');
       }
     };
 
-    checkAuth();
-  }, []);
+    fetchData();
+  }, [isInitialized, shopData, salesService]);
 
-  // Initial animations
-  useEffect(() => {
-    if (isLoggedIn) {
-      Animated.parallel([
-        Animated.spring(fadeAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [isLoggedIn]);
-
-  const handleTimeRangeChange = (range: "today" | "week" | "month") => {
-    setTimeRange(range);
-    fetchSalesData(range);
+  // Navigate with haptic feedback
+  const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(nextPagePath);
   };
 
-  const handleSalePress = async () => {
-    setIsFormVisible(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await playCashRegisterSound();
-    Animated.spring(formSlideAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
+  // Add new sale using sales service
+  const handleAddSale = async (): Promise<void> => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  };
-
-  const handleDoneClick = async () => {
-    if (!saleAmount || isNaN(Number(saleAmount))) {
-      Alert.alert("Invalid Input", "Please enter a valid sale amount.");
+    // Validation
+    if (!newSale.amount || !newSale.product || !newSale.customer) {
+      Alert.alert('Missing Information', 'Please fill all required fields');
       return;
     }
 
-    setIsLoading(true);
-    const amount = parseFloat(saleAmount);
-    setSaleAmountValue(amount);
+    const amount = parseFloat(newSale.amount);
+    if (isNaN(amount)) {
+      Alert.alert('Invalid Amount', 'Please enter a valid number');
+      return;
+    }
 
     try {
-      logMessage("Adding new sale...");
-      logMessage(`Amount: ${amount}`);
-      //await salesService.addNewSale(amount);
-      logMessage("Function complete");
+      await salesService.addNewSale(amount); // Use sales service to add sale
 
-      Animated.timing(formSlideAnim, {
-        toValue: 0,
-        duration: 3300,
-        useNativeDriver: true,
-      }).start(() => {
-        setIsFormVisible(false);
-        setIsLoading(false);
+      // Fetch updated data after adding sale
+      const [dailyData, weeklyData, monthlyData] = await Promise.all([
+        salesService.getTodaysSalesData(),
+        salesService.getWeeklySalesData(),
+        salesService.getMonthlySalesData(),
+      ]);
 
-        setTransactionComplete(true);
-        successFadeAnim.setValue(0);
-        Animated.timing(successFadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-
-        try {
-          playSuccessSound();
-        } catch (soundError) {
-          console.error("Error playing success sound:", soundError);
-        }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        fetchSalesData(timeRange, true);
-
-        setTimeout(() => {
-          Animated.timing(successFadeAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }).start(() => {
-            setTransactionComplete(false);
-            setSaleAmountValue(null);
-          });
-        }, 2500);
+      setSalesData({
+        daily: {
+          totalRevenue: dailyData.totalRevenue,
+          salesCount: dailyData.salesCount,
+          average: dailyData.salesCount ? dailyData.totalRevenue / dailyData.salesCount : 0,
+        },
+        weekly: {
+          totalRevenue: weeklyData.totalRevenue,
+          salesCount: weeklyData.salesCount,
+          average: weeklyData.salesCount ? weeklyData.totalRevenue / weeklyData.salesCount : 0,
+        },
+        monthly: {
+          totalRevenue: monthlyData.totalRevenue,
+          salesCount: monthlyData.salesCount,
+          average: monthlyData.salesCount ? monthlyData.totalRevenue / monthlyData.salesCount : 0,
+        },
       });
 
-      setSaleAmount("");
+      // Reset form and close modal
+      setNewSale({
+        amount: '',
+        product: '',
+        customer: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+      setModalVisible(false);
     } catch (error) {
-      console.error("Error in handleDoneClick:", error);
-      Alert.alert("Error", "Failed to process sale. Please try again.");
-      setIsLoading(false);
+      console.error('Error adding sale:', error);
+      Alert.alert('Error', 'Failed to add sale. Please try again.');
     }
   };
 
-  if (!authContext?.isInitialized) {
+  // Handle time frame selection
+  const handleTimeFrameChange = (newTimeFrame: 'daily' | 'weekly' | 'monthly') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTimeFrame(newTimeFrame);
+  };
+
+  // Open modal with haptic feedback
+  const openAddSaleModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setModalVisible(true);
+  };
+
+  if (!isInitialized || !shopData) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2E3192" />
+        <Text>Loading...</Text>
       </View>
     );
   }
-
-  if (!authChecked || !isLoggedIn) return null;
-
-  const lastUpdated = new Date().toLocaleString();
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: "Sales Dashboard",
-          headerStyle: { backgroundColor: "#2E3192" },
-          headerTintColor: "#fff",
-          headerTitleStyle: { fontWeight: "600" },
+          title: 'Sales Tracker',
+          headerStyle: { backgroundColor: '#2E3192' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '600' },
           headerShadowVisible: false,
         }}
       />
       <StatusBar barStyle="light-content" />
 
-      <ScrollView ref={scrollViewRef} style={styles.container}>
-        <View style={styles.timeRangeContainer}>
-          {["today", "week", "month"].map((range) => (
-            <TimeRangeButton
-              key={range}
-              title={range === "today" ? "Today" : range === "week" ? "This Week" : "This Month"}
-              isActive={timeRange === range}
-              onPress={() => handleTimeRangeChange(range as "today" | "week" | "month")}
-            />
-          ))}
-        </View>
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <LinearGradient
+            colors={["#2E3192", "#1BFFFF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.iconContainer}>
+                <Feather name="dollar-sign" size={32} color="white" />
+              </View>
+              <Text style={styles.headerTitle}>Sales Dashboard</Text>
 
-        <Animated.View style={{ opacity: fadeAnim }}>
-          {isLoadingData ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2E3192" />
-              <Text style={styles.loadingText}>Fetching Data...</Text>
+              <View style={styles.timeFrameSelector}>
+                <TouchableOpacity 
+                  style={[styles.timeFrameButton, timeFrame === 'daily' && styles.activeTimeFrame]}
+                  onPress={() => handleTimeFrameChange('daily')}
+                >
+                  <Text style={[styles.timeFrameText, timeFrame === 'daily' && styles.activeTimeFrameText]}>Daily</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.timeFrameButton, timeFrame === 'weekly' && styles.activeTimeFrame]}
+                  onPress={() => handleTimeFrameChange('weekly')}
+                >
+                  <Text style={[styles.timeFrameText, timeFrame === 'weekly' && styles.activeTimeFrameText]}>Weekly</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.timeFrameButton, timeFrame === 'monthly' && styles.activeTimeFrame]}
+                  onPress={() => handleTimeFrameChange('monthly')}
+                >
+                  <Text style={[styles.timeFrameText, timeFrame === 'monthly' && styles.activeTimeFrameText]}>Monthly</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          ) : (
-            <>
-              <TouchableOpacity activeOpacity={0.9} onPress={() => router.push("/transactions")}>
+          </LinearGradient>
+
+          <View style={styles.content}>
+            {/* Sales Summary Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="bar-chart-2" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>
+                  {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
+                </Text>
+              </View>
+
+              <View style={styles.statsGrid}>
+                <View style={styles.statsCard}>
+                  <Feather name="dollar-sign" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                  <Text style={styles.statsLabel}>Total Sales</Text>
+                </View>
+
+                <View style={styles.statsCard}>
+                  <Feather name="shopping-cart" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    {salesData[timeFrame].salesCount}
+                  </Text>
+                  <Text style={styles.statsLabel}>Number of Sales</Text>
+                </View>
+
+                <View style={[styles.statsCard, styles.fullWidthCard]}>
+                  <Feather name="trending-up" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].average.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                  <Text style={styles.statsLabel}>Average Sale Value</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Actions Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="zap" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Quick Actions</Text>
+              </View>
+
+              <View style={styles.quickActionsGrid}>
+                <TouchableOpacity 
+                  style={[styles.quickActionButton, styles.highlightedAction]}
+                  onPress={openAddSaleModal}
+                >
+                  <View style={[styles.quickActionIcon, styles.highlightedActionIcon]}>
+                    <Feather name="plus-circle" size={24} color="white" />
+                  </View>
+                  <Text style={[styles.quickActionText, styles.highlightedActionText]}>
+                    Add New Sale
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickActionButton} 
+                  onPress={() => routeInventoryQuickAction('../transactions')}
+                >
+                  <View style={styles.quickActionIcon}>
+                    <Feather name="list" size={24} color="#2E3192" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    View Recent Sales
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <View style={styles.quickActionIcon}>
+                    <Feather name="users" size={24} color="#2E3192" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    Customer Analysis
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <View style={styles.quickActionIcon}>
+                    <Feather name="pie-chart" size={24} color="#2E3192" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    Sales Reports
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Top Performers Section (Static for now) */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="award" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Top Performers</Text>
+              </View>
+
+              <View style={styles.performanceRow}>
+                <View style={styles.performanceIcon}>
+                  <Feather name="package" size={20} color="#64748B" />
+                </View>
+                <View style={styles.performanceContent}>
+                  <Text style={styles.performanceLabel}>Top Product</Text>
+                  <Text style={styles.performanceValue}>Watermelon Juice (500ml)</Text>
+                  <Text style={styles.performanceSubtext}>$420 in sales this {timeFrame.replace('ly', '')}</Text>
+                </View>
+              </View>
+
+              <View style={styles.performanceRow}>
+                <View style={styles.performanceIcon}>
+                  <Feather name="user" size={20} color="#64748B" />
+                </View>
+                <View style={styles.performanceContent}>
+                  <Text style={styles.performanceLabel}>Top Customer</Text>
+                  <Text style={styles.performanceValue}>John Muthaiga</Text>
+                  <Text style={styles.performanceSubtext}>5 purchases this {timeFrame.replace('ly', '')}</Text>
+                </View>
+              </View>
+
+              <View style={styles.performanceRow}>
+                <View style={styles.performanceIcon}>
+                  <Feather name="clock" size={20} color="#64748B" />
+                </View>
+                <View style={styles.performanceContent}>
+                  <Text style={styles.performanceLabel}>Best Selling Time</Text>
+                  <Text style={styles.performanceValue}>2:00 PM - 4:00 PM</Text>
+                  <Text style={styles.performanceSubtext}>32% of {timeFrame} sales</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.lastUpdate}>
+              Last updated: {new Date().toLocaleTimeString()}
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* Add New Sale Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Sale</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Feather name="x" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Amount ($)</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="dollar-sign" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter amount"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  keyboardType="decimal-pad"
+                  value={newSale.amount}
+                  onChangeText={(text) => setNewSale({ ...newSale, amount: text })}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Product Name</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="package" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter product name"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  value={newSale.product}
+                  onChangeText={(text) => setNewSale({ ...newSale, product: text })}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Customer</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="user" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter customer name"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  value={newSale.customer}
+                  onChangeText={(text) => setNewSale({ ...newSale, customer: text })}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Date</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="calendar" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  value={newSale.date}
+                  onChangeText={(text) => setNewSale({ ...newSale, date: text })}
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleAddSale}>
                 <LinearGradient
                   colors={["#2E3192", "#1BFFFF"]}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.cardContainer}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveButton}
                 >
-                  <View style={styles.cardContent}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.cardIconContainer}>
-                        <Feather name="trending-up" size={24} color="white" />
-                      </View>
-                      <Text style={styles.dateText}>
-                        {new Date().toLocaleDateString()}
-                      </Text>
-                    </View>
-
-                    <View style={styles.balanceContainer}>
-                      <Text style={styles.balanceLabel}>
-                        {timeRange === "today" ? "Today's" : timeRange === "week" ? "This Week's" : "This Month's"} Revenue:
-                      </Text>
-
-                      <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-                        <Text style={[styles.currency]}>KES </Text>
-
-                        <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
-                          <AnimatedNumber value={salesData.totalRevenue} style={styles.balanceAmount} />
-                        </Animated.View>
-
-                        {prevSalesData.totalRevenue > 0 && salesData.totalRevenue > prevSalesData.totalRevenue && (
-                          <Animated.View
-                            style={[
-                              styles.changeIndicator,
-                              {
-                                opacity: revenueChangeAnim,
-                                transform: [
-                                  {
-                                    translateY: revenueChangeAnim.interpolate({
-                                      inputRange: [0, 1],
-                                      outputRange: [0, -10],
-                                    }),
-                                  },
-                                ],
-                              },
-                            ]}
-                          >
-                            <Feather name="arrow-up" size={12} color="#4ade80" />
-                            <Text style={styles.changeText}>
-                              +{(salesData.totalRevenue - prevSalesData.totalRevenue).toFixed(2)}
-                            </Text>
-                          </Animated.View>
-                        )}
-                      </View>
-                    </View>
-
-                    <View style={styles.cardFooter}>
-                      <View style={styles.statsContainer}>
-                        <Text style={styles.statsLabel}>Total Sales</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center" }}>
-                          <AnimatedNumber value={salesData.salesCount} style={styles.statsValue} />
-
-                          {prevSalesData.salesCount > 0 && salesData.salesCount > prevSalesData.salesCount && (
-                            <Animated.View style={[styles.countChangeIndicator, { opacity: countChangeAnim }]}>
-                              <Feather name="arrow-up" size={8} color="#4ade80" />
-                              <Text style={styles.countChangeText}>+{salesData.salesCount - prevSalesData.salesCount}</Text>
-                            </Animated.View>
-                          )}
-                        </View>
-                      </View>
-
-                      <View style={styles.divider} />
-
-                      <View style={styles.statsContainer}>
-                        <Text style={styles.statsLabel}>Avg. Sale</Text>
-                        <Text style={styles.statsValue}>
-                          KES {Math.round(salesData.averageSale).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                  <Text style={styles.saveButtonText}>Save Sale</Text>
                 </LinearGradient>
               </TouchableOpacity>
-
-              {transactionComplete && saleAmountValue !== null && (
-                <Animated.View style={[styles.successToast, { opacity: successFadeAnim }]}>
-                  <LottieView
-                    ref={successAnimationRef}
-                    source={successAnimation}
-                    autoPlay={false}
-                    loop={false}
-                    style={styles.toastAnimation}
-                  />
-                  <Text style={styles.successToastText}>Sale of KES {saleAmountValue.toFixed(2)} Added!</Text>
-                </Animated.View>
-              )}
-
-              <SaleComponent
-                isLoading={isLoading}
-                isFormVisible={isFormVisible}
-                formSlideAnim={formSlideAnim}
-                saleAmount={saleAmount}
-                setSaleAmount={setSaleAmount}
-                handleSalePress={handleSalePress}
-                handleDoneClick={handleDoneClick}
-                setIsFormVisible={setIsFormVisible}
-              />
-
-              <View style={[styles.lineChartContainer, { display: isLoadingData ? "none" : "flex" }]}>
-                <LineChartComponent timeRange={timeRange} />
-              </View>
-
-              <Text style={styles.lastUpdate}>Last updated: {lastUpdated}</Text>
-            </>
-          )}
-        </Animated.View>
-      </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
-}
+};
 
-// Styles
+// Styles (unchanged from original)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  timeRangeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  dateButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-  },
-  activeDateButton: {
-    backgroundColor: '#2E3192',
-  },
-  dateButtonText: {
-    color: '#64748B',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeDateButtonText: {
-    color: '#fff',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    zIndex: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  lottieAnimation: {
-    width: 120,
-    height: 120,
-  },
-  loadingText: {
-    color: '#2E3192',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-  },
-  addSaleButton: {
-    marginHorizontal: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-  },
-  buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  addSaleText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
-  formContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    margin: 20,
+  header: {
     padding: 24,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
     shadowRadius: 12,
+    elevation: 4,
   },
-  formLabel: {
-    fontSize: 18,
-    color: '#1E293B',
+  headerContent: {
+    alignItems: "center",
+    marginVertical: 16,
+  },
+  iconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 20,
+  },
+  timeFrameSelector: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 25,
+    padding: 4,
+    width: "90%",
+  },
+  timeFrameButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 25,
+  },
+  activeTimeFrame: {
+    backgroundColor: "#fff",
+  },
+  timeFrameText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  activeTimeFrameText: {
+    color: "#2E3192",
+  },
+  content: {
+    padding: 16,
+  },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 16,
-    fontWeight: '600',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 12,
+    color: "#1E293B",
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  statsCard: {
+    width: "47%",
+    backgroundColor: "#F8FAFC",
     padding: 16,
     borderRadius: 16,
-    fontSize: 24,
-    textAlign: 'center',
-    color: '#1E293B',
-    marginBottom: 24,
-    backgroundColor: '#F8FAFC',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#F1F5F9',
-  },
-  confirmButton: {
-    backgroundColor: '#2E3192',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  cancelText: {
-    color: '#64748B',
-  },
-  cardContainer: {
-    margin: 20,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  cardContent: {
-    padding: 20,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  cardIconContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 10,
-    borderRadius: 12,
-  },
-  dateText: {
-    color: '#fff',
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  balanceContainer: {
-    marginBottom: 20,
-  },
-  balanceLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
     marginBottom: 8,
   },
-  currency: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  balanceAmount: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  changeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  changeText: {
-    color: '#4ade80',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statsContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statsLabel: {
-    color: '#fff',
-    fontSize: 14,
-    opacity: 0.8,
-    marginBottom: 4,
+  fullWidthCard: {
+    width: "100%",
   },
   statsValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#2E3192",
+    marginTop: 8,
+    marginBottom: 4,
   },
-  countChangeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 4,
+  statsLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
   },
-  countChangeText: {
-    color: '#4ade80',
-    fontSize: 12,
-    fontWeight: '600',
+  quickActionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
   },
-  divider: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  successToast: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  quickActionButton: {
+    width: "47%",
+    backgroundColor: "#F8FAFC",
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    zIndex: 100,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 12,
   },
-  toastAnimation: {
+  highlightedAction: {
+    backgroundColor: "#2E3192",
+  },
+  quickActionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(46, 49, 146, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  highlightedActionIcon: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E293B",
+    textAlign: "center",
+  },
+  highlightedActionText: {
+    color: "white",
+  },
+  performanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  performanceIcon: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
-  successToastText: {
-    color: '#1E293B',
-    fontSize: 16,
-    fontWeight: '600',
+  performanceContent: {
+    flex: 1,
   },
-  lineChartContainer: {
-    margin: 20,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
+  performanceLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    marginBottom: 4,
+  },
+  performanceValue: {
+    fontSize: 16,
+    color: "#1E293B",
+    fontWeight: "500",
+  },
+  performanceSubtext: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
   },
   lastUpdate: {
-    textAlign: 'center',
-    color: '#64748B',
+    textAlign: "center",
+    color: "#64748B",
     fontSize: 12,
-    marginBottom: 20,
+    marginBottom: 60,
+    marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  inputIcon: {
+    paddingHorizontal: 12,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#1E293B",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 24,
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
+  },
+  cancelButtonText: {
+    color: "#64748B",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  saveButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  saveButtonText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
+
+export default SalesTrackerPage;
