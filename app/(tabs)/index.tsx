@@ -1,11 +1,4 @@
-import { Stack } from "expo-router";
-import React, {
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-} from "react";
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -17,20 +10,23 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import LottieView from "lottie-react-native";
-import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useSalesService } from "../../services/sales";
-import { AuthContext } from "../../context/AuthContext";
-import LineChartComponent from "@/components/lineChartComponent";
-import DebuggingAlert from "@/components/debugging";
-import { logMessage } from "@/components/debugging";
-import { Audio } from "expo-av";
-import { SQLiteDatabase, useSQLiteContext } from "expo-sqlite";
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import LottieView from 'lottie-react-native';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSalesService } from '../../services/sales';
+import { AuthContext } from '../../context/AuthContext';
+import LineChartComponent from '@/components/lineChartComponent';
+import { logMessage } from '@/components/debugging';
+import { Audio } from 'expo-av';
+import { Stack } from 'expo-router';
+
+// Import animations
+const loadingAnimation = require('../../assets/animations/loading-animation.json');
+const successAnimation = require('../../assets/animations/success-animation.json');
 
 // Define SalesData type
 interface SalesData {
@@ -38,33 +34,169 @@ interface SalesData {
   salesCount: number;
 }
 
-// Import animations
-const loadingAnimation = require("../../assets/animations/loading-animation.json");
-const successAnimation = require("../../assets/animations/success-animation.json");
-
-// Define TimeRangeButton props type
+// TimeRangeButton Component
 interface TimeRangeButtonProps {
   title: string;
   isActive: boolean;
   onPress: () => void;
 }
 
-const TimeRangeButton: React.FC<TimeRangeButtonProps> = ({
-  title,
-  isActive,
-  onPress,
-}) => (
+const TimeRangeButton: React.FC<TimeRangeButtonProps> = ({ title, isActive, onPress }) => (
   <TouchableOpacity
     onPress={onPress}
     style={[styles.dateButton, isActive && styles.activeDateButton]}
   >
-    <Text
-      style={[styles.dateButtonText, isActive && styles.activeDateButtonText]}
-    >
+    <Text style={[styles.dateButtonText, isActive && styles.activeDateButtonText]}>
       {title}
     </Text>
   </TouchableOpacity>
 );
+
+// LoadingOverlay Component
+const LoadingOverlay = () => (
+  <View style={styles.loadingOverlay}>
+    <View style={styles.loadingContainer}>
+      <LottieView
+        source={loadingAnimation}
+        autoPlay
+        loop
+        style={styles.lottieAnimation}
+      />
+      <Text style={styles.loadingText}>Processing Sale...</Text>
+    </View>
+  </View>
+);
+
+// RecordNewSaleButton Component
+const RecordNewSaleButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
+  <TouchableOpacity
+    style={styles.addSaleButton}
+    onPress={onPress}
+    activeOpacity={0.9}
+  >
+    <LinearGradient
+      colors={["#2E3192", "#1BFFFF"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.buttonGradient}
+    >
+      <Feather name="plus-circle" size={24} color="white" />
+      <Text style={styles.addSaleText}>Record New Sale</Text>
+    </LinearGradient>
+  </TouchableOpacity>
+);
+
+// SaleForm Component
+const SaleForm: React.FC<{
+  formSlideAnim: Animated.Value;
+  saleAmount: string;
+  setSaleAmount: React.Dispatch<React.SetStateAction<string>>;
+  handleDoneClick: () => void;
+  setIsFormVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}> = ({
+  formSlideAnim,
+  saleAmount,
+  setSaleAmount,
+  handleDoneClick,
+  setIsFormVisible,
+}) => {
+  const cancelForm = () => {
+    Animated.timing(formSlideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsFormVisible(false);
+      setSaleAmount("");
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.formContainer,
+        {
+          transform: [
+            {
+              translateY: formSlideAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0],
+              }),
+            },
+          ],
+          opacity: formSlideAnim,
+        },
+      ]}
+    >
+      <Text style={styles.formLabel}>Enter Sale Amount</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="numeric"
+        value={saleAmount}
+        onChangeText={setSaleAmount}
+        placeholder="KES 0.00"
+        placeholderTextColor="#94A3B8"
+        autoFocus
+      />
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.cancelButton]}
+          onPress={cancelForm}
+        >
+          <Text style={[styles.buttonText, styles.cancelText]}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.confirmButton]}
+          onPress={handleDoneClick}
+        >
+          <Text style={styles.buttonText}>Complete Sale</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+};
+
+// Main SaleComponent
+interface SaleComponentProps {
+  isLoading: boolean;
+  isFormVisible: boolean;
+  formSlideAnim: Animated.Value;
+  saleAmount: string;
+  setSaleAmount: React.Dispatch<React.SetStateAction<string>>;
+  handleSalePress: () => void;
+  handleDoneClick: () => void;
+  setIsFormVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const SaleComponent: React.FC<SaleComponentProps> = ({
+  isLoading,
+  isFormVisible,
+  formSlideAnim,
+  saleAmount,
+  setSaleAmount,
+  handleSalePress,
+  handleDoneClick,
+  setIsFormVisible,
+}) => {
+  return (
+    <>
+      {isLoading ? (
+        <LoadingOverlay />
+      ) : !isFormVisible ? (
+        <RecordNewSaleButton onPress={handleSalePress} />
+      ) : (
+        <SaleForm
+          formSlideAnim={formSlideAnim}
+          saleAmount={saleAmount}
+          setSaleAmount={setSaleAmount}
+          handleDoneClick={handleDoneClick}
+          setIsFormVisible={setIsFormVisible}
+        />
+      )}
+    </>
+  );
+};
 
 export default function Index() {
   // Authentication state
@@ -77,9 +209,7 @@ export default function Index() {
   const [transactionComplete, setTransactionComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [timeRange, setTimeRange] = useState<"today" | "week" | "month">(
-    "today"
-  );
+  const [timeRange, setTimeRange] = useState<"today" | "week" | "month">("today");
 
   // Sales data state
   const [salesData, setSalesData] = useState({
@@ -112,8 +242,6 @@ export default function Index() {
 
   // Sales service
   const salesService = useSalesService();
-  //datbase
-  const database = useSQLiteContext();
 
   const scrollViewRef = useRef<ScrollView>(null);
   const successAnimationRef = useRef<LottieView>(null);
@@ -137,10 +265,9 @@ export default function Index() {
   const playSuccessSound = async () => {
     try {
       const { sound } = await Audio.Sound.createAsync(
-        require("../(tabs)/assets/cash-register.mp3") // Make sure this asset exists
+        require("../(tabs)/assets/cash-register.mp3")
       );
       await sound.playAsync();
-      // Unload after playing
       sound.unloadAsync();
     } catch (error) {
       console.error("Error playing success sound:", error);
@@ -162,11 +289,7 @@ export default function Index() {
     prefix?: string;
   }
 
-  const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
-    value,
-    style,
-    prefix = "",
-  }) => {
+  const AnimatedNumber: React.FC<AnimatedNumberProps> = ({ value, style, prefix = "" }) => {
     const animatedValue = useRef(new Animated.Value(0)).current;
     const [displayValue, setDisplayValue] = useState(0);
 
@@ -198,10 +321,7 @@ export default function Index() {
   };
 
   // Fetch sales data based on time range
-  const fetchSalesData = async (
-    range: "today" | "week" | "month" = timeRange,
-    isUpdate = false
-  ) => {
+  const fetchSalesData = async (range: "today" | "week" | "month" = timeRange, isUpdate = false) => {
     setIsLoadingData(!isUpdate);
     try {
       let data: SalesData;
@@ -216,7 +336,6 @@ export default function Index() {
           data = await salesService.getTodaysSalesData();
       }
 
-      // Store previous data for animations if this is an update
       if (isUpdate) {
         setPrevSalesData({ ...salesData });
       }
@@ -229,7 +348,6 @@ export default function Index() {
 
       setSalesData(newData);
 
-      // Animate the change if this is an update
       if (isUpdate) {
         revenueChangeAnim.setValue(0);
         countChangeAnim.setValue(0);
@@ -309,7 +427,7 @@ export default function Index() {
   const handleSalePress = async () => {
     setIsFormVisible(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await playCashRegisterSound(); // Play sound when button is pressed
+    await playCashRegisterSound();
     Animated.spring(formSlideAnim, {
       toValue: 1,
       useNativeDriver: true,
@@ -329,8 +447,10 @@ export default function Index() {
     setSaleAmountValue(amount);
 
     try {
-      await salesService.addNewSale(amount);
-      logMessage("FUnction complete")
+      logMessage("Adding new sale...");
+      logMessage(`Amount: ${amount}`);
+      //await salesService.addNewSale(amount);
+      logMessage("Function complete");
 
       Animated.timing(formSlideAnim, {
         toValue: 0,
@@ -348,7 +468,6 @@ export default function Index() {
           useNativeDriver: true,
         }).start();
 
-        // Play success sound safely
         try {
           playSuccessSound();
         } catch (soundError) {
@@ -377,78 +496,6 @@ export default function Index() {
       setIsLoading(false);
     }
   };
-  // const handleDoneClick = async () => {
-  //   if (!saleAmount || isNaN(Number(saleAmount))) {
-  //     Alert.alert("Invalid Input", "Please enter a valid sale amount.");
-  //     logMessage("Invalid Input");
-  //     return;
-  //   }
-
-  //   setIsLoading(true);
-  //   logMessage("Before add sale ");
-
-  //   // Store the sale amount in a temporary state variable
-  //   const amount: number = parseFloat(saleAmount);
-  //   setSaleAmountValue(amount);
-  //   logMessage("Just before try block ");
-  //   try {
-  //     // Process sale
-  //     logMessage("Before add sale function");
-  //     await salesService.addNewSale(amount);
-  //     logMessage("After add sale function");
-
-  //     // Animate form exit
-  //     Animated.timing(formSlideAnim, {
-  //       toValue: 0,
-  //       duration: 300,
-  //       useNativeDriver: true,
-  //     }).start(() => {
-  //       setIsFormVisible(false);
-  //       setIsLoading(false); // Reset loading state here after form animation completes
-
-  //       // Show success indicator
-  //       setTransactionComplete(true);
-  //       successFadeAnim.setValue(0);
-  //       Animated.timing(successFadeAnim, {
-  //         toValue: 1,
-  //         duration: 300,
-  //         useNativeDriver: true,
-  //       }).start();
-  //       logMessage("After success fade animation");
-
-  //       // Play success animation and sound
-  //       if (successAnimationRef.current) {
-  //         successAnimationRef.current.play();
-  //       }
-  //       logMessage("After play animation ");
-  //       playSuccessSound();
-  //       // Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  //       logMessage("After play success sound ");
-
-  //       // Update data with animation
-  //       fetchSalesData(timeRange, true);
-  //       logMessage("After fetch sales data ");
-
-  //       // Reset and hide success after animation completes
-  //       setTimeout(() => {
-  //         Animated.timing(successFadeAnim, {
-  //           toValue: 0,
-  //           duration: 500,
-  //           useNativeDriver: true,
-  //         }).start(() => {
-  //           setTransactionComplete(false);
-  //           setSaleAmountValue(null); // Reset the temporary sale amount value
-  //         });
-  //       }, 2500);
-  //     });
-  //     logMessage("After fetch sales data ");
-  //     // Reset the sale amount input
-  //     setSaleAmount("");
-  //   } catch (error) {
-  //     Alert.alert("Error", "Failed to process sale. Please try again.");
-  //     setIsLoading(false); // Make sure to reset loading state here too in case of error
-  //   }
-  // };
 
   if (!authContext?.isInitialized) {
     return (
@@ -467,13 +514,9 @@ export default function Index() {
       <Stack.Screen
         options={{
           title: "Sales Dashboard",
-          headerStyle: {
-            backgroundColor: "#2E3192",
-          },
+          headerStyle: { backgroundColor: "#2E3192" },
           headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "600",
-          },
+          headerTitleStyle: { fontWeight: "600" },
           headerShadowVisible: false,
         }}
       />
@@ -484,17 +527,9 @@ export default function Index() {
           {["today", "week", "month"].map((range) => (
             <TimeRangeButton
               key={range}
-              title={
-                range === "today"
-                  ? "Today"
-                  : range === "week"
-                  ? "This Week"
-                  : "This Month"
-              }
+              title={range === "today" ? "Today" : range === "week" ? "This Week" : "This Month"}
               isActive={timeRange === range}
-              onPress={() =>
-                handleTimeRangeChange(range as "today" | "week" | "month")
-              }
+              onPress={() => handleTimeRangeChange(range as "today" | "week" | "month")}
             />
           ))}
         </View>
@@ -507,10 +542,7 @@ export default function Index() {
             </View>
           ) : (
             <>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => router.push("/transactions")}
-              >
+              <TouchableOpacity activeOpacity={0.9} onPress={() => router.push("/transactions")}>
                 <LinearGradient
                   colors={["#2E3192", "#1BFFFF"]}
                   start={{ x: 0, y: 0 }}
@@ -529,102 +561,54 @@ export default function Index() {
 
                     <View style={styles.balanceContainer}>
                       <Text style={styles.balanceLabel}>
-                        {timeRange === "today"
-                          ? "Today's"
-                          : timeRange === "week"
-                          ? "This Week's"
-                          : "This Month's"}{" "}
-                        Revenue:
+                        {timeRange === "today" ? "Today's" : timeRange === "week" ? "This Week's" : "This Month's"} Revenue:
                       </Text>
 
-                      <View
-                        style={{ flexDirection: "row", alignItems: "flex-end" }}
-                      >
+                      <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
                         <Text style={[styles.currency]}>KES </Text>
 
-                        {/* Animated revenue value */}
-                        <Animated.View
-                          style={[{ transform: [{ scale: scaleAnim }] }]}
-                        >
-                          <AnimatedNumber
-                            value={salesData.totalRevenue}
-                            style={styles.balanceAmount}
-                          />
+                        <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+                          <AnimatedNumber value={salesData.totalRevenue} style={styles.balanceAmount} />
                         </Animated.View>
 
-                        {/* Change indicator for revenue */}
-                        {prevSalesData.totalRevenue > 0 &&
-                          salesData.totalRevenue >
-                            prevSalesData.totalRevenue && (
-                            <Animated.View
-                              style={[
-                                styles.changeIndicator,
-                                {
-                                  opacity: revenueChangeAnim,
-                                  transform: [
-                                    {
-                                      translateY: revenueChangeAnim.interpolate(
-                                        {
-                                          inputRange: [0, 1],
-                                          outputRange: [0, -10],
-                                        }
-                                      ),
-                                    },
-                                  ],
-                                },
-                              ]}
-                            >
-                              <Feather
-                                name="arrow-up"
-                                size={12}
-                                color="#4ade80"
-                              />
-                              <Text style={styles.changeText}>
-                                +
-                                {(
-                                  salesData.totalRevenue -
-                                  prevSalesData.totalRevenue
-                                ).toFixed(2)}
-                              </Text>
-                            </Animated.View>
-                          )}
+                        {prevSalesData.totalRevenue > 0 && salesData.totalRevenue > prevSalesData.totalRevenue && (
+                          <Animated.View
+                            style={[
+                              styles.changeIndicator,
+                              {
+                                opacity: revenueChangeAnim,
+                                transform: [
+                                  {
+                                    translateY: revenueChangeAnim.interpolate({
+                                      inputRange: [0, 1],
+                                      outputRange: [0, -10],
+                                    }),
+                                  },
+                                ],
+                              },
+                            ]}
+                          >
+                            <Feather name="arrow-up" size={12} color="#4ade80" />
+                            <Text style={styles.changeText}>
+                              +{(salesData.totalRevenue - prevSalesData.totalRevenue).toFixed(2)}
+                            </Text>
+                          </Animated.View>
+                        )}
                       </View>
                     </View>
 
                     <View style={styles.cardFooter}>
                       <View style={styles.statsContainer}>
                         <Text style={styles.statsLabel}>Total Sales</Text>
-                        <View
-                          style={{ flexDirection: "row", alignItems: "center" }}
-                        >
-                          <AnimatedNumber
-                            value={salesData.salesCount}
-                            style={styles.statsValue}
-                          />
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                          <AnimatedNumber value={salesData.salesCount} style={styles.statsValue} />
 
-                          {/* Change indicator for count */}
-                          {prevSalesData.salesCount > 0 &&
-                            salesData.salesCount > prevSalesData.salesCount && (
-                              <Animated.View
-                                style={[
-                                  styles.countChangeIndicator,
-                                  {
-                                    opacity: countChangeAnim,
-                                  },
-                                ]}
-                              >
-                                <Feather
-                                  name="arrow-up"
-                                  size={8}
-                                  color="#4ade80"
-                                />
-                                <Text style={styles.countChangeText}>
-                                  +
-                                  {salesData.salesCount -
-                                    prevSalesData.salesCount}
-                                </Text>
-                              </Animated.View>
-                            )}
+                          {prevSalesData.salesCount > 0 && salesData.salesCount > prevSalesData.salesCount && (
+                            <Animated.View style={[styles.countChangeIndicator, { opacity: countChangeAnim }]}>
+                              <Feather name="arrow-up" size={8} color="#4ade80" />
+                              <Text style={styles.countChangeText}>+{salesData.salesCount - prevSalesData.salesCount}</Text>
+                            </Animated.View>
+                          )}
                         </View>
                       </View>
 
@@ -633,14 +617,7 @@ export default function Index() {
                       <View style={styles.statsContainer}>
                         <Text style={styles.statsLabel}>Avg. Sale</Text>
                         <Text style={styles.statsValue}>
-                          KES{" "}
-                          {Math.round(salesData.averageSale).toLocaleString(
-                            undefined,
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }
-                          )}
+                          KES {Math.round(salesData.averageSale).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
                       </View>
                     </View>
@@ -648,11 +625,8 @@ export default function Index() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* Floating success notification */}
               {transactionComplete && saleAmountValue !== null && (
-                <Animated.View
-                  style={[styles.successToast, { opacity: successFadeAnim }]}
-                >
+                <Animated.View style={[styles.successToast, { opacity: successFadeAnim }]}>
                   <LottieView
                     ref={successAnimationRef}
                     source={successAnimation}
@@ -660,102 +634,22 @@ export default function Index() {
                     loop={false}
                     style={styles.toastAnimation}
                   />
-                  <Text style={styles.successToastText}>
-                    Sale of KES {saleAmountValue.toFixed(2)} Added!
-                  </Text>
+                  <Text style={styles.successToastText}>Sale of KES {saleAmountValue.toFixed(2)} Added!</Text>
                 </Animated.View>
               )}
 
-              {isLoading ? (
-                <View style={styles.loadingOverlay}>
-                  <View style={styles.loadingContainer}>
-                    <LottieView
-                      source={loadingAnimation}
-                      autoPlay
-                      loop
-                      style={styles.lottieAnimation}
-                    />
-                    <Text style={styles.loadingText}>Processing Sale...</Text>
-                  </View>
-                </View>
-              ) : !isFormVisible ? (
-                <TouchableOpacity
-                  style={styles.addSaleButton}
-                  onPress={handleSalePress}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={["#2E3192", "#1BFFFF"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.buttonGradient}
-                  >
-                    <Feather name="plus-circle" size={24} color="white" />
-                    <Text style={styles.addSaleText}>Record New Sale</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ) : (
-                <Animated.View
-                  style={[
-                    styles.formContainer,
-                    {
-                      transform: [
-                        {
-                          translateY: formSlideAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [50, 0],
-                          }),
-                        },
-                      ],
-                      opacity: formSlideAnim,
-                    },
-                  ]}
-                >
-                  <Text style={styles.formLabel}>Enter Sale Amount</Text>
-                  <TextInput
-                    style={styles.input}
-                    keyboardType="numeric"
-                    value={saleAmount}
-                    onChangeText={setSaleAmount}
-                    placeholder="KES 0.00"
-                    placeholderTextColor="#94A3B8"
-                    autoFocus
-                  />
-                  <View style={styles.buttonContainer}>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.cancelButton]}
-                      onPress={() => {
-                        Animated.timing(formSlideAnim, {
-                          toValue: 0,
-                          duration: 300,
-                          useNativeDriver: true,
-                        }).start(() => {
-                          setIsFormVisible(false);
-                          setSaleAmount("");
-                        });
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      }}
-                    >
-                      <Text style={[styles.buttonText, styles.cancelText]}>
-                        Cancel
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.confirmButton]}
-                      onPress={handleDoneClick}
-                    >
-                      <Text style={styles.buttonText}>Complete Sale</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              )}
+              <SaleComponent
+                isLoading={isLoading}
+                isFormVisible={isFormVisible}
+                formSlideAnim={formSlideAnim}
+                saleAmount={saleAmount}
+                setSaleAmount={setSaleAmount}
+                handleSalePress={handleSalePress}
+                handleDoneClick={handleDoneClick}
+                setIsFormVisible={setIsFormVisible}
+              />
 
-              <View
-                style={[
-                  styles.lineChartContainer,
-                  { display: isLoadingData ? "none" : "flex" },
-                ]}
-              >
+              <View style={[styles.lineChartContainer, { display: isLoadingData ? "none" : "flex" }]}>
                 <LineChartComponent timeRange={timeRange} />
               </View>
 
@@ -768,260 +662,241 @@ export default function Index() {
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: '#F8FAFC',
   },
   timeRangeContainer: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    margin: 20,
-    borderRadius: 16,
-    padding: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   dateButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
   },
   activeDateButton: {
-    backgroundColor: "#2E3192",
+    backgroundColor: '#2E3192',
   },
   dateButtonText: {
-    color: "#64748B",
+    color: '#64748B',
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   activeDateButtonText: {
-    color: "#fff",
-  },
-  cardContainer: {
-    borderRadius: 24,
-    margin: 20,
-    padding: 24,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-  },
-  cardContent: {
-    height: 220,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  cardIconContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dateText: {
-    color: "#fff",
-    fontSize: 14,
-    opacity: 0.9,
-    fontWeight: "500",
-  },
-  balanceContainer: {
-    marginTop: 32,
-  },
-  balanceLabel: {
-    color: "#fff",
-    fontSize: 16,
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  balanceAmount: {
-    color: "#fff",
-    fontSize: 36,
-    fontWeight: "bold",
-  },
-  currency: {
-    fontSize: 20,
-    opacity: 0.9,
-    color: "#fff",
-    fontWeight: "normal",
-  },
-  cardFooter: {
-    flexDirection: "row",
-    marginTop: 32,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-  },
-  statsContainer: {
-    flex: 1,
-  },
-  statsLabel: {
-    color: "#fff",
-    opacity: 0.8,
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  statsValue: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  divider: {
-    width: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: 16,
-  },
-  addSaleButton: {
-    marginHorizontal: 20,
-    borderRadius: 16,
-    overflow: "hidden",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-  },
-  buttonGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  addSaleText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 12,
-  },
-  formContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    margin: 20,
-    padding: 24,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-  },
-  formLabel: {
-    fontSize: 18,
-    color: "#1E293B",
-    marginBottom: 16,
-    fontWeight: "600",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    padding: 16,
-    borderRadius: 16,
-    fontSize: 24,
-    textAlign: "center",
-    color: "#1E293B",
-    marginBottom: 24,
-    backgroundColor: "#F8FAFC",
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-  },
-  cancelButton: {
-    backgroundColor: "#F1F5F9",
-  },
-  confirmButton: {
-    backgroundColor: "#2E3192",
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  cancelText: {
-    color: "#64748B",
-  },
-  loadingContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
+    color: '#fff',
   },
   loadingOverlay: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     zIndex: 10,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  loadingText: {
-    color: "#2E3192",
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 12,
-  },
-  successContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
   },
   lottieAnimation: {
     width: 120,
     height: 120,
   },
-  successText: {
-    color: "#2E3192",
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 16,
+  loadingText: {
+    color: '#2E3192',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
   },
-  lineChartContainer: {
-    backgroundColor: "white",
-    margin: 20,
-    padding: 20,
-    borderRadius: 24,
+  addSaleButton: {
+    marginHorizontal: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
     elevation: 4,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
   },
-  lastUpdate: {
-    textAlign: "center",
-    color: "#64748B",
-    padding: 20,
-    fontSize: 12,
-    marginBottom: 100,
+  buttonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
   },
-  // New styles for enhanced UX
+  addSaleText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  formContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    margin: 20,
+    padding: 24,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+  },
+  formLabel: {
+    fontSize: 18,
+    color: '#1E293B',
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    borderRadius: 16,
+    fontSize: 24,
+    textAlign: 'center',
+    color: '#1E293B',
+    marginBottom: 24,
+    backgroundColor: '#F8FAFC',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F1F5F9',
+  },
+  confirmButton: {
+    backgroundColor: '#2E3192',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  cancelText: {
+    color: '#64748B',
+  },
+  cardContainer: {
+    margin: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  cardContent: {
+    padding: 20,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cardIconContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 10,
+    borderRadius: 12,
+  },
+  dateText: {
+    color: '#fff',
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  balanceContainer: {
+    marginBottom: 20,
+  },
+  balanceLabel: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  currency: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  balanceAmount: {
+    color: '#fff',
+    fontSize: 36,
+    fontWeight: '700',
+  },
+  changeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  changeText: {
+    color: '#4ade80',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statsContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statsLabel: {
+    color: '#fff',
+    fontSize: 14,
+    opacity: 0.8,
+    marginBottom: 4,
+  },
+  statsValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  countChangeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  countChangeText: {
+    color: '#4ade80',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
   successToast: {
-    position: "absolute",
+    position: 'absolute',
     top: 20,
     left: 20,
     right: 20,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
     zIndex: 100,
   },
   toastAnimation: {
@@ -1030,40 +905,25 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   successToastText: {
+    color: '#1E293B',
     fontSize: 16,
-    fontWeight: "600",
-    color: "#2E3192",
-    flex: 1,
+    fontWeight: '600',
   },
-  changeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(74, 222, 128, 0.2)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-    marginBottom: 6,
+  lineChartContainer: {
+    margin: 20,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
   },
-  changeText: {
-    color: "#4ade80",
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 4,
-  },
-  countChangeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(74, 222, 128, 0.2)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 6,
-  },
-  countChangeText: {
-    color: "#4ade80",
-    fontSize: 10,
-    fontWeight: "600",
-    marginLeft: 2,
+  lastUpdate: {
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: 12,
+    marginBottom: 20,
   },
 });
