@@ -9,10 +9,13 @@ import {
   TextInput,
   Dimensions,
   StatusBar,
-  Platform,
-//   BlurView
+  SafeAreaView,
+  Alert,
 } from 'react-native';
+import { Stack } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 // Define types for our data structures
 interface SalesStats {
@@ -58,9 +61,12 @@ const SalesTrackerPage: React.FC = () => {
   
   // Add new sale function
   const handleAddSale = (): void => {
+    // Trigger haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     // Validation
     if (!newSale.amount || !newSale.product || !newSale.customer) {
-      alert('Please fill all fields');
+      Alert.alert('Missing Information', 'Please fill all required fields');
       return;
     }
     
@@ -69,7 +75,7 @@ const SalesTrackerPage: React.FC = () => {
     const amount = parseFloat(newSale.amount);
     
     if (isNaN(amount)) {
-      alert('Please enter a valid amount');
+      Alert.alert('Invalid Amount', 'Please enter a valid number');
       return;
     }
     
@@ -93,421 +99,592 @@ const SalesTrackerPage: React.FC = () => {
     setModalVisible(false);
   };
   
-  // Render the toggle buttons with glassmorphic design
-  const renderToggle = (): JSX.Element => (
-    <View style={styles.toggleOuterContainer}>
-      <View style={styles.toggleContainer}>
-        <TouchableOpacity 
-          style={[styles.toggleButton, timeFrame === 'daily' && styles.toggleActive]}
-          onPress={() => setTimeFrame('daily')}
-        >
-          <Text style={[styles.toggleText, timeFrame === 'daily' && styles.toggleActiveText]}>Daily</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.toggleButton, timeFrame === 'weekly' && styles.toggleActive]}
-          onPress={() => setTimeFrame('weekly')}
-        >
-          <Text style={[styles.toggleText, timeFrame === 'weekly' && styles.toggleActiveText]}>Weekly</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.toggleButton, timeFrame === 'monthly' && styles.toggleActive]}
-          onPress={() => setTimeFrame('monthly')}
-        >
-          <Text style={[styles.toggleText, timeFrame === 'monthly' && styles.toggleActiveText]}>Monthly</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-  
-  // Render the sales data card with glassmorphic design
-  const renderSalesCard = (): JSX.Element => {
-    const data: SalesStats = salesData[timeFrame];
-    return (
-      <View style={styles.cardOuterContainer}>
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.4)', 'rgba(255, 255, 255, 0.2)']}
-          style={styles.cardContainer}
-        >
-          <Text style={styles.cardTitle}>{timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary</Text>
-          
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <LinearGradient
-                colors={['#36d1dc', '#5b86e5']}
-                style={styles.statIconContainer}
-              >
-                <Text style={styles.statIcon}>$</Text>
-              </LinearGradient>
-              <Text style={styles.statValue}>${data.total.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Total Sales</Text>
-            </View>
-            
-            <View style={styles.statItem}>
-              <LinearGradient
-                colors={['#ff9966', '#ff5e62']}
-                style={styles.statIconContainer}
-              >
-                <Text style={styles.statIcon}>#</Text>
-              </LinearGradient>
-              <Text style={styles.statValue}>{data.count}</Text>
-              <Text style={styles.statLabel}>Number of Sales</Text>
-            </View>
-            
-            <View style={styles.statItem}>
-              <LinearGradient
-                colors={['#56ab2f', '#a8e063']}
-                style={styles.statIconContainer}
-              >
-                <Text style={styles.statIcon}>≈</Text>
-              </LinearGradient>
-              <Text style={styles.statValue}>${data.average.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Average Sale</Text>
-            </View>
-          </View>
-        </LinearGradient>
-      </View>
-    );
+  // Handle time frame selection
+  const handleTimeFrameChange = (newTimeFrame: TimeFrameType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTimeFrame(newTimeFrame);
   };
-  
-  // Render the "Add Sale" button with modern design
-  const renderAddButton = (): JSX.Element => (
-    <TouchableOpacity 
-      onPress={() => setModalVisible(true)}
-    >
-      <LinearGradient
-        colors={['#4776E6', '#8E54E9']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.addButton}
-      >
-        <Text style={styles.addButtonText}>+ Add New Sale</Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-  
-  // Render the add sale modal with glassmorphic design
-  const renderModal = (): JSX.Element => (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={modalVisible}
-      onRequestClose={() => setModalVisible(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 0.6)']}
-          style={styles.modalContent}
-        >
-          <Text style={styles.modalTitle}>Add New Sale</Text>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Amount ($)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter amount"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-              keyboardType="decimal-pad"
-              value={newSale.amount}
-              onChangeText={(text: string) => setNewSale({...newSale, amount: text})}
-            />
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Product Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter product name"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-              value={newSale.product}
-              onChangeText={(text: string) => setNewSale({...newSale, product: text})}
-            />
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Customer</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter customer name"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-              value={newSale.customer}
-              onChangeText={(text: string) => setNewSale({...newSale, customer: text})}
-            />
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Date</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="rgba(0, 0, 0, 0.3)"
-              value={newSale.date}
-              onChangeText={(text: string) => setNewSale({...newSale, date: text})}
-            />
-          </View>
-          
-          <View style={styles.modalButtons}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity onPress={handleAddSale}>
-              <LinearGradient
-                colors={['#4776E6', '#8E54E9']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.saveButton}
-              >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      </View>
-    </Modal>
-  );
+
+  // Open modal with haptic feedback
+  const openAddSaleModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setModalVisible(true);
+  };
   
   return (
     <>
-      <StatusBar barStyle="dark-content" />
-      <LinearGradient
-        colors={['#ECE9E6', '#FFFFFF']}
-        style={styles.background}
-      >
-        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-          <Text style={styles.header}>Sales Tracker</Text>
-          {renderToggle()}
-          {renderSalesCard()}
-          {renderAddButton()}
-          {renderModal()}
+      <Stack.Screen
+        options={{
+          title: "Sales Tracker",
+          headerStyle: {
+            backgroundColor: "#2E3192",
+          },
+          headerTintColor: "#fff",
+          headerTitleStyle: {
+            fontWeight: "600",
+          },
+          headerShadowVisible: false,
+        }}
+      />
+      <StatusBar barStyle="light-content" />
+
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <LinearGradient
+            colors={["#2E3192", "#1BFFFF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.iconContainer}>
+                <Feather name="dollar-sign" size={32} color="white" />
+              </View>
+              <Text style={styles.headerTitle}>Sales Dashboard</Text>
+              
+              <View style={styles.timeFrameSelector}>
+                <TouchableOpacity 
+                  style={[styles.timeFrameButton, timeFrame === 'daily' && styles.activeTimeFrame]}
+                  onPress={() => handleTimeFrameChange('daily')}
+                >
+                  <Text style={[styles.timeFrameText, timeFrame === 'daily' && styles.activeTimeFrameText]}>Daily</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.timeFrameButton, timeFrame === 'weekly' && styles.activeTimeFrame]}
+                  onPress={() => handleTimeFrameChange('weekly')}
+                >
+                  <Text style={[styles.timeFrameText, timeFrame === 'weekly' && styles.activeTimeFrameText]}>Weekly</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.timeFrameButton, timeFrame === 'monthly' && styles.activeTimeFrame]}
+                  onPress={() => handleTimeFrameChange('monthly')}
+                >
+                  <Text style={[styles.timeFrameText, timeFrame === 'monthly' && styles.activeTimeFrameText]}>Monthly</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </LinearGradient>
+          
+          <View style={styles.content}>
+            {/* Sales Summary Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="bar-chart-2" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>
+                  {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
+                </Text>
+              </View>
+              
+              <View style={styles.statsGrid}>
+                <View style={styles.statsCard}>
+                  <Feather name="dollar-sign" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </Text>
+                  <Text style={styles.statsLabel}>Total Sales</Text>
+                </View>
+                
+                <View style={styles.statsCard}>
+                  <Feather name="shopping-cart" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    {salesData[timeFrame].count}
+                  </Text>
+                  <Text style={styles.statsLabel}>Number of Sales</Text>
+                </View>
+                
+                <View style={[styles.statsCard, styles.fullWidthCard]}>
+                  <Feather name="trending-up" size={24} color="#2E3192" />
+                  <Text style={styles.statsValue}>
+                    ${salesData[timeFrame].average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </Text>
+                  <Text style={styles.statsLabel}>Average Sale Value</Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Quick Actions Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="zap" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Quick Actions</Text>
+              </View>
+              
+              <View style={styles.quickActionsGrid}>
+                <TouchableOpacity 
+                  style={[styles.quickActionButton, styles.highlightedAction]}
+                  onPress={openAddSaleModal}
+                >
+                  <View style={[styles.quickActionIcon, styles.highlightedActionIcon]}>
+                    <Feather name="plus-circle" size={24} color="white" />
+                  </View>
+                  <Text style={[styles.quickActionText, styles.highlightedActionText]}>
+                    Add New Sale
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <View style={styles.quickActionIcon}>
+                    <Feather name="list" size={24} color="#2E3192" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    View Recent Sales
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <View style={styles.quickActionIcon}>
+                    <Feather name="users" size={24} color="#2E3192" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    Customer Analysis
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.quickActionButton}>
+                  <View style={styles.quickActionIcon}>
+                    <Feather name="pie-chart" size={24} color="#2E3192" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    Sales Reports
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Top Performers Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Feather name="award" size={24} color="#2E3192" />
+                <Text style={styles.sectionTitle}>Top Performers</Text>
+              </View>
+              
+              <View style={styles.performanceRow}>
+                <View style={styles.performanceIcon}>
+                  <Feather name="package" size={20} color="#64748B" />
+                </View>
+                <View style={styles.performanceContent}>
+                  <Text style={styles.performanceLabel}>Top Product</Text>
+                  <Text style={styles.performanceValue}>Watermelon Juice (500ml)</Text>
+                  <Text style={styles.performanceSubtext}>$420 in sales this {timeFrame.replace('ly', '')}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.performanceRow}>
+                <View style={styles.performanceIcon}>
+                  <Feather name="user" size={20} color="#64748B" />
+                </View>
+                <View style={styles.performanceContent}>
+                  <Text style={styles.performanceLabel}>Top Customer</Text>
+                  <Text style={styles.performanceValue}>John Muthaiga</Text>
+                  <Text style={styles.performanceSubtext}>5 purchases this {timeFrame.replace('ly', '')}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.performanceRow}>
+                <View style={styles.performanceIcon}>
+                  <Feather name="clock" size={20} color="#64748B" />
+                </View>
+                <View style={styles.performanceContent}>
+                  <Text style={styles.performanceLabel}>Best Selling Time</Text>
+                  <Text style={styles.performanceValue}>2:00 PM - 4:00 PM</Text>
+                  <Text style={styles.performanceSubtext}>32% of {timeFrame} sales</Text>
+                </View>
+              </View>
+            </View>
+            
+            <Text style={styles.lastUpdate}>
+              Last updated: Today, 2:30 PM
+            </Text>
+          </View>
         </ScrollView>
-      </LinearGradient>
+      </SafeAreaView>
+      
+      {/* Add New Sale Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Sale</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Feather name="x" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Amount ($)</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="dollar-sign" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter amount"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  keyboardType="decimal-pad"
+                  value={newSale.amount}
+                  onChangeText={(text: string) => setNewSale({...newSale, amount: text})}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Product Name</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="package" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter product name"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  value={newSale.product}
+                  onChangeText={(text: string) => setNewSale({...newSale, product: text})}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Customer</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="user" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter customer name"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  value={newSale.customer}
+                  onChangeText={(text: string) => setNewSale({...newSale, customer: text})}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Date</Text>
+              <View style={styles.inputWrapper}>
+                <Feather name="calendar" size={20} color="#64748B" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                  value={newSale.date}
+                  onChangeText={(text: string) => setNewSale({...newSale, date: text})}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity onPress={handleAddSale}>
+                <LinearGradient
+                  colors={["#2E3192", "#1BFFFF"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.saveButton}
+                >
+                  <Text style={styles.saveButtonText}>Save Sale</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
 
-// Modern glassmorphic styles
+// Redesigned styles to match profile page
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
+    backgroundColor: "#F8FAFC",
   },
   header: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginVertical: 20,
-    color: '#1A1A2E',
-    textAlign: 'center',
+    padding: 24,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  toggleOuterContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 8,
+  headerContent: {
+    alignItems: "center",
+    marginVertical: 16,
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: width - 40,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+  iconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
   },
-  toggleButton: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 20,
+  },
+  timeFrameSelector: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 25,
+    padding: 4,
+    width: "90%",
+  },
+  timeFrameButton: {
     flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 25,
   },
-  toggleActive: {
-    backgroundColor: 'rgba(71, 118, 230, 0.9)',
+  activeTimeFrame: {
+    backgroundColor: "#fff",
   },
-  toggleText: {
-    fontWeight: '600',
-    color: '#1A1A2E',
+  timeFrameText: {
+    color: "#fff",
+    fontWeight: "600",
     fontSize: 16,
   },
-  toggleActiveText: {
-    color: 'white',
+  activeTimeFrameText: {
+    color: "#2E3192",
   },
-  cardOuterContainer: {
-    marginBottom: 24,
+  content: {
+    padding: 16,
+  },
+  section: {
+    backgroundColor: "#fff",
     borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  cardContainer: {
-    borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 24,
-    color: '#1A1A2E',
-    textAlign: 'center',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 12,
+    color: "#1E293B",
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
   },
-  statItem: {
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  statsCard: {
+    width: "47%",
+    backgroundColor: "#F8FAFC",
+    padding: 16,
     borderRadius: 16,
-    width: (width - 96) / 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 8,
   },
-  statIconContainer: {
+  fullWidthCard: {
+    width: "100%",
+  },
+  statsValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#2E3192",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statsLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+  },
+  quickActionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  quickActionButton: {
+    width: "47%",
+    backgroundColor: "#F8FAFC",
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  highlightedAction: {
+    backgroundColor: "#2E3192",
+  },
+  quickActionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(46, 49, 146, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  highlightedActionIcon: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E293B",
+    textAlign: "center",
+  },
+  highlightedActionText: {
+    color: "white",
+  },
+  performanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  performanceIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
-  statIcon: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+  performanceContent: {
+    flex: 1,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A2E',
+  performanceLabel: {
+    fontSize: 12,
+    color: "#64748B",
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  addButton: {
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginTop: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  addButtonText: {
-    color: 'white',
-    fontWeight: '700',
+  performanceValue: {
     fontSize: 16,
+    color: "#1E293B",
+    fontWeight: "500",
+  },
+  performanceSubtext: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  lastUpdate: {
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: 12,
+    marginBottom: 60,
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    padding: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    width: '100%',
-    borderRadius: 24,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 15,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 30,
-    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 24,
-    color: '#1A1A2E',
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1E293B",
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A2E',
+    fontWeight: "600",
+    color: "#64748B",
     marginBottom: 8,
     marginLeft: 4,
   },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1A1A2E',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: "#E2E8F0",
+  },
+  inputIcon: {
+    paddingHorizontal: 12,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#1E293B",
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginHorizontal: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 24,
   },
   cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: "#E2E8F0",
+    backgroundColor: "#F8FAFC",
   },
   cancelButtonText: {
-    color: '#666',
-    fontWeight: '600',
+    color: "#64748B",
+    fontWeight: "600",
     fontSize: 16,
   },
   saveButton: {
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButtonText: {
-    color: 'white',
-    fontWeight: '700',
+    color: "white",
+    fontWeight: "700",
     fontSize: 16,
   },
 });
