@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { RelativePathString,Stack, useRouter } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from "@expo/vector-icons";
+import { AuthContext } from '@/context/AuthContext';
 // import * as Haptics from "expo-haptics";
 
 // Define types for our data structures
@@ -53,6 +54,7 @@ const SalesTrackerPage: React.FC = () => {
     customer: '',
     date: new Date().toISOString().split('T')[0]
   });
+  const {shopData} = React.useContext(AuthContext);
   
   // Sample data - would normally come from API or storage
   const [salesData, setSalesData] = useState<SalesDataType>({
@@ -124,7 +126,7 @@ const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
     <>
       <Stack.Screen
         options={{
-          title: "Sales Tracker",
+          title: `Welcome, ${shopData?.name || 'Shopkeeper'}`,
           headerStyle: {
             backgroundColor: "#2E3192",
           },
