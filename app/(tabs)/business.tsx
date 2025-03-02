@@ -18,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useSalesService, SaleMetadata } from "../../services/sales";
 import { useInventoryService } from "../../services/inventory";
 
-// Interfaces (simplified for this context)
+// Interfaces
 interface QuickAction {
   actionName: string;
   iconName: string;
@@ -26,10 +26,14 @@ interface QuickAction {
 }
 
 interface TopSellingItem {
-  id: string;
   name: string;
   quantity: number;
   revenue: number;
+}
+
+// Enhanced transaction interface with display name
+interface EnhancedTransaction extends SaleMetadata {
+  displayName: string;
 }
 
 const BusinessPage: React.FC = () => {
@@ -44,7 +48,7 @@ const BusinessPage: React.FC = () => {
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [weekRevenue, setWeekRevenue] = useState(0);
   const [monthRevenue, setMonthRevenue] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState<SaleMetadata[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<EnhancedTransaction[]>([]);
   const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
 
   useEffect(() => {
@@ -64,44 +68,38 @@ const BusinessPage: React.FC = () => {
         const monthData = await salesService.getMonthlySalesData();
         setMonthRevenue(monthData.totalRevenue);
 
+        // Fetch recent transactions (limited to 5)
         const transactionResult = await salesService.getTransactions({ limit: 5 });
-        setRecentTransactions(transactionResult.transactions);
+        const enhancedTransactions = transactionResult.transactions.map((transaction) => ({
+          ...transaction,
+          displayName: transaction.productName || "Unknown Product",
+        }));
+        setRecentTransactions(enhancedTransactions);
 
         // Fetch all transactions for top-selling items
         const allTransactionsResult = await salesService.getTransactions();
-        const inventoryData = await inventoryService.getAllInventory();
 
-        // Aggregate sales data
+        // Aggregate sales data by product name
         const salesAggregation: { [key: string]: { quantity: number; revenue: number } } = {};
-
         allTransactionsResult.transactions.forEach((transaction) => {
-          if (transaction.lineItems) {
-            transaction.lineItems.forEach((item) => {
-              if (item.productId && item.productId !== "No product ID") {
-                if (!salesAggregation[item.productId]) {
-                  salesAggregation[item.productId] = { quantity: 0, revenue: 0 };
-                }
-                salesAggregation[item.productId].quantity += item.quantity;
-                salesAggregation[item.productId].revenue += item.price * item.quantity;
-              }
-            });
+          const productName = transaction.productName;
+          if (productName) {
+            if (!salesAggregation[productName]) {
+              salesAggregation[productName] = { quantity: 0, revenue: 0 };
+            }
+            salesAggregation[productName].quantity += transaction.quantity;
+            salesAggregation[productName].revenue += transaction.totalPrice;
           }
         });
 
-        // Map to inventory data and rank
-        const topItems: TopSellingItem[] = Object.keys(salesAggregation)
-          .map((productId) => {
-            const inventoryItem = inventoryData.items.find(
-              (item) => item.productId === productId
-            );
-            return {
-              id: productId,
-              name: inventoryItem ? inventoryItem.productName : productId,
-              quantity: salesAggregation[productId].quantity,
-              revenue: salesAggregation[productId].revenue,
-            };
-          })
-          .sort((a, b) => b.quantity - a.quantity) // Rank by quantity sold
+        // Convert aggregation to top-selling items array
+        const topItems: TopSellingItem[] = Object.entries(salesAggregation)
+          .map(([name, data]) => ({
+            name,
+            quantity: data.quantity,
+            revenue: data.revenue,
+          }))
+          .sort((a, b) => b.quantity - a.quantity) // Sort by quantity sold
           .slice(0, 5); // Top 5 items
 
         setTopSellingItems(topItems);
@@ -227,7 +225,7 @@ const BusinessPage: React.FC = () => {
 
       <SafeAreaView style={styles.container}>
         <ScrollView>
-          {/* Enhanced Dashboard Header Section */}
+          {/* Dashboard Header Section */}
           <View style={styles.dashboardContainer}>
             <LinearGradient
               colors={["#2E3192", "#1BFFFF"]}
@@ -280,7 +278,7 @@ const BusinessPage: React.FC = () => {
               </View>
             </LinearGradient>
 
-            {/* Updated Metrics Section */}
+            {/* Metrics Section */}
             <View style={styles.metricCardsContainer}>
               <MetricCard
                 label="Total Transactions"
@@ -315,7 +313,7 @@ const BusinessPage: React.FC = () => {
                   <Feather name="clock" size={16} color="#00C853" />
                 </View>
                 <Text style={styles.quickStatValue}>KES {todayRevenue.toLocaleString()}</Text>
-                <Text style={styles.quickStatLabel}>Today’s Revenue</Text>
+                <Text style={styles.quickStatLabel}>Today's Revenue</Text>
               </View>
               <View style={styles.quickStatDivider} />
               <View style={styles.quickStatCard}>
@@ -328,7 +326,7 @@ const BusinessPage: React.FC = () => {
             </View>
           </View>
 
-          {/* Recent Transactions */}
+          {/* Recent Transactions Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Feather name="clock" size={24} color="#2E3192" />
@@ -342,7 +340,7 @@ const BusinessPage: React.FC = () => {
                     <Feather name="shopping-cart" size={16} color="#2E3192" />
                   </View>
                   <View>
-                    <Text style={styles.transactionId}>{transaction.id}</Text>
+                    <Text style={styles.transactionName}>{transaction.displayName}</Text>
                     <Text style={styles.transactionTime}>
                       {transaction.timestamp.toLocaleTimeString()}
                     </Text>
@@ -350,7 +348,7 @@ const BusinessPage: React.FC = () => {
                 </View>
                 <View style={styles.transactionRight}>
                   <Text style={styles.transactionItems}>
-                    {transaction.lineItems?.length || 0} items
+                    {transaction.quantity} {transaction.quantity === 1 ? "item" : "items"}
                   </Text>
                   <Text style={styles.transactionAmount}>
                     KES {transaction.totalPrice.toLocaleString()}
@@ -363,14 +361,12 @@ const BusinessPage: React.FC = () => {
               style={styles.viewAllButton}
               onPress={() => routeAction("../allTransactions")}
             >
-              <Text style={styles.viewAllButtonText}>
-                View All Transactions
-              </Text>
+              <Text style={styles.viewAllButtonText}>View All Transactions</Text>
               <Feather name="chevron-right" size={16} color="#2E3192" />
             </TouchableOpacity>
           </View>
 
-          {/* Top Selling Items (Dynamic Calculation) */}
+          {/* Top Selling Items Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Feather name="award" size={24} color="#2E3192" />
@@ -379,13 +375,12 @@ const BusinessPage: React.FC = () => {
 
             {topSellingItems.length > 0 ? (
               topSellingItems.map((item, index) => (
-                <View key={item.id} style={styles.itemRow}>
+                <View key={index} style={styles.itemRow}>
                   <View style={styles.itemRank}>
                     <Text style={styles.rankText}>{index + 1}</Text>
                   </View>
                   <View style={styles.itemInfo}>
                     <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemId}>{item.id}</Text>
                   </View>
                   <View style={styles.itemStats}>
                     <Text style={styles.itemQuantity}>{item.quantity} units</Text>
@@ -400,7 +395,7 @@ const BusinessPage: React.FC = () => {
             )}
           </View>
 
-          {/* Quick Actions */}
+          {/* Quick Actions Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Feather name="zap" size={24} color="#2E3192" />
@@ -441,7 +436,7 @@ const BusinessPage: React.FC = () => {
   );
 };
 
-// Styles remain unchanged
+// Styles (unchanged except for clarity)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -482,7 +477,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 16,
     padding: 20,
-    backdropFilter: "blur(10px)",
   },
   revenueCardContent: {
     flexDirection: "row",
@@ -668,10 +662,11 @@ const styles = StyleSheet.create({
   transactionRight: {
     alignItems: "flex-end",
   },
-  transactionId: {
+  transactionName: {
     fontSize: 14,
     fontWeight: "600",
     color: "#1E293B",
+    maxWidth: 180,
   },
   transactionTime: {
     fontSize: 12,
@@ -729,11 +724,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#1E293B",
-  },
-  itemId: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 4,
   },
   itemStats: {
     alignItems: "flex-end",

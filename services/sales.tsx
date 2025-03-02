@@ -1,877 +1,475 @@
-import { firestore, auth } from "../config/firebase";
+import { useContext } from 'react';
 import {
   collection,
-  query,
   doc,
   getDoc,
-  updateDoc,
-  orderBy,
-  addDoc,
-  limit as limitQuery,
-  setDoc,
-  where,
   getDocs,
-  increment,
+  setDoc,
+  updateDoc,
+  query,
+  where,
   arrayUnion,
+  increment,
   Timestamp,
-} from "firebase/firestore";
-import { AuthContext } from "../context/AuthContext";
-import { useContext } from "react";
-import { logMessage } from "@/components/debugging";
+  orderBy,
+  limit as firestoreLimit,
+} from 'firebase/firestore';
+import { AuthContext } from '../context/AuthContext';
+import { firestore } from '../config/firebase';
+import { useInventoryService } from './inventory';
 
-// Define the interfaces
-interface SaleMetadata {
+export interface SaleMetadata {
   id: string;
-  lineItems?: Array<{
-    price: number;
-    productId: string;
-    quantity: number;
-  }>;
   timestamp: Date;
-  paymentMethod: string;
-  status: "completed" | "pending" | "failed";
+  productName: string;
+  quantity: number;
+  unitPrice: number;
   totalPrice: number;
-}
-
-interface getSaleMetadata {
-  id: string;
-  totalPrice: number;
-  timestamp: Date;
-  lineItems?: []; // Keep as an array to maintain structure, but empty
-  paymentMethod?: string; // Could be kept or removed depending on future needs
-  status?: string; // Could be kept or removed depending on future needs
 }
 
 interface SalesData {
   totalRevenue: number;
   salesCount: number;
-  transactions?: SaleMetadata[];
-  hourlyRevenue?: number[];
-  weeklyRevenue?: number[];
-  monthlyRevenue?: number[];
+  transactions: SaleMetadata[];
 }
 
-interface TransactionListOptions {
-  status?: "completed" | "pending" | "failed" | "all";
-  limit?: number;
-  offset?: number;
+export interface TransactionListOptions {
   startDate?: Date;
   endDate?: Date;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'timestamp' | 'totalPrice' | 'productName';
+  sortDirection?: 'asc' | 'desc';
+  searchTerm?: string;
 }
 
-interface TransactionListResult {
+export interface TransactionListResult {
   transactions: SaleMetadata[];
-  salesCount: number;
   totalRevenue: number;
-  completedCount?: number;
-  pendingCount?: number;
-  failedCount?: number;
-  completionRate?: number;
+  salesCount: number;
+  hasMore?: boolean;
   averageTransactionValue?: number;
 }
 
-interface SalesService {
-  addNewSale: (amount: number) => Promise<void>;
+export interface SalesUpdateInput {
+  productName?: string;
+  quantity?: number;
+  unitPrice?: number;
+}
+
+export interface SalesService {
+  addNewSale: (saleInput: { productName: string; quantity: number; unitPrice: number }) => Promise<string>;
   getTodaysSalesData: () => Promise<SalesData>;
-  getWeeklySalesData: (daysBack?: number) => Promise<SalesData>;
-  getMonthlySalesData: (daysBack?: number) => Promise<SalesData>;
+  getWeeklySalesData: () => Promise<SalesData>;
+  getMonthlySalesData: () => Promise<SalesData>;
+  getAllTimeSalesData: () => Promise<{ totalRevenue: number; totalTransactions: number }>;
+  getTransactions: (options?: TransactionListOptions) => Promise<TransactionListResult>;
+  updateTransaction: (transactionId: string, updates: SalesUpdateInput) => Promise<boolean>;
   deleteTransaction: (transactionId: string) => Promise<boolean>;
-  getAllTimeSalesData: () => Promise<{
-    totalRevenue: number;
-    totalTransactions: number;
+  getTransactionById: (transactionId: string) => Promise<SaleMetadata | null>;
+}
+
+interface SalesDocument {
+  totalRevenue: number;
+  salesCount: number;
+  transactions: Array<{
+    id: string;
+    timestamp: Timestamp;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
   }>;
-  getTransactions: (
-    options?: TransactionListOptions
-  ) => Promise<TransactionListResult>;
-  updateTransactionStatus: (
-    transactionId: string,
-    newStatus: "completed" | "pending" | "failed"
-  ) => Promise<boolean>;
-  updateTransaction: (
-    transactionId: string,
-    updates: Partial<SaleMetadata>
-  ) => Promise<boolean>;
 }
 
 export const useSalesService = (): SalesService => {
   const { shopData, isInitialized } = useContext(AuthContext);
+  const inventoryService = useInventoryService();
 
   if (!isInitialized || !shopData) {
     return {
-      addNewSale: async () => {},
-      getTodaysSalesData: async () => ({
-        totalRevenue: 0,
-        salesCount: 0,
-        transactions: [],
-      }),
-      getWeeklySalesData: async () => ({
-        totalRevenue: 0,
-        salesCount: 0,
-        transactions: [],
-      }),
-      getMonthlySalesData: async () => ({
-        totalRevenue: 0,
-        salesCount: 0,
-        transactions: [],
-      }),
-      getTransactions: async () => ({
-        transactions: [],
-        salesCount: 0,
-        totalRevenue: 0,
-        completedCount: 0,
-        pendingCount: 0,
-        failedCount: 0,
-        completionRate: 0,
-        averageTransactionValue: 0,
-      }),
-      updateTransactionStatus: async () => false,
-      deleteTransaction: async () => false,
-      getAllTimeSalesData: async () => ({
-        totalRevenue: 0,
-        totalTransactions: 0,
-      }),
+      addNewSale: async () => "",
+      getTodaysSalesData: async () => ({ totalRevenue: 0, salesCount: 0, transactions: [] }),
+      getWeeklySalesData: async () => ({ totalRevenue: 0, salesCount: 0, transactions: [] }),
+      getMonthlySalesData: async () => ({ totalRevenue: 0, salesCount: 0, transactions: [] }),
+      getAllTimeSalesData: async () => ({ totalRevenue: 0, totalTransactions: 0 }),
+      getTransactions: async () => ({ transactions: [], totalRevenue: 0, salesCount: 0 }),
       updateTransaction: async () => false,
+      deleteTransaction: async () => false,
+      getTransactionById: async () => null,
     };
   }
 
   const shopId = shopData.contact;
 
-  const convertToSaleMetadata = (transaction: any): SaleMetadata => {
-    return {
-      id: transaction.id || Date.now().toString(),
-      lineItems: Array.isArray(transaction.lineItems)
-        ? transaction.lineItems
-        : [],
-      timestamp: (() => {
-        if (transaction.timestamp instanceof Timestamp)
-          return transaction.timestamp.toDate();
-        if (transaction.timestamp instanceof Date) return transaction.timestamp;
-        if (typeof transaction.timestamp === "string")
-          return new Date(transaction.timestamp);
-        if (typeof transaction.timestamp === "number")
-          return new Date(transaction.timestamp * 1000);
-        return new Date();
-      })(),
-      paymentMethod: transaction.paymentMethod || "unknown",
-      status: transaction.status
-        ? (transaction.status.toLowerCase() as
-            | "completed"
-            | "pending"
-            | "failed")
-        : "pending",
-      totalPrice:
-        transaction.totalPrice ||
-        (Array.isArray(transaction.lineItems)
-          ? transaction.lineItems.reduce(
-              (sum: number, item: any) =>
-                sum + item.price * (item.quantity || 1),
-              0
-            )
-          : 0),
-    };
+  const cleanTransaction = (data: SalesDocument['transactions'][number]): SaleMetadata => ({
+    id: data.id || Date.now().toString(),
+    timestamp: data.timestamp instanceof Timestamp
+      ? data.timestamp.toDate()
+      : new Date(data.timestamp || Date.now()),
+    productName: data.productName || 'Unknown Product',
+    quantity: Number(data.quantity) || 1,
+    unitPrice: Number(data.unitPrice) || 0,
+    totalPrice: Number(data.totalPrice) || 0,
+  });
+
+  const findTransactionDocument = async (transactionId: string): Promise<{ docRef: any, data: SalesDocument, transactionIndex: number } | null> => {
+    try {
+      const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
+      const querySnapshot = await getDocs(salesCollectionRef);
+
+      for (const docSnap of querySnapshot.docs) {
+        const data = docSnap.data() as SalesDocument;
+        const transactionIndex = data.transactions?.findIndex((t) => t.id === transactionId);
+
+        if (transactionIndex !== -1 && transactionIndex !== undefined) {
+          return {
+            docRef: docSnap.ref,
+            data,
+            transactionIndex
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error finding transaction document:', error);
+      return null;
+    }
+  };
+
+  const addNewSale = async (saleInput: { productName: string; quantity: number; unitPrice: number }): Promise<string> => {
+    try {
+      // Validate input
+      if (!saleInput.productName || saleInput.quantity == null || saleInput.unitPrice == null) {
+        throw new Error('All fields (productName, quantity, unitPrice) must be provided and non-null');
+      }
+
+      // Step 1: Fetch inventory data
+      const inventoryData = await inventoryService.getAllInventory();
+
+      // Step 2: Find the inventory item by productName
+      const inventoryItem = inventoryData.items.find(item => item.productName === saleInput.productName);
+
+      if (!inventoryItem) {
+        throw new Error(`Product "${saleInput.productName}" not found in inventory`);
+      }
+
+      // Step 3: Check if there is sufficient stock
+      if (inventoryItem.stockAmount < saleInput.quantity) {
+        throw new Error(`Insufficient stock for "${saleInput.productName}". Available: ${inventoryItem.stockAmount}, Requested: ${saleInput.quantity}`);
+      }
+
+      // Step 4: Proceed with adding the sale
+      const dateStr = new Date().toISOString().split('T')[0];
+      const salesDocRef = doc(firestore, `shops/${shopId}/sales`, dateStr);
+      const totalPrice = saleInput.quantity * saleInput.unitPrice;
+      const saleId = Date.now().toString();
+      const sale: SaleMetadata = {
+        id: saleId,
+        timestamp: new Date(),
+        productName: saleInput.productName,
+        quantity: saleInput.quantity,
+        unitPrice: saleInput.unitPrice,
+        totalPrice: totalPrice,
+      };
+
+      await setDoc(
+        salesDocRef,
+        {
+          totalRevenue: increment(totalPrice),
+          salesCount: increment(1),
+          transactions: arrayUnion({
+            ...sale,
+            timestamp: Timestamp.fromDate(sale.timestamp),
+          }),
+        },
+        { merge: true }
+      );
+
+      // Step 5: Update the inventory stock
+      const updatedStockAmount = inventoryItem.stockAmount - saleInput.quantity;
+      await inventoryService.updateInventoryItem(inventoryItem.productId, { stockAmount: updatedStockAmount });
+
+      return saleId;
+    } catch (error) {
+      console.error('Error adding new sale:', error);
+      throw error;
+    }
+  };
+
+  const getTodaysSalesData = async (): Promise<SalesData> => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const salesDocRef = doc(firestore, `shops/${shopId}/sales`, today);
+      const salesDoc = await getDoc(salesDocRef);
+
+      if (salesDoc.exists()) {
+        const data = salesDoc.data() as SalesDocument;
+        return {
+          totalRevenue: Number(data.totalRevenue) || 0,
+          salesCount: Number(data.salesCount) || 0,
+          transactions: data.transactions?.map(cleanTransaction) || [],
+        };
+      }
+      return { totalRevenue: 0, salesCount: 0, transactions: [] };
+    } catch (error) {
+      console.error('Error fetching todays sales data:', error);
+      throw error;
+    }
+  };
+
+  const getWeeklySalesData = async (): Promise<SalesData> => {
+    try {
+      const today = new Date();
+      const weekAgo = new Date(today);
+      weekAgo.setDate(today.getDate() - 7);
+      const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
+      const q = query(
+        salesCollectionRef,
+        where('__name__', '>=', weekAgo.toISOString().split('T')[0]),
+        where('__name__', '<=', today.toISOString().split('T')[0])
+      );
+      const querySnapshot = await getDocs(q);
+
+      let totalRevenue = 0;
+      let salesCount = 0;
+      const transactions: SaleMetadata[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as SalesDocument;
+        totalRevenue += Number(data.totalRevenue) || 0;
+        salesCount += Number(data.salesCount) || 0;
+        if (data.transactions) {
+          transactions.push(...data.transactions.map(cleanTransaction));
+        }
+      });
+
+      transactions.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+      return { totalRevenue, salesCount, transactions };
+    } catch (error) {
+      console.error('Error fetching weekly sales data:', error);
+      throw error;
+    }
+  };
+
+  const getMonthlySalesData = async (): Promise<SalesData> => {
+    try {
+      const today = new Date();
+      const monthAgo = new Date(today);
+      monthAgo.setDate(today.getDate() - 30);
+      const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
+      const q = query(
+        salesCollectionRef,
+        where('__name__', '>=', monthAgo.toISOString().split('T')[0]),
+        where('__name__', '<=', today.toISOString().split('T')[0])
+      );
+      const querySnapshot = await getDocs(q);
+
+      let totalRevenue = 0;
+      let salesCount = 0;
+      const transactions: SaleMetadata[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as SalesDocument;
+        totalRevenue += Number(data.totalRevenue) || 0;
+        salesCount += Number(data.salesCount) || 0;
+        if (data.transactions) {
+          transactions.push(...data.transactions.map(cleanTransaction));
+        }
+      });
+
+      transactions.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+      return { totalRevenue, salesCount, transactions };
+    } catch (error) {
+      console.error('Error fetching monthly sales data:', error);
+      throw error;
+    }
+  };
+
+  const getAllTimeSalesData = async (): Promise<{ totalRevenue: number; totalTransactions: number }> => {
+    try {
+      const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
+      const querySnapshot = await getDocs(salesCollectionRef);
+
+      let totalRevenue = 0;
+      let totalTransactions = 0;
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as SalesDocument;
+        totalRevenue += Number(data.totalRevenue) || 0;
+        totalTransactions += Number(data.salesCount) || 0;
+      });
+
+      return { totalRevenue, totalTransactions };
+    } catch (error) {
+      console.error('Error fetching all-time sales data:', error);
+      throw error;
+    }
+  };
+
+  const getTransactions = async (options?: TransactionListOptions): Promise<TransactionListResult> => {
+    try {
+      const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
+      let q: any = salesCollectionRef;
+  
+      if (options?.startDate && options?.endDate) {
+        q = query(
+          salesCollectionRef,
+          where('__name__', '>=', options.startDate.toISOString().split('T')[0]),
+          where('__name__', '<=', options.endDate.toISOString().split('T')[0])
+        );
+      }
+  
+      const querySnapshot = await getDocs(q);
+      let transactions: SaleMetadata[] = [];
+      let totalRevenue = 0;
+  
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as SalesDocument;
+        totalRevenue += Number(data.totalRevenue) || 0;
+        if (data.transactions) {
+          transactions.push(...data.transactions.map(cleanTransaction));
+        }
+      });
+  
+      if (options?.searchTerm) {
+        const searchLower = options.searchTerm.toLowerCase();
+        transactions = transactions.filter(t => 
+          t.productName.toLowerCase().includes(searchLower) || 
+          t.id.toLowerCase().includes(searchLower)
+        );
+      }
+  
+      if (options?.sortBy) {
+        const direction = options?.sortDirection === 'asc' ? 1 : -1;
+        transactions.sort((a, b) => {
+          if (options.sortBy === 'timestamp') {
+            return direction * (b.timestamp.getTime() - a.timestamp.getTime());
+          } else if (options.sortBy === 'totalPrice') {
+            return direction * (b.totalPrice - a.totalPrice);
+          } else if (options.sortBy === 'productName') {
+            return direction * a.productName.localeCompare(b.productName);
+          }
+          return 0;
+        });
+      } else {
+        transactions.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      }
+  
+      // Store the total number of transactions before pagination
+      const totalSalesCount = transactions.length;
+  
+      // Apply pagination using offset and limit
+      const offset = options?.offset || 0;
+      const limit = options?.limit || transactions.length;
+      const paginatedTransactions = transactions.slice(offset, offset + limit);
+  
+      // Determine if there are more transactions beyond this page
+      const hasMore = offset + limit < totalSalesCount;
+  
+      return {
+        transactions: paginatedTransactions,
+        totalRevenue,
+        salesCount: totalSalesCount,
+        hasMore,
+        averageTransactionValue: totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0,
+      };
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      throw error;
+    }
+  };
+
+  const getTransactionById = async (transactionId: string): Promise<SaleMetadata | null> => {
+    try {
+      const result = await findTransactionDocument(transactionId);
+      if (result) {
+        const { data, transactionIndex } = result;
+        return cleanTransaction(data.transactions[transactionIndex]);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting transaction by ID:', error);
+      return null;
+    }
+  };
+
+  const updateTransaction = async (transactionId: string, updates: SalesUpdateInput): Promise<boolean> => {
+    try {
+      const result = await findTransactionDocument(transactionId);
+      if (!result) return false;
+
+      const { docRef, data, transactionIndex } = result;
+      const updatedTransactions = [...data.transactions];
+      const originalTransaction = updatedTransactions[transactionIndex];
+
+      if (updates.productName !== undefined) {
+        originalTransaction.productName = updates.productName;
+      }
+      if (updates.quantity !== undefined) {
+        originalTransaction.quantity = updates.quantity;
+      }
+      if (updates.unitPrice !== undefined) {
+        originalTransaction.unitPrice = updates.unitPrice;
+      }
+      originalTransaction.totalPrice = originalTransaction.quantity * originalTransaction.unitPrice;
+
+      updatedTransactions[transactionIndex] = originalTransaction;
+
+      const newTotalRevenue = updatedTransactions.reduce(
+        (sum: number, t) => sum + (Number(t.totalPrice) || 0),
+        0
+      );
+
+      await updateDoc(docRef, {
+        transactions: updatedTransactions,
+        totalRevenue: newTotalRevenue,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      return false;
+    }
+  };
+
+  const deleteTransaction = async (transactionId: string): Promise<boolean> => {
+    try {
+      const result = await findTransactionDocument(transactionId);
+      if (!result) return false;
+
+      const { docRef, data } = result;
+      const updatedTransactions = data.transactions.filter(t => t.id !== transactionId);
+
+      const newTotalRevenue = updatedTransactions.reduce(
+        (sum: number, t) => sum + (Number(t.totalPrice) || 0),
+        0
+      );
+
+      await updateDoc(docRef, {
+        transactions: updatedTransactions,
+        totalRevenue: newTotalRevenue,
+        salesCount: updatedTransactions.length,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      return false;
+    }
   };
 
   return {
-    async addNewSale(amount: number): Promise<void> {
-      try {
-        // Create the sale object
-        const sale: SaleMetadata = {
-          id: Date.now().toString(),
-          lineItems: [
-            {
-              price: amount,
-              productId: "No product ID",
-              quantity: 0,
-            },
-          ],
-          timestamp: new Date(),
-          paymentMethod: "cash",
-          status: "pending",
-          totalPrice: amount,
-        };
-        logMessage("Timestamp: " + sale.timestamp);
-        logMessage("Adding new sale in function addNewSale");
-    
-        // Generate date string from timestamp
-        const dateStr = sale.timestamp.toISOString().split("T")[0];
-        logMessage("dateStr created in function addNewSale: " + dateStr);
-    
-        // Reference to the sales subcollection
-        const salesCollectionRef = collection(firestore, `shops/${shopId}/sales`);
-        logMessage("salesCollectionRef created");
-    
-        // Create a query to find documents where the document ID equals dateStr
-        const q = query(salesCollectionRef, where("__name__", "==", dateStr));
-        logMessage("Query created for dateStr: " + dateStr);
-    
-        // Execute the query
-        const querySnapshot = await getDocs(q);
-        logMessage("Query snapshot retrieved");
-    
-        if (!querySnapshot.empty) {
-          // Document exists
-          logMessage("Document exists for dateStr: " + dateStr);
-          const docSnapshot = querySnapshot.docs[0]; // Get the first (and only) document
-          const currentData = docSnapshot.data();
-          const updatedTransactions = [
-            ...(currentData.transactions || []),
-            {
-              ...sale,
-              timestamp: Timestamp.fromDate(sale.timestamp),
-            },
-          ];
-          logMessage("Preparing to update document");
-          await updateDoc(docSnapshot.ref, {
-            salesCount: updatedTransactions.length,
-            totalRevenue: currentData.totalRevenue + sale.totalPrice,
-            transactions: updatedTransactions,
-          });
-          logMessage("Document updated");
-        } else {
-          // Document does not exist
-          logMessage("Document does not exist for dateStr: " + dateStr);
-          const newDocRef = doc(salesCollectionRef, dateStr);
-          await setDoc(newDocRef, {
-            salesCount: 1,
-            totalRevenue: sale.totalPrice,
-            transactions: [
-              {
-                ...sale,
-                timestamp: Timestamp.fromDate(sale.timestamp),
-              },
-            ],
-          });
-          logMessage("New document created");
-        }
-        logMessage("the setdoc has been run");
-        // const dateDoc = await getDoc(dateDocRef);
-        // logMessage("dateDocRef created  in function add NewSAle");
-        // if (dateDoc.exists()) {
-        //   logMessage("dateDoc exists");
-        //   const currentData = dateDoc.data();
-        //   const updatedTransactions = [
-        //     ...(currentData.transactions || []),
-        //     {
-        //       ...sale,
-        //       timestamp: Timestamp.fromDate(sale.timestamp),
-        //     },
-        //   ];
-        //   logMessage("preparing to update document created");
-        //   await updateDoc(dateDocRef, {
-        //     salesCount: updatedTransactions.length,
-        //     totalRevenue: currentData.totalRevenue + sale.totalPrice,
-        //     transactions: updatedTransactions,
-        //   });
-        //   logMessage("dateDoc updated");
-        // } else {
-        //   logMessage("dateDoc does not exist");
-        //   await setDoc(dateDocRef, {
-        //     salesCount: 1,
-        //     totalRevenue: sale.totalPrice,
-        //     transactions: [
-        //       {
-        //         ...sale,
-        //         timestamp: Timestamp.fromDate(sale.timestamp),
-        //       },
-        //     ],
-        //   });
-        //   logMessage("dateDoc created or sth");
-        // }
-        logMessage("After the comment ");
-      } catch (error) {
-        console.error("Error adding new sale:", error);
-        // throw error;
-      }
-    },
-
-    async getTodaysSalesData(): Promise<SalesData> {
-      try {
-        const now = new Date();
-        const dateStr = now.toISOString().split("T")[0];
-        const salesRef = doc(firestore, `shops/${shopId}/sales/${dateStr}`);
-
-        const dateDoc = await getDoc(salesRef);
-        if (dateDoc.exists()) {
-          const data = dateDoc.data();
-
-          const totalRevenue = data.totalRevenue;
-          const salesCount = data.salesCount;
-
-          interface TransactionData {
-            id: string;
-            lineItems: Array<{
-              price: number;
-              productId: string;
-              quantity: number;
-              status?: string;
-            }>;
-            timestamp: Timestamp;
-            paymentMethod?: string;
-            status?: string;
-            totalPrice?: number;
-          }
-
-          const transactions: getSaleMetadata[] = (
-            data.transactions as TransactionData[]
-          ).map((transaction) => ({
-            id: transaction.id,
-            totalPrice: transaction.totalPrice || 0,
-            timestamp: transaction.timestamp
-              ? transaction.timestamp.toDate()
-              : new Date(),
-            lineItems: [],
-            paymentMethod: transaction.paymentMethod || "unknown",
-            status: transaction.status || "unknown",
-          }));
-
-          const groupByHour = (transactions: getSaleMetadata[]) => {
-            const hourlyRevenue = new Array(24).fill(0);
-            transactions.forEach((transaction) => {
-              const hour = transaction.timestamp.getHours();
-              hourlyRevenue[hour] += transaction.totalPrice;
-            });
-            return hourlyRevenue;
-          };
-
-          const hourlyData = groupByHour(transactions);
-
-          return {
-            totalRevenue,
-            salesCount: transactions.length,
-            hourlyRevenue: hourlyData,
-          };
-        } else {
-          return {
-            totalRevenue: 0,
-            salesCount: 0,
-            hourlyRevenue: Array(24).fill(0),
-          };
-        }
-      } catch (error) {
-        console.error("Error fetching today's sales:", error);
-        throw error;
-      }
-    },
-
-    async getWeeklySalesData(daysBack: number = 7): Promise<SalesData> {
-      try {
-        const now = new Date();
-        const endDate = new Date(now);
-        const startDate = new Date(now);
-        startDate.setDate(now.getDate() - (daysBack - 1));
-
-        const startTimestamp = Timestamp.fromDate(startDate);
-        const endTimestamp = Timestamp.fromDate(endDate);
-
-        const salesRef = collection(firestore, `shops/${shopId}/sales`);
-        const q = query(
-          salesRef,
-          where(
-            "__name__",
-            ">=",
-            startTimestamp.toDate().toISOString().split("T")[0]
-          ),
-          where(
-            "__name__",
-            "<=",
-            endTimestamp.toDate().toISOString().split("T")[0]
-          )
-        );
-        const querySnapshot = await getDocs(q);
-
-        let allTransactions: getSaleMetadata[] = [];
-        let totalRevenue = 0;
-
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.transactions) {
-            interface TransactionData {
-              id: string;
-              lineItems: Array<{
-                price: number;
-                productId: string;
-                quantity: number;
-                status?: string;
-              }>;
-              timestamp: Timestamp;
-              paymentMethod?: string;
-              status?: string;
-              totalPrice?: number;
-            }
-            const filteredTransactions: TransactionData[] = (
-              data.transactions as TransactionData[]
-            ).filter((transaction) => {
-              if (transaction.timestamp) {
-                const transactionDate = transaction.timestamp.toDate();
-                return (
-                  transactionDate >= startDate && transactionDate <= endDate
-                );
-              }
-              return false;
-            });
-
-            const transactions: getSaleMetadata[] = filteredTransactions.map(
-              (transaction) => ({
-                id: transaction.id,
-                totalPrice:
-                  transaction.totalPrice ||
-                  transaction.lineItems.reduce(
-                    (sum, item) => sum + item.price * item.quantity,
-                    0
-                  ),
-                timestamp: transaction.timestamp
-                  ? transaction.timestamp.toDate()
-                  : new Date(),
-                lineItems: [],
-                paymentMethod: transaction.paymentMethod,
-                status: transaction.status,
-              })
-            );
-
-            allTransactions = allTransactions.concat(transactions);
-            totalRevenue += transactions.reduce(
-              (sum, transaction) => sum + transaction.totalPrice,
-              0
-            );
-          }
-        });
-
-        const groupByDay = (transactions: getSaleMetadata[]) => {
-          return transactions.reduce((acc, transaction) => {
-            const day = transaction.timestamp.getDay();
-            acc[day] = (acc[day] || 0) + transaction.totalPrice;
-            return acc;
-          }, {} as { [key: number]: number });
-        };
-
-        const dailyRevenue = groupByDay(allTransactions);
-        const daysData = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-          (_, i) => dailyRevenue[i] || 0
-        );
-
-        return {
-          totalRevenue,
-          salesCount: allTransactions.length,
-          weeklyRevenue: daysData.slice(0, daysBack),
-        };
-      } catch (error) {
-        console.error("Error fetching chart data:", error);
-        throw error;
-      }
-    },
-
-    async getMonthlySalesData(daysBack: number = 30): Promise<SalesData> {
-      try {
-        const now = new Date();
-        const endDate = new Date(now);
-        const startDate = new Date(now);
-        startDate.setDate(now.getDate() - (daysBack - 1));
-
-        const startTimestamp = Timestamp.fromDate(startDate);
-        const endTimestamp = Timestamp.fromDate(endDate);
-
-        const salesRef = collection(firestore, `shops/${shopId}/sales`);
-        const q = query(
-          salesRef,
-          where(
-            "__name__",
-            ">=",
-            startTimestamp.toDate().toISOString().split("T")[0]
-          ),
-          where(
-            "__name__",
-            "<=",
-            endTimestamp.toDate().toISOString().split("T")[0]
-          )
-        );
-        const querySnapshot = await getDocs(q);
-
-        let allTransactions: getSaleMetadata[] = [];
-        let totalRevenue = 0;
-
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.transactions) {
-            interface TransactionData {
-              id: string;
-              lineItems: Array<{
-                price: number;
-                productId: string;
-                quantity: number;
-                status?: string;
-              }>;
-              timestamp: Timestamp;
-              paymentMethod?: string;
-              status?: string;
-              totalPrice?: number;
-            }
-            const filteredTransactions: TransactionData[] = (
-              data.transactions as TransactionData[]
-            ).filter((transaction) => {
-              if (transaction.timestamp) {
-                const transactionDate = transaction.timestamp.toDate();
-                return (
-                  transactionDate >= startDate && transactionDate <= endDate
-                );
-              }
-              return false;
-            });
-
-            const transactions: getSaleMetadata[] = filteredTransactions.map(
-              (transaction) => ({
-                id: transaction.id,
-                totalPrice:
-                  transaction.totalPrice ||
-                  transaction.lineItems.reduce(
-                    (sum, item) => sum + item.price * item.quantity,
-                    0
-                  ),
-                timestamp: transaction.timestamp
-                  ? transaction.timestamp.toDate()
-                  : new Date(),
-                lineItems: [],
-                paymentMethod: transaction.paymentMethod,
-                status: transaction.status,
-              })
-            );
-
-            allTransactions = allTransactions.concat(transactions);
-            totalRevenue += transactions.reduce(
-              (sum, transaction) => sum + transaction.totalPrice,
-              0
-            );
-          }
-        });
-
-        if (daysBack <= 7) {
-          const groupByDay = (transactions: getSaleMetadata[]) => {
-            return transactions.reduce((acc, transaction) => {
-              const day = transaction.timestamp.getDay();
-              acc[day] = (acc[day] || 0) + transaction.totalPrice;
-              return acc;
-            }, {} as { [key: number]: number });
-          };
-
-          const dailyRevenue = groupByDay(allTransactions);
-          const daysData = [
-            "Sun",
-            "Mon",
-            "Tue",
-            "Wed",
-            "Thu",
-            "Fri",
-            "Sat",
-          ].map((_, i) => dailyRevenue[i] || 0);
-
-          return {
-            totalRevenue,
-            salesCount: allTransactions.length,
-            weeklyRevenue: daysData.slice(0, daysBack),
-          };
-        } else {
-          const groupByWeek = (transactions: getSaleMetadata[]) => {
-            return transactions.reduce((acc, transaction) => {
-              const daysFromStart = Math.floor(
-                (transaction.timestamp.getTime() - startDate.getTime()) /
-                  (1000 * 60 * 60 * 24)
-              );
-              const week = Math.floor(daysFromStart / 7);
-              acc[week] = (acc[week] || 0) + transaction.totalPrice;
-              return acc;
-            }, {} as { [key: number]: number });
-          };
-
-          const weeklyRevenue = groupByWeek(allTransactions);
-          const numOfWeeks = Math.ceil(daysBack / 7);
-          const monthlyData = Array.from(
-            { length: numOfWeeks },
-            (_, i) => weeklyRevenue[i] || 0
-          );
-
-          return {
-            totalRevenue,
-            salesCount: allTransactions.length,
-            monthlyRevenue: monthlyData,
-          };
-        }
-      } catch (error) {
-        console.error("Error fetching chart data:", error);
-        throw error;
-      }
-    },
-
-    async getTransactions(
-      options?: TransactionListOptions
-    ): Promise<TransactionListResult> {
-      console.log(
-        "Starting getTransactions with shopId:",
-        shopId,
-        "options:",
-        options
-      );
-
-      const page = options?.offset || 0; // Page number (0-based)
-      const pageSize = options?.limit || 10; // Items per page
-
-      let q = query(collection(firestore, `shops/${shopId}/sales`));
-      if (options?.startDate || options?.endDate) {
-        const startStr = options.startDate?.toISOString().split("T")[0];
-        const endStr = options.endDate?.toISOString().split("T")[0];
-        if (startStr) q = query(q, where("__name__", ">=", startStr));
-        if (endStr) q = query(q, where("__name__", "<=", endStr));
-      }
-
-      const querySnapshot = await getDocs(q);
-
-      let allTransactions: SaleMetadata[] = [];
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const transactionsArray = data.transactions || [];
-        transactionsArray.forEach((transaction: any) => {
-          const saleMetadata = convertToSaleMetadata(transaction);
-          allTransactions.push(saleMetadata);
-        });
-      });
-
-      if (allTransactions.length === 0) {
-        return {
-          transactions: [],
-          salesCount: 0,
-          totalRevenue: 0,
-          completedCount: 0,
-          pendingCount: 0,
-          failedCount: 0,
-          completionRate: 0,
-          averageTransactionValue: 0,
-        };
-      }
-
-      allTransactions.sort(
-        (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-      );
-
-      let filteredTransactions = allTransactions;
-      if (options?.status && options.status !== "all") {
-        filteredTransactions = allTransactions.filter(
-          (t) => t.status === options.status
-        );
-      }
-
-      const totalCount = filteredTransactions.length;
-      const startIndex = page * pageSize;
-      const paginatedTransactions = filteredTransactions
-        .slice(startIndex, startIndex + pageSize)
-        .map((transaction) => ({
-          id: transaction.id,
-          status: transaction.status || "pending",
-          totalPrice: transaction.totalPrice || 0,
-          lineItems: transaction.lineItems || [],
-          paymentMethod: transaction.paymentMethod || "cash",
-          timestamp: transaction.timestamp || new Date(),
-        }));
-
-      return {
-        transactions: paginatedTransactions,
-        salesCount: totalCount,
-        totalRevenue: filteredTransactions.reduce(
-          (sum, t) => sum + t.totalPrice,
-          0
-        ),
-        completedCount: allTransactions.filter((t) => t.status === "completed")
-          .length,
-        pendingCount: allTransactions.filter((t) => t.status === "pending")
-          .length,
-        failedCount: allTransactions.filter((t) => t.status === "failed")
-          .length,
-        completionRate: allTransactions.length
-          ? (allTransactions.filter((t) => t.status === "completed").length /
-              allTransactions.length) *
-            100
-          : 0,
-        averageTransactionValue: filteredTransactions.length
-          ? filteredTransactions.reduce((sum, t) => sum + t.totalPrice, 0) /
-            filteredTransactions.length
-          : 0,
-      };
-    },
-
-    async updateTransaction(
-      transactionId: string,
-      updates: Partial<SaleMetadata>
-    ): Promise<boolean> {
-      try {
-        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
-        const snapshot = await getDocs(salesCollection);
-
-        let docToUpdateId: string | null = null;
-        let transactions: any[] = [];
-        let transactionIndex: number = -1;
-
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (!data.transactions) return;
-
-          const idx = data.transactions.findIndex(
-            (t: any) => t.id === transactionId
-          );
-          if (idx !== -1) {
-            docToUpdateId = docSnap.id;
-            transactions = [...data.transactions];
-            transactionIndex = idx;
-          }
-        });
-
-        if (!docToUpdateId || transactionIndex === -1) {
-          console.warn("Transaction not found");
-          return false;
-        }
-
-        // Merge updates while preserving the original timestamp
-        transactions[transactionIndex] = {
-          ...transactions[transactionIndex],
-          ...updates,
-          timestamp: transactions[transactionIndex].timestamp, // Ensure timestamp is unchanged
-        };
-
-        // Recalculate totalRevenue based on updated transactions
-        const newTotalRevenue = transactions.reduce(
-          (sum: number, t: any) => sum + (t.totalPrice || 0),
-          0
-        );
-
-        const dateDocRef = doc(
-          firestore,
-          `shops/${shopId}/sales/${docToUpdateId}`
-        );
-        await updateDoc(dateDocRef, {
-          transactions,
-          totalRevenue: newTotalRevenue,
-          salesCount: transactions.length,
-        });
-
-        return true;
-      } catch (error) {
-        console.error("Error updating transaction:", error);
-        return false;
-      }
-    },
-
-    async deleteTransaction(transactionId: string): Promise<boolean> {
-      try {
-        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
-        const snapshot = await getDocs(salesCollection);
-
-        let docToUpdateId: string | null = null;
-        let transactions: any[] = [];
-
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (!data.transactions) return;
-
-          const idx = data.transactions.findIndex(
-            (t: any) => t.id === transactionId
-          );
-          if (idx !== -1) {
-            docToUpdateId = docSnap.id;
-            transactions = [...data.transactions];
-            transactions.splice(idx, 1); // Remove the transaction
-          }
-        });
-
-        if (!docToUpdateId) {
-          console.warn("Transaction not found");
-          return false;
-        }
-
-        const dateDocRef = doc(
-          firestore,
-          `shops/${shopId}/sales/${docToUpdateId}`
-        );
-        await updateDoc(dateDocRef, {
-          transactions,
-          salesCount: transactions.length,
-          totalRevenue: transactions.reduce(
-            (sum: number, t: any) => sum + (t.totalPrice || 0),
-            0
-          ),
-        });
-        return true;
-      } catch (error) {
-        console.error("Error deleting transaction:", error);
-        return false;
-      }
-    },
-
-    async getAllTimeSalesData(): Promise<{
-      totalRevenue: number;
-      totalTransactions: number;
-    }> {
-      try {
-        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
-        const snapshot = await getDocs(salesCollection);
-        let totalRevenue = 0;
-        let totalTransactions = 0;
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          totalRevenue += data.totalRevenue || 0;
-          totalTransactions += data.salesCount || 0;
-        });
-        return { totalRevenue, totalTransactions };
-      } catch (error) {
-        console.error("Error fetching all-time sales data:", error);
-        throw error;
-      }
-    },
-
-    async updateTransactionStatus(
-      transactionId: string,
-      newStatus: "completed" | "pending" | "failed"
-    ): Promise<boolean> {
-      try {
-        const salesCollection = collection(firestore, `shops/${shopId}/sales`);
-        const snapshot = await getDocs(salesCollection);
-
-        let docToUpdateId: string | null = null;
-        let transactions: any[] = [];
-
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (!data.transactions) return;
-
-          const idx = data.transactions.findIndex(
-            (t: any) => t.id === transactionId
-          );
-          if (idx !== -1) {
-            docToUpdateId = docSnap.id;
-            transactions = [...data.transactions];
-            transactions[idx].status = newStatus;
-          }
-        });
-
-        if (!docToUpdateId) {
-          console.warn("Transaction not found in any sales doc");
-          return false;
-        }
-
-        const dateDocRef = doc(
-          firestore,
-          `shops/${shopId}/sales/${docToUpdateId}`
-        );
-        await updateDoc(dateDocRef, { transactions });
-        return true;
-      } catch (error) {
-        console.error("Error updating transaction status:", error);
-        return false;
-      }
-    },
+    addNewSale,
+    getTodaysSalesData,
+    getWeeklySalesData,
+    getMonthlySalesData,
+    getAllTimeSalesData,
+    getTransactions,
+    updateTransaction,
+    deleteTransaction,
+    getTransactionById,
   };
-};
-
-export type {
-  SaleMetadata,
-  SalesData,
-  SalesService,
-  TransactionListOptions,
-  TransactionListResult,
-  getSaleMetadata,
 };
