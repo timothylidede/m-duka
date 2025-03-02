@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { triggerSimpleAndroidVibration } from '@/components/androidVibrate';
 import { RelativePathString, Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -94,6 +95,7 @@ const SalesTrackerPage: React.FC = () => {
   // Add new sale using sales service
   const handleAddSale = async (): Promise<void> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerSimpleAndroidVibration();
 
     // Validation
     if (!newSale.amount || !newSale.product || !newSale.customer) {
