@@ -120,6 +120,7 @@ const SalesTrackerPage: React.FC = () => {
 
   const handleAddSale = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerSimpleAndroidVibration();
   
     if (!newSale.productName || !newSale.quantity) {
       Alert.alert('Missing Information', 'Please fill all required fields');
