@@ -320,7 +320,7 @@ const ProfilePage: React.FC = () => {
     {
       actionName: "Supplier Management",
       iconName: "truck",
-      nextPagePath: "../supplierManagement",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Stock Restock Alerts",

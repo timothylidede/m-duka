@@ -149,17 +149,17 @@ const BusinessPage: React.FC = () => {
     {
       actionName: "Generate Daily Report",
       iconName: "file-text",
-      nextPagePath: "../dailyReportPage",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Generate Monthly Report",
       iconName: "bar-chart-2",
-      nextPagePath: "../monthlyReportPage",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Sales Analytics",
       iconName: "trending-up",
-      nextPagePath: "../salesAnalytics",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Financial Summary",
@@ -359,7 +359,7 @@ const BusinessPage: React.FC = () => {
 
             <TouchableOpacity
               style={styles.viewAllButton}
-              onPress={() => routeAction("../allTransactions")}
+              onPress={() => routeAction("../transactions")}
             >
               <Text style={styles.viewAllButtonText}>View All Transactions</Text>
               <Feather name="chevron-right" size={16} color="#2E3192" />
