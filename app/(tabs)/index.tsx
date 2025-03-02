@@ -95,7 +95,6 @@ const SalesTrackerPage: React.FC = () => {
   // Add new sale using sales service
   const handleAddSale = async (): Promise<void> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    triggerSimpleAndroidVibration();
 
     // Validation
     if (!newSale.amount || !newSale.product || !newSale.customer) {
