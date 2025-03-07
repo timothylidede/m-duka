@@ -1,38 +1,38 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Modal, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
   TextInput,
   Dimensions,
   StatusBar,
   SafeAreaView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { RelativePathString, Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { useSalesService, SalesData } from '../../services/sales'; // Import sales service
-import { AuthContext } from '../../context/AuthContext'; // For shopId
+import { useSalesService } from '../../services/sales';
+import { useInventoryService, InventoryItem } from '../../services/inventory';
+import { AuthContext } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const SalesTrackerPage: React.FC = () => {
-  // State management with proper typing
   const [timeFrame, setTimeFrame] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [newSale, setNewSale] = useState({
-    amount: '',
-    product: '',
-    customer: '',
-    date: new Date().toISOString().split('T')[0],
+    productName: '',
+    quantity: '',
+    amount: 0,
   });
-  
-  // Sales data state fetched from backend
+  const [productSuggestions, setProductSuggestions] = useState<InventoryItem[]>([]);
   const [salesData, setSalesData] = useState<{
     daily: { totalRevenue: number; salesCount: number; average: number };
     weekly: { totalRevenue: number; salesCount: number; average: number };
@@ -44,10 +44,10 @@ const SalesTrackerPage: React.FC = () => {
   });
 
   const router = useRouter();
-  const salesService = useSalesService(); // Initialize sales service
-  const { shopData, isInitialized } = useContext(AuthContext); // Get shopId from AuthContext
+  const salesService = useSalesService();
+  const inventoryService = useInventoryService();
+  const { shopData, isInitialized } = useContext(AuthContext);
 
-  // Fetch sales data when component mounts or timeframe changes
   useEffect(() => {
     if (!isInitialized || !shopData) return;
 
@@ -85,32 +85,80 @@ const SalesTrackerPage: React.FC = () => {
     fetchData();
   }, [isInitialized, shopData, salesService]);
 
-  // Navigate with haptic feedback
   const routeInventoryQuickAction = (nextPagePath: RelativePathString) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(nextPagePath);
   };
 
-  // Add new sale using sales service
-  const handleAddSale = async (): Promise<void> => {
+  const fetchProductSuggestions = async (input: string) => {
+    if (input.length < 1) {
+      setProductSuggestions([]);
+      return;
+    }
+    try {
+      const inventoryData = await inventoryService.getAllInventory();
+      const filtered = inventoryData.items.filter(item =>
+        item.productName.toLowerCase().includes(input.toLowerCase())
+      );
+      setProductSuggestions(filtered);
+    } catch (error) {
+      console.error('Error fetching product suggestions:', error);
+    }
+  };
+
+  const selectProduct = (item: InventoryItem) => {
+    setNewSale({
+      ...newSale,
+      productName: item.productName,
+      amount: item.unitPrice,
+    });
+    setProductSuggestions([]);
+  };
+
+  const handleAddSale = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Validation
-    if (!newSale.amount || !newSale.product || !newSale.customer) {
+    if (!newSale.productName || !newSale.quantity) {
       Alert.alert('Missing Information', 'Please fill all required fields');
       return;
     }
 
-    const amount = parseFloat(newSale.amount);
-    if (isNaN(amount)) {
-      Alert.alert('Invalid Amount', 'Please enter a valid number');
+    const quantity = parseInt(newSale.quantity);
+    if (isNaN(quantity) || quantity <= 0) {
+      Alert.alert('Invalid Quantity', 'Please enter a valid quantity');
       return;
     }
 
     try {
-      await salesService.addNewSale(amount); // Use sales service to add sale
+      // Fetch the selected product's inventory data
+      const inventoryData = await inventoryService.getAllInventory();
+      const selectedProduct = inventoryData.items.find(
+        item => item.productName === newSale.productName
+      );
 
-      // Fetch updated data after adding sale
+      if (!selectedProduct) {
+        Alert.alert('Error', 'Selected product not found in inventory');
+        return;
+      }
+
+      const availableStock = selectedProduct.stockAmount;
+
+      // Check if product is out of stock or quantity exceeds available stock
+      if (availableStock === 0) {
+        Alert.alert('Out of Stock', `${newSale.productName} is currently out of stock.`);
+        return;
+      }
+      if (quantity > availableStock) {
+        Alert.alert(
+          'Insufficient Stock',
+          `Only ${availableStock} units of ${newSale.productName} are available. You requested ${quantity}.`
+        );
+        return;
+      }
+
+      const totalAmount = newSale.amount * quantity;
+      await salesService.addNewSale(totalAmount);
+
       const [dailyData, weeklyData, monthlyData] = await Promise.all([
         salesService.getTodaysSalesData(),
         salesService.getWeeklySalesData(),
@@ -135,27 +183,32 @@ const SalesTrackerPage: React.FC = () => {
         },
       });
 
-      // Reset form and close modal
-      setNewSale({
-        amount: '',
-        product: '',
-        customer: '',
-        date: new Date().toISOString().split('T')[0],
-      });
-      setModalVisible(false);
+      // Show success dialog
+      Alert.alert(
+        'Success',
+        'Sale recorded successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setNewSale({ productName: '', quantity: '', amount: 0 });
+              setModalVisible(false);
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (error) {
       console.error('Error adding sale:', error);
-      Alert.alert('Error', 'Failed to add sale. Please try again.');
+      Alert.alert('Error', 'Failed to add sale');
     }
   };
 
-  // Handle time frame selection
   const handleTimeFrameChange = (newTimeFrame: 'daily' | 'weekly' | 'monthly') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTimeFrame(newTimeFrame);
   };
 
-  // Open modal with haptic feedback
   const openAddSaleModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setModalVisible(true);
@@ -174,13 +227,9 @@ const SalesTrackerPage: React.FC = () => {
       <Stack.Screen
         options={{
           title: `Welcome, ${shopData?.name || '!'}`,
-          headerStyle: {
-            backgroundColor: "#2E3192",
-          },
+          headerStyle: { backgroundColor: "#2E3192" },
           headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "600",
-          },
+          headerTitleStyle: { fontWeight: "600" },
           headerShadowVisible: false,
         }}
       />
@@ -195,27 +244,20 @@ const SalesTrackerPage: React.FC = () => {
             style={styles.header}
           >
             <View style={styles.headerContent}>
-              {/* <View style={styles.iconContainer}>
-                <Feather name="dollar-sign" size={32} color="white" />
-              </View>
-              <Text style={styles.headerTitle}>Sales Dashboard</Text> */}
-              
               <View style={styles.timeFrameSelector}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.timeFrameButton, timeFrame === 'daily' && styles.activeTimeFrame]}
                   onPress={() => handleTimeFrameChange('daily')}
                 >
                   <Text style={[styles.timeFrameText, timeFrame === 'daily' && styles.activeTimeFrameText]}>Daily</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.timeFrameButton, timeFrame === 'weekly' && styles.activeTimeFrame]}
                   onPress={() => handleTimeFrameChange('weekly')}
                 >
                   <Text style={[styles.timeFrameText, timeFrame === 'weekly' && styles.activeTimeFrameText]}>Weekly</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.timeFrameButton, timeFrame === 'monthly' && styles.activeTimeFrame]}
                   onPress={() => handleTimeFrameChange('monthly')}
                 >
@@ -226,17 +268,13 @@ const SalesTrackerPage: React.FC = () => {
           </LinearGradient>
 
           <View style={styles.content}>
-
-            
-            {/* Quick Actions Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Feather name="zap" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
               </View>
-
               <View style={styles.quickActionsGrid}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.quickActionButton, styles.highlightedAction]}
                   onPress={openAddSaleModal}
                 >
@@ -247,9 +285,8 @@ const SalesTrackerPage: React.FC = () => {
                     Add New Sale
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.quickActionButton} 
+                <TouchableOpacity
+                  style={styles.quickActionButton}
                   onPress={() => routeInventoryQuickAction('../transactions')}
                 >
                   <View style={styles.quickActionIcon}>
@@ -259,45 +296,24 @@ const SalesTrackerPage: React.FC = () => {
                     View Recent Sales
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity style={styles.quickActionButton}>
-                  <View style={styles.quickActionIcon}>
-                    <Feather name="users" size={24} color="#2E3192" />
-                  </View>
-                  <Text style={styles.quickActionText}>
-                    Customer Analysis
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.quickActionButton}>
-                  <View style={styles.quickActionIcon}>
-                    <Feather name="pie-chart" size={24} color="#2E3192" />
-                  </View>
-                  <Text style={styles.quickActionText}>
-                    Sales Reports
-                  </Text>
-                </TouchableOpacity>
               </View>
             </View>
 
-                        {/* Sales Summary Section */}
-                        <View style={styles.section}>
+            <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Feather name="bar-chart-2" size={24} color="#2E3192" />
                 <Text style={styles.sectionTitle}>
-                  Here is your {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
+                  {timeFrame.charAt(0).toUpperCase() + timeFrame.slice(1)} Sales Summary
                 </Text>
               </View>
-              
               <View style={styles.statsGrid}>
                 <View style={styles.statsCard}>
                   <Feather name="dollar-sign" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
-                    ${salesData[timeFrame].totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    KES {salesData[timeFrame].totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.statsLabel}>Total Sales</Text>
                 </View>
-                
                 <View style={styles.statsCard}>
                   <Feather name="shopping-cart" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
@@ -305,170 +321,144 @@ const SalesTrackerPage: React.FC = () => {
                   </Text>
                   <Text style={styles.statsLabel}>Number of Sales</Text>
                 </View>
-                
                 <View style={[styles.statsCard, styles.fullWidthCard]}>
                   <Feather name="trending-up" size={24} color="#2E3192" />
                   <Text style={styles.statsValue}>
-                    ${salesData[timeFrame].average.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    KES {salesData[timeFrame].average.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.statsLabel}>Average Sale Value</Text>
                 </View>
               </View>
             </View>
-            
-            {/* Top Performers Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Feather name="award" size={24} color="#2E3192" />
-                <Text style={styles.sectionTitle}>Top Performers</Text>
-              </View>
-
-              <View style={styles.performanceRow}>
-                <View style={styles.performanceIcon}>
-                  <Feather name="package" size={20} color="#64748B" />
-                </View>
-                <View style={styles.performanceContent}>
-                  <Text style={styles.performanceLabel}>Top Product</Text>
-                  <Text style={styles.performanceValue}>Watermelon Juice (500ml)</Text>
-                  <Text style={styles.performanceSubtext}>$420 in sales this {timeFrame.replace('ly', '')}</Text>
-                </View>
-              </View>
-
-              <View style={styles.performanceRow}>
-                <View style={styles.performanceIcon}>
-                  <Feather name="user" size={20} color="#64748B" />
-                </View>
-                <View style={styles.performanceContent}>
-                  <Text style={styles.performanceLabel}>Top Customer</Text>
-                  <Text style={styles.performanceValue}>John Muthaiga</Text>
-                  <Text style={styles.performanceSubtext}>5 purchases this {timeFrame.replace('ly', '')}</Text>
-                </View>
-              </View>
-
-              <View style={styles.performanceRow}>
-                <View style={styles.performanceIcon}>
-                  <Feather name="clock" size={20} color="#64748B" />
-                </View>
-                <View style={styles.performanceContent}>
-                  <Text style={styles.performanceLabel}>Best Selling Time</Text>
-                  <Text style={styles.performanceValue}>2:00 PM - 4:00 PM</Text>
-                  <Text style={styles.performanceSubtext}>32% of {timeFrame} sales</Text>
-                </View>
-              </View>
-            </View>
 
             <Text style={styles.lastUpdate}>
-              Last updated: {new Date().toLocaleTimeString()}
+              Last updated: {new Date().toLocaleString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })}
             </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
 
-      {/* Add New Sale Modal */}
       <Modal
         animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Sale</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Feather name="x" size={24} color="#64748B" />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <TouchableOpacity activeOpacity={1}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Add New Sale</Text>
+                    <TouchableOpacity onPress={() => setModalVisible(false)}>
+                      <Feather name="x" size={24} color="#64748B" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Product Name</Text>
+                    <View style={styles.inputWrapper}>
+                      <Feather name="package" size={20} color="#64748B" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter product name"
+                        placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                        value={newSale.productName}
+                        onChangeText={(text) => {
+                          setNewSale({ ...newSale, productName: text });
+                          fetchProductSuggestions(text);
+                        }}
+                      />
+                    </View>
+                    {productSuggestions.length > 0 && (
+                      <View style={styles.suggestionsContainer}>
+                        <ScrollView>
+                          {productSuggestions.map((item) => (
+                            <TouchableOpacity
+                              key={item.productId}
+                              style={styles.suggestionItem}
+                              onPress={() => selectProduct(item)}
+                            >
+                              <Text>{item.productName}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Quantity</Text>
+                    <View style={styles.inputWrapper}>
+                      <Feather name="hash" size={20} color="#64748B" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter quantity"
+                        placeholderTextColor="rgba(0, 0, 0, 0.3)"
+                        keyboardType="numeric"
+                        value={newSale.quantity}
+                        onChangeText={(text) => setNewSale({ ...newSale, quantity: text })}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Total Amount (KES)</Text>
+                    <View style={styles.inputWrapper}>
+                      <Feather name="dollar-sign" size={20} color="#64748B" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        value={(newSale.amount * (parseInt(newSale.quantity) || 0)).toFixed(2)}
+                        editable={false}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={() => setModalVisible(false)}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleAddSale}>
+                      <LinearGradient
+                        colors={["#2E3192", "#1BFFFF"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.saveButton}
+                      >
+                        <Text style={styles.saveButtonText}>Save Sale</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </TouchableOpacity>
             </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Amount ($)</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="dollar-sign" size={20} color="#64748B" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter amount"
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  keyboardType="decimal-pad"
-                  value={newSale.amount}
-                  onChangeText={(text) => setNewSale({ ...newSale, amount: text })}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Product Name</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="package" size={20} color="#64748B" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter product name"
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  value={newSale.product}
-                  onChangeText={(text) => setNewSale({ ...newSale, product: text })}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Customer</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="user" size={20} color="#64748B" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter customer name"
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  value={newSale.customer}
-                  onChangeText={(text) => setNewSale({ ...newSale, customer: text })}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Date</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="calendar" size={20} color="#64748B" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="rgba(0, 0, 0, 0.3)"
-                  value={newSale.date}
-                  onChangeText={(text) => setNewSale({ ...newSale, date: text })}
-                />
-              </View>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.cancelButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleAddSale}>
-                <LinearGradient
-                  colors={["#2E3192", "#1BFFFF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.saveButton}
-                >
-                  <Text style={styles.saveButtonText}>Save Sale</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
 };
 
-// Styles (unchanged from original)
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: {
     padding: 24,
     borderBottomLeftRadius: 30,
@@ -482,21 +472,6 @@ const styles = StyleSheet.create({
   headerContent: {
     alignItems: "center",
     marginVertical: 16,
-  },
-  iconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
   },
   timeFrameSelector: {
     flexDirection: "row",
@@ -626,40 +601,6 @@ const styles = StyleSheet.create({
   highlightedActionText: {
     color: "white",
   },
-  performanceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-  },
-  performanceIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  performanceContent: {
-    flex: 1,
-  },
-  performanceLabel: {
-    fontSize: 12,
-    color: "#64748B",
-    marginBottom: 4,
-  },
-  performanceValue: {
-    fontSize: 16,
-    color: "#1E293B",
-    fontWeight: "500",
-  },
-  performanceSubtext: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 2,
-  },
   lastUpdate: {
     textAlign: "center",
     color: "#64748B",
@@ -670,13 +611,19 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    width: width,
+    alignSelf: 'stretch',
   },
   modalContent: {
     backgroundColor: "#fff",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    width: '100%',
+    alignSelf: 'stretch',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
@@ -720,6 +667,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: "#1E293B",
+  },
+  suggestionsContainer: {
+    maxHeight: 150,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+    width: '100%',
+  },
+  suggestionItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   modalButtons: {
     flexDirection: "row",
