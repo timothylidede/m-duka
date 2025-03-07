@@ -14,7 +14,12 @@ import { Feather } from "@expo/vector-icons";
 import { InventoryData, InventoryItem, useInventoryService } from "../services/inventory";
 import { LinearGradient } from "expo-linear-gradient";
 
-const InventoryComponent = () => {
+// Define the props interface for InventoryComponent
+interface InventoryComponentProps {
+  searchQuery: string;
+}
+
+const InventoryComponent = ({ searchQuery }: InventoryComponentProps) => {
   const [inventory, setInventory] = useState<InventoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,6 +45,11 @@ const InventoryComponent = () => {
   useEffect(() => {
     loadInventory();
   }, []);
+
+  // Filter inventory items based on the searchQuery prop
+  const filteredItems = inventory?.items.filter(item =>
+    item.productName.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
 
   const handleEdit = (item: InventoryItem) => {
     setEditingId(item.productId);
@@ -213,7 +223,7 @@ const InventoryComponent = () => {
       </View>
 
       <FlatList
-        data={inventory?.items || []}
+        data={filteredItems}
         renderItem={renderItem}
         keyExtractor={(item) => item.productId}
         contentContainerStyle={styles.list}
@@ -237,6 +247,7 @@ const InventoryComponent = () => {
   );
 };
 
+// Styles remain unchanged
 const styles = StyleSheet.create({
   container: {
     flex: 1,

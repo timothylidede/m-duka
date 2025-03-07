@@ -5,6 +5,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { SaleMetadata, useSalesService } from '../services/sales';
 import { useInventoryService, InventoryItem } from '../services/inventory';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const TransactionItem = ({
   transaction,
@@ -16,6 +17,7 @@ const TransactionItem = ({
   onDelete?: (id: string) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [editedProductName, setEditedProductName] = useState(transaction.productName);
   const [editedQuantity, setEditedQuantity] = useState(transaction.quantity.toString());
   const [productSuggestions, setProductSuggestions] = useState<InventoryItem[]>([]);
@@ -41,31 +43,29 @@ const TransactionItem = ({
 
   const handleEditToggle = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     if (isEditing) {
       const quantity = parseInt(editedQuantity) || 1;
-      
+
       if (quantity <= 0) {
         Alert.alert("Invalid Quantity", "Quantity must be at least 1.");
         return;
       }
-      
-      const totalPrice = quantity * transaction.unitPrice;
 
       try {
         await salesService.updateTransaction(transaction.id, {
           productName: editedProductName,
           quantity,
-          totalPrice,
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setShowActions(false);
       } catch (error) {
         console.error('Error updating transaction:', error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
     }
-    
+
     setIsEditing(!isEditing);
     setProductSuggestions([]);
   };
@@ -76,19 +76,16 @@ const TransactionItem = ({
       "Delete Transaction",
       "Are you sure you want to delete this transaction?",
       [
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Cancel",
-          style: "cancel"
-        },
-        { 
-          text: "Delete", 
+          text: "Delete",
           onPress: () => {
             if (onDelete) {
               onDelete(transaction.id);
             }
           },
-          style: "destructive"
-        }
+          style: "destructive",
+        },
       ]
     );
   };
@@ -101,14 +98,26 @@ const TransactionItem = ({
   const formatCurrency = (amount: number) => {
     return `KES ${amount.toLocaleString()}`;
   };
-  
+
   const formatDate = (timestamp: Date) => {
     return timestamp.toLocaleString([], {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
+  };
+
+  const toggleActions = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowActions(!showActions);
+    // If we're closing the actions and were in edit mode, cancel edit mode
+    if (showActions && isEditing) {
+      setIsEditing(false);
+      setEditedProductName(transaction.productName);
+      setEditedQuantity(transaction.quantity.toString());
+      setProductSuggestions([]);
+    }
   };
 
   return (
@@ -122,7 +131,12 @@ const TransactionItem = ({
             <Text style={styles.idText}>#{transaction.id.slice(-6)}</Text>
           </View>
         </View>
-        <Text style={styles.timestamp}>{formatDate(transaction.timestamp)}</Text>
+        <View style={styles.rightHeader}>
+          <Text style={styles.timestamp}>{formatDate(transaction.timestamp)}</Text>
+          <TouchableOpacity onPress={toggleActions} style={styles.editToggleButton}>
+            <Feather name={showActions ? "x" : "edit-3"} size={16} color="#2E3192" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.divider} />
@@ -173,7 +187,7 @@ const TransactionItem = ({
             </Text>
           )}
         </View>
-        
+
         <View style={styles.detailRow}>
           <View style={styles.labelContainer}>
             <Feather name="hash" size={14} color="#2E3192" style={styles.labelIcon} />
@@ -194,7 +208,7 @@ const TransactionItem = ({
             <Text style={styles.value}>{transaction.quantity}</Text>
           )}
         </View>
-        
+
         <View style={styles.detailRow}>
           <View style={styles.labelContainer}>
             <Feather name="tag" size={14} color="#2E3192" style={styles.labelIcon} />
@@ -202,7 +216,7 @@ const TransactionItem = ({
           </View>
           <Text style={styles.value}>{formatCurrency(transaction.unitPrice)}</Text>
         </View>
-        
+
         <View style={[styles.detailRow, styles.totalRow]}>
           <View style={styles.labelContainer}>
             <Feather name="dollar-sign" size={14} color="#2E3192" style={styles.labelIcon} />
@@ -210,47 +224,67 @@ const TransactionItem = ({
           </View>
           <Text style={styles.totalValue}>
             {formatCurrency(
-              isEditing 
-                ? (parseInt(editedQuantity) || 0) * transaction.unitPrice 
+              isEditing
+                ? (parseInt(editedQuantity) || 0) * transaction.unitPrice
                 : transaction.totalPrice
             )}
           </Text>
         </View>
       </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity onPress={handleEditToggle} style={[styles.actionButton, isEditing && styles.saveButton]}>
-          <Feather name={isEditing ? "check" : "edit-2"} size={16} color={isEditing ? "#FFFFFF" : "#2E3192"} />
-          <Text style={[styles.actionText, isEditing && styles.saveText]}>{isEditing ? 'Save' : 'Edit'}</Text>
-        </TouchableOpacity>
-        
-        {!isEditing && (
-          <TouchableOpacity onPress={confirmDelete} style={styles.actionButton}>
-            <Feather name="trash-2" size={16} color="#EF4444" />
-            <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
-          </TouchableOpacity>
-        )}
-        
-        {isEditing && (
-          <TouchableOpacity 
-            onPress={() => {
-              setIsEditing(false);
-              setEditedProductName(transaction.productName);
-              setEditedQuantity(transaction.quantity.toString());
-              setProductSuggestions([]);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }} 
-            style={styles.actionButton}
-          >
-            <Feather name="x" size={16} color="#64748B" />
-            <Text style={[styles.actionText, styles.cancelText]}>Cancel</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {showActions && (
+        <Animated.View
+          entering={FadeIn}
+          style={styles.actions}
+        >
+          {isEditing ? (
+            <>
+              <TouchableOpacity onPress={handleEditToggle} style={styles.actionButtonGradient}>
+                <LinearGradient
+                  colors={['#2E3192', '#1BFFFF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.buttonGradient}
+                >
+                  <Feather name="check" size={16} color="#FFFFFF" />
+                  <Text style={styles.saveText}>Save</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setIsEditing(false);
+                  setEditedProductName(transaction.productName);
+                  setEditedQuantity(transaction.quantity.toString());
+                  setProductSuggestions([]);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={styles.actionButton}
+              >
+                <Feather name="x" size={16} color="#64748B" />
+                <Text style={[styles.actionText, styles.cancelText]}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity onPress={handleEditToggle} style={styles.actionButton}>
+                <Feather name="edit-2" size={16} color="#2E3192" />
+                <Text style={styles.actionText}>Edit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={confirmDelete} style={styles.actionButton}>
+                <Feather name="trash-2" size={16} color="#EF4444" />
+                <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </Animated.View>
+      )}
     </Animated.View>
   );
 };
 
+// Completed styles
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
@@ -270,6 +304,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
+  },
+  rightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editToggleButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
   },
   idContainer: {
     flexDirection: 'row',
@@ -312,8 +359,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
-  inputContainer: { // Add this new style
-    width: '60%', // Match inputWithSuggestions for consistency
+  inputContainer: {
+    width: '60%',
   },
   labelContainer: {
     flexDirection: 'row',
@@ -385,10 +432,9 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#F9FAFB',
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
+    padding: 12,
   },
   actionButton: {
     flexDirection: 'row',
@@ -397,30 +443,40 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
     flex: 1,
     marginHorizontal: 4,
   },
-  saveButton: {
-    backgroundColor: '#2E3192',
-    borderColor: '#2E3192',
+  actionButtonGradient: {
+    flex: 1,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  buttonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   actionText: {
     marginLeft: 6,
-    fontSize: 13,
-    color: '#2E3192',
+    fontSize: 14,
     fontWeight: '600',
+    color: '#2E3192',
   },
   saveText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
     color: '#FFFFFF',
-  },
-  deleteText: {
-    color: '#EF4444',
   },
   cancelText: {
     color: '#64748B',
+  },
+  deleteText: {
+    color: '#EF4444',
   },
 });
 

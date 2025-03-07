@@ -37,7 +37,7 @@ export default function TransactionsPage() {
     try {
       const data = await salesService.getTransactions({
         limit: itemsPerPage,
-        offset: page - 1,
+        offset: (page - 1) * itemsPerPage,
       });
 
       if (data && Array.isArray(data.transactions)) {
@@ -81,7 +81,12 @@ export default function TransactionsPage() {
     try {
       const success = await salesService.deleteTransaction(id);
       if (success) {
-        loadTransactions(currentPage);
+        // Recalculate current page if this was the last item on the page
+        if (transactionData.transactions.length === 1 && currentPage > 1) {
+          setCurrentPage(prev => prev - 1);
+        } else {
+          loadTransactions(currentPage);
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
@@ -103,7 +108,7 @@ export default function TransactionsPage() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <LinearGradient
-        colors={['#4338CA', '#3B82F6']}
+        colors={['#2E3192', '#1BFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -125,13 +130,13 @@ export default function TransactionsPage() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <View style={styles.dateContainer}>
-              <Feather name="calendar" size={16} color="#6366F1" />
+              <Feather name="calendar" size={16} color="#2E3192" />
               <Text style={styles.dateText}>
                 {new Date().toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}
               </Text>
             </View>
             <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-              <Feather name="refresh-cw" size={14} color="#6366F1" />
+              <Feather name="refresh-cw" size={14} color="#2E3192" />
             </TouchableOpacity>
           </View>
           <View style={styles.revenueContainer}>
@@ -143,7 +148,7 @@ export default function TransactionsPage() {
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>
               <View style={styles.metricIconContainer}>
-                <Feather name="shopping-bag" size={14} color="#6366F1" />
+                <Feather name="shopping-bag" size={14} color="#2E3192" />
               </View>
               <Text style={styles.metricValue}>{transactionData?.salesCount || 0}</Text>
               <Text style={styles.metricLabel}>Transactions</Text>
@@ -151,7 +156,7 @@ export default function TransactionsPage() {
             <View style={styles.metricDivider} />
             <View style={styles.metricItem}>
               <View style={styles.metricIconContainer}>
-                <Feather name="trending-up" size={14} color="#6366F1" />
+                <Feather name="trending-up" size={14} color="#2E3192" />
               </View>
               <Text style={styles.metricValue}>
                 {formatCurrency(Math.round(transactionData?.averageTransactionValue || 0))}
@@ -164,11 +169,23 @@ export default function TransactionsPage() {
 
       <View style={styles.listHeaderContainer}>
         <Text style={styles.listTitle}>Transaction History</Text>
-        <View style={styles.listDivider} />
+        <LinearGradient
+          colors={['#2E3192', '#1BFFFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.listDivider}
+        />
       </View>
 
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4338CA']} />}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={['#2E3192']} 
+            tintColor="#2E3192"
+          />
+        }
         style={styles.transactionsList}
         contentContainerStyle={[
           styles.contentContainer,
@@ -177,7 +194,7 @@ export default function TransactionsPage() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4338CA" />
+            <ActivityIndicator size="large" color="#2E3192" />
             <Text style={styles.loadingText}>Loading transactions...</Text>
           </View>
         ) : transactionData.transactions.length > 0 ? (
@@ -212,7 +229,7 @@ export default function TransactionsPage() {
             disabled={currentPage === 1}
             style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
           >
-            <Feather name="chevron-left" size={18} color={currentPage === 1 ? '#94A3B8' : '#4338CA'} />
+            <Feather name="chevron-left" size={18} color={currentPage === 1 ? '#94A3B8' : '#2E3192'} />
           </TouchableOpacity>
           <Text style={styles.paginationText}>
             Page {currentPage} of {totalPages}
@@ -227,7 +244,7 @@ export default function TransactionsPage() {
             disabled={currentPage === totalPages}
             style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
           >
-            <Feather name="chevron-right" size={18} color={currentPage === totalPages ? '#94A3B8' : '#4338CA'} />
+            <Feather name="chevron-right" size={18} color={currentPage === totalPages ? '#94A3B8' : '#2E3192'} />
           </TouchableOpacity>
         </View>
       )}
@@ -371,7 +388,6 @@ const styles = StyleSheet.create({
   listDivider: {
     height: 4,
     width: 40,
-    backgroundColor: '#6366F1',
     borderRadius: 2,
   },
   transactionsList: {

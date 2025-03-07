@@ -13,6 +13,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { RelativePathString, Stack, useRouter } from 'expo-router';
@@ -27,6 +28,7 @@ const { width } = Dimensions.get('window');
 const SalesTrackerPage: React.FC = () => {
   const [timeFrame, setTimeFrame] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [newSale, setNewSale] = useState({
     productName: '',
     quantity: '',
@@ -117,35 +119,39 @@ const SalesTrackerPage: React.FC = () => {
 
   const handleAddSale = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
+  
     if (!newSale.productName || !newSale.quantity) {
       Alert.alert('Missing Information', 'Please fill all required fields');
       return;
     }
-
+  
     const quantity = parseInt(newSale.quantity);
     if (isNaN(quantity) || quantity <= 0) {
       Alert.alert('Invalid Quantity', 'Please enter a valid quantity');
       return;
     }
-
+  
     try {
+      setIsSaving(true);
+      
       // Fetch the selected product's inventory data
       const inventoryData = await inventoryService.getAllInventory();
       const selectedProduct = inventoryData.items.find(
         item => item.productName === newSale.productName
       );
-
+  
       if (!selectedProduct) {
         Alert.alert('Error', 'Selected product not found in inventory');
+        setIsSaving(false);
         return;
       }
-
+  
       const availableStock = selectedProduct.stockAmount;
-
+  
       // Check if product is out of stock or quantity exceeds available stock
       if (availableStock === 0) {
         Alert.alert('Out of Stock', `${newSale.productName} is currently out of stock.`);
+        setIsSaving(false);
         return;
       }
       if (quantity > availableStock) {
@@ -153,18 +159,25 @@ const SalesTrackerPage: React.FC = () => {
           'Insufficient Stock',
           `Only ${availableStock} units of ${newSale.productName} are available. You requested ${quantity}.`
         );
+        setIsSaving(false);
         return;
       }
-
-      const totalAmount = newSale.amount * quantity;
-      await salesService.addNewSale(totalAmount);
-
+  
+      // Construct the sale input object
+      const saleInput = {
+        productName: newSale.productName,
+        quantity: quantity, // Already parsed to number
+        unitPrice: newSale.amount, // Unit price from selected product
+      };
+      await salesService.addNewSale(saleInput);
+  
+      // Fetch updated sales data
       const [dailyData, weeklyData, monthlyData] = await Promise.all([
         salesService.getTodaysSalesData(),
         salesService.getWeeklySalesData(),
         salesService.getMonthlySalesData(),
       ]);
-
+  
       setSalesData({
         daily: {
           totalRevenue: dailyData.totalRevenue,
@@ -182,7 +195,7 @@ const SalesTrackerPage: React.FC = () => {
           average: monthlyData.salesCount ? monthlyData.totalRevenue / monthlyData.salesCount : 0,
         },
       });
-
+  
       // Show success dialog
       Alert.alert(
         'Success',
@@ -201,6 +214,8 @@ const SalesTrackerPage: React.FC = () => {
     } catch (error) {
       console.error('Error adding sale:', error);
       Alert.alert('Error', 'Failed to add sale');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -433,17 +448,28 @@ const SalesTrackerPage: React.FC = () => {
                     <TouchableOpacity
                       style={styles.cancelButton}
                       onPress={() => setModalVisible(false)}
+                      disabled={isSaving}
                     >
                       <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={handleAddSale}>
+                    <TouchableOpacity 
+                      onPress={handleAddSale} 
+                      disabled={isSaving}
+                    >
                       <LinearGradient
                         colors={["#2E3192", "#1BFFFF"]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
-                        style={styles.saveButton}
+                        style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
                       >
-                        <Text style={styles.saveButtonText}>Save Sale</Text>
+                        {isSaving ? (
+                          <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <Text style={styles.saveButtonText}>Saving...</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.saveButtonText}>Save Sale</Text>
+                        )}
                       </LinearGradient>
                     </TouchableOpacity>
                   </View>
@@ -706,15 +732,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
+  saveButtonDisabled: {
+    opacity: 0.8,
+  },
   saveButtonText: {
     color: "white",
     fontWeight: "700",
     fontSize: 16,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

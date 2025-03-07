@@ -35,7 +35,7 @@ const debounce = (func: (...args: any[]) => void, wait: number) => {
 
 // Sanitize product name function
 const sanitizeProductName = (name: string): string => {
-  let sanitized = name.replace(/[^a-zA-Z\s]/g, "").trim(); // Only letters and spaces
+  let sanitized = name.replace(/[^a-zA-Z\s]/g, ""); // Only letters and spaces
   sanitized = sanitized.slice(0, 50); // Limit to 50 characters
   if (sanitized.length > 0) {
     sanitized = sanitized.charAt(0).toUpperCase() + sanitized.slice(1).toLowerCase(); // Capitalize first letter
@@ -320,7 +320,7 @@ const ProfilePage: React.FC = () => {
     {
       actionName: "Supplier Management",
       iconName: "truck",
-      nextPagePath: "../supplierManagement",
+      nextPagePath: "../underConstruction",
     },
     {
       actionName: "Stock Restock Alerts",
