@@ -53,8 +53,11 @@ const sanitizePrice = (price: string): string => {
 
 // Sanitize quantity function
 const sanitizeQuantity = (quantity: string): string => {
-  // Allow only positive integers, no decimals or special characters
-  return quantity.replace(/[^0-9]/g, "").slice(0, 10); // Limit to 10 digits
+  // Allow only numbers and a single decimal point
+  if (!/^\d*\.?\d{0,2}$/.test(quantity)) {
+    return quantity.slice(0, -1); // Prevent invalid characters
+  }
+  return quantity;
 };
 
 export default function AddNewProduct() {
