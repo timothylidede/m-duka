@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { triggerSimpleAndroidVibration } from '@/components/androidVibrate';
 import { RelativePathString, Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -119,6 +120,7 @@ const SalesTrackerPage: React.FC = () => {
 
   const handleAddSale = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerSimpleAndroidVibration();
   
     if (!newSale.productName || !newSale.quantity) {
       Alert.alert('Missing Information', 'Please fill all required fields');
