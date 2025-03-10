@@ -1,9 +1,9 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, initializeAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Your Firebase configuration
+// Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAjR8OCUeJMHlEeW-mOj6AUw8LM6JI8ds",
   authDomain: "m-duka-eedca.firebaseapp.com",
@@ -14,16 +14,23 @@ const firebaseConfig = {
   measurementId: "G-T7LEJMX7Z0"
 };
 
-// Initialize Firebase
+// Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Initialize Firebase Auth for React Native
+const auth = getApps().length === 0
+  ? initializeAuth(app, { persistence: AsyncStorage })
+  : getAuth(app);
+
+// Ensure persistence (only for Web, ignored in React Native)
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Error setting auth persistence:", error);
+});
 
 // Initialize Firestore
 const firestore = getFirestore(app);
 
-// Initialize Auth
-const auth = getAuth(app);
-
-// Function to save the user's authentication state to AsyncStorage
+// 🔥 Function to save the user's authentication state to AsyncStorage
 const saveAuthState = async (user: any) => {
   if (user) {
     await AsyncStorage.setItem('authUser', JSON.stringify({
@@ -36,7 +43,7 @@ const saveAuthState = async (user: any) => {
   }
 };
 
-// Listener for auth state changes
+// Listen for authentication state changes and persist user session
 onAuthStateChanged(auth, async (user) => {
   await saveAuthState(user);
 });
